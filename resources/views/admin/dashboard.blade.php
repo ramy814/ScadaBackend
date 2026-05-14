@@ -501,28 +501,47 @@
                                             <a href="{{ route('admin.trips.show', ['trip' => $trip->id]) }}" class="btn-icon view" title="التفاصيل">
                                                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                                             </a>
-                                            <form method="POST" action="{{ route('admin.trips.approve', ['trip' => $trip->id, 'period' => $period]) }}" style="margin:0;">
-                                                @csrf
-                                                <input type="hidden" name="note" value="{{ $trip->review_note }}">
-                                                <button type="submit" class="btn-icon approve" title="اعتماد">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                                                </button>
-                                            </form>
-                                            <form method="POST" action="{{ route('admin.trips.reject', ['trip' => $trip->id, 'period' => $period]) }}" style="margin:0;">
-                                                @csrf
-                                                <input type="hidden" name="note" value="{{ $trip->review_note }}">
-                                                <button type="submit" class="btn-icon reject" title="رفض">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                                                </button>
-                                            </form>
+
+                                            {{-- لا تظهر أزرار الموافقة أو الرفض إذا تم اتخاذ قرار نهائي --}}
+                                            @if (!in_array($trip->review_status, ['approved', 'rejected']))
+                                                <form method="POST" action="{{ route('admin.trips.approve', ['trip' => $trip->id, 'period' => $period]) }}" style="margin:0;">
+                                                    @csrf
+                                                    <button type="submit" class="btn-icon approve" title="اعتماد">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                                    </button>
+                                                </form>
+
+                                                <form method="POST" action="{{ route('admin.trips.reject', ['trip' => $trip->id, 'period' => $period]) }}" style="margin:0;">
+                                                    @csrf
+                                                    <button type="submit" class="btn-icon reject" title="رفض" onclick="return confirm('رفض هذه الرحلة؟')">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                                                    </button>
+                                                </form>
+                                            @endif
                                         </div>
-                                        <form method="POST" action="{{ route('admin.trips.clarify', ['trip' => $trip->id, 'period' => $period]) }}" class="action-form">
-                                            @csrf
-                                            <input class="note-input" name="note" placeholder="ملاحظة للتوضيح..." value="{{ $trip->review_note }}">
-                                            <button type="submit" class="btn-icon clarify" title="طلب توضيح">
-                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-                                            </button>
-                                        </form>
+
+                                        {{-- طلب التوضيح: يُخفى تماماً إذا تم الاعتماد أو الرفض --}}
+                                        @if (!in_array($trip->review_status, ['approved', 'rejected']))
+                                            @if ($trip->review_status === 'needs_clarification')
+                                                {{-- سجل الطلب المرسل --}}
+                                                <div style="font-size:12px; background:var(--warn-bg); border:1px solid rgba(245,158,11,0.25); border-radius:8px; padding:6px 10px; max-width:220px;">
+                                                    <div style="font-weight:700; color:var(--warn); margin-bottom:2px;">💬 توضيح مُرسل</div>
+                                                    <div style="color:var(--text-primary); white-space:normal; line-height:1.4;">{{ $trip->review_note }}</div>
+                                                    @if($trip->reviewed_at)
+                                                        <div style="color:var(--text-secondary); font-size:11px; margin-top:3px;">{{ optional($trip->reviewed_at)->format('Y-m-d H:i') }}</div>
+                                                    @endif
+                                                </div>
+                                            @else
+                                                {{-- form طلب التوضيح --}}
+                                                <form method="POST" action="{{ route('admin.trips.clarify', ['trip' => $trip->id, 'period' => $period]) }}" class="action-form">
+                                                    @csrf
+                                                    <input class="note-input" name="note" placeholder="سؤال التوضيح للسائق..." required>
+                                                    <button type="submit" class="btn-icon clarify" title="طلب توضيح">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                                                    </button>
+                                                </form>
+                                            @endif
+                                        @endif
                                     </div>
                                 </td>
                             </tr>

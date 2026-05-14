@@ -193,12 +193,114 @@
             color: var(--text-primary);
         }
 
+        /* Review Action Panel */
+        .review-panel {
+            background: linear-gradient(135deg, #ffffff 0%, #f8faff 100%);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-lg);
+            border: 1px solid rgba(59, 130, 246, 0.15);
+            overflow: hidden;
+            margin-top: 8px;
+        }
+        .review-panel-header {
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--stroke);
+            background: linear-gradient(135deg, rgba(59,130,246,0.06), rgba(139,92,246,0.04));
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .review-panel-header .title { font-size: 16px; font-weight: 800; color: var(--text-primary); }
+        .review-actions {
+            padding: 24px;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            align-items: flex-start;
+        }
+        .review-form {
+            flex: 1;
+            min-width: 280px;
+        }
+        .review-textarea {
+            width: 100%;
+            border: 1px solid var(--stroke);
+            border-radius: var(--radius-md);
+            padding: 12px 14px;
+            font-family: 'Tajawal', sans-serif;
+            font-size: 14px;
+            resize: vertical;
+            min-height: 80px;
+            transition: var(--transition);
+            background: #fafbfc;
+            color: var(--text-primary);
+            outline: none;
+        }
+        .review-textarea:focus { border-color: var(--brand); background: #fff; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+        .review-textarea::placeholder { color: var(--text-secondary); }
+        .review-btns { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+        .btn-approve {
+            padding: 10px 22px; border: none; border-radius: var(--radius-md);
+            background: var(--ok); color: #fff; font-family: 'Tajawal', sans-serif;
+            font-size: 14px; font-weight: 700; cursor: pointer;
+            transition: var(--transition); display: flex; align-items: center; gap: 8px;
+        }
+        .btn-approve:hover { background: #059669; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(16,185,129,0.3); }
+        .btn-reject {
+            padding: 10px 22px; border: none; border-radius: var(--radius-md);
+            background: var(--danger); color: #fff; font-family: 'Tajawal', sans-serif;
+            font-size: 14px; font-weight: 700; cursor: pointer;
+            transition: var(--transition); display: flex; align-items: center; gap: 8px;
+        }
+        .btn-reject:hover { background: #dc2626; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(239,68,68,0.3); }
+        .btn-clarify {
+            padding: 10px 22px; border: none; border-radius: var(--radius-md);
+            background: var(--warn); color: #fff; font-family: 'Tajawal', sans-serif;
+            font-size: 14px; font-weight: 700; cursor: pointer;
+            transition: var(--transition); display: flex; align-items: center; gap: 8px;
+        }
+        .btn-clarify:hover { background: #d97706; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(245,158,11,0.3); }
+        .already-reviewed {
+            padding: 24px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .already-reviewed.ok {
+            background: rgba(16,185,129,0.04);
+            border: 1px solid rgba(16,185,129,0.1);
+        }
+        .already-reviewed.danger {
+            background: rgba(239,68,68,0.04);
+            border: 1px solid rgba(239,68,68,0.1);
+        }
+        .already-reviewed .icon { font-size: 32px; }
+        .already-reviewed .info { flex: 1; }
+        .already-reviewed .info .title { font-size: 15px; font-weight: 700; color: var(--text-primary); }
+        .already-reviewed.danger .info .title { color: var(--danger); }
+        .already-reviewed.ok .info .title { color: var(--ok); }
+        .already-reviewed .info .sub { font-size: 13px; color: var(--text-secondary); margin-top: 4px; }
+        /* Flash messages */
+        .flash {
+            padding: 14px 20px;
+            border-radius: var(--radius-md);
+            font-size: 14px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 4px;
+        }
+        .flash.ok { background: var(--ok-bg); color: var(--ok); border: 1px solid rgba(16,185,129,0.2); }
+        .flash.error { background: var(--danger-bg); color: var(--danger); border: 1px solid rgba(239,68,68,0.2); }
+
         @media (max-width: 1100px) {
             .stats-grid { grid-template-columns: repeat(2, 1fr); }
             .two-cols { grid-template-columns: 1fr; }
         }
         @media (max-width: 768px) {
             .top-navbar { flex-direction: column; align-items: flex-start; gap: 16px; }
+            .review-actions { flex-direction: column; }
         }
     </style>
 </head>
@@ -221,6 +323,29 @@
     </div>
 
     <div class="container">
+        {{-- Flash Messages --}}
+        @if (session('ok'))
+            <div class="flash ok">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                {{ session('ok') }}
+            </div>
+        @endif
+        @if (session('error'))
+            <div class="flash error">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>
+                {{ session('error') }}
+            </div>
+        @endif
+        @if (isset($errors) && $errors->any())
+            <div class="flash error">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>
+                <div>
+                    @foreach ($errors->all() as $error)
+                        <div>{{ $error }}</div>
+                    @endforeach
+                </div>
+            </div>
+        @endif
         <!-- Stats Highlights -->
         <div class="stats-grid">
             <div class="stat-card">
@@ -489,6 +614,185 @@
                 </table>
             </div>
         </div>
+
+        {{-- ===== قسم المراجعة الإدارية ===== --}}
+        <div class="review-panel">
+            <div class="review-panel-header">
+                <div class="title">⚖️ إجراءات المراجعة الإدارية</div>
+                @php
+                    $statusLabels = [
+                        'approved'             => ['text' => 'مُعتمدة',       'class' => 'ok'],
+                        'rejected'             => ['text' => 'مرفوضة',       'class' => 'danger'],
+                        'needs_clarification'  => ['text' => 'تحتاج توضيح', 'class' => 'warn'],
+                        'pending'              => ['text' => 'قيد المراجعة', 'class' => 'neutral'],
+                    ];
+                    $currentStatus = $statusLabels[$trip->review_status ?? 'pending'] ?? $statusLabels['pending'];
+                @endphp
+                <span class="badge {{ $currentStatus['class'] }}">{{ $currentStatus['text'] }}</span>
+            </div>
+
+            @if ($trip->review_status === 'approved' || $trip->review_status === 'rejected')
+                {{-- الرحلة تمت مراجعتها بالفعل --}}
+                <div class="already-reviewed {{ $trip->review_status === 'approved' ? 'ok' : 'danger' }}">
+                    <div class="icon">
+                        @if ($trip->review_status === 'approved') ✅ @else ❌ @endif
+                    </div>
+                    <div class="info">
+                        <div class="title">
+                            @if ($trip->review_status === 'approved')
+                                تمت الموافقة على هذه الرحلة
+                            @else
+                                تم رفض هذه الرحلة
+                            @endif
+                        </div>
+                        <div class="sub">
+                            @if ($trip->review_note)
+                                <div><span style="font-weight:700;">ملاحظة المراجعة:</span> {!! nl2br(e($trip->review_note)) !!}</div>
+                            @else
+                                <div>بدون ملاحظة إضافية.</div>
+                            @endif
+
+                            @if ($trip->clarification_response)
+                                <div style="margin-top:10px; padding-top:10px; border-top:1px dashed rgba(0,0,0,0.1);">
+                                    <div style="font-weight:700; color:var(--text-primary); margin-bottom:4px;">💬 رد السائق على التوضيح:</div>
+                                    <div style="color:var(--text-secondary); line-height:1.5;">{{ $trip->clarification_response }}</div>
+                                    @if ($trip->clarification_responded_at)
+                                        <div style="font-size:11px; margin-top:4px; color:var(--text-secondary); opacity:0.8;">
+                                            أجاب في: {{ optional($trip->clarification_responded_at)->format('Y-m-d H:i') }}
+                                        </div>
+                                    @endif
+                                </div>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+                <div style="margin-top:12px; font-size:12px; color:var(--text-secondary); padding: 8px 0 0 0;">
+                    @if ($trip->reviewed_at)
+                        🕐 آخر مراجعة: {{ optional($trip->reviewed_at)->format('Y-m-d H:i') }}
+                        @if ($trip->reviewed_by) &nbsp;·&nbsp; بواسطة: {{ $trip->reviewed_by }} @endif
+                    @endif
+                </div>
+
+            @else
+                @if ($trip->review_status === 'needs_clarification')
+                    {{-- ===== حالة: طلب توضيح مُرسل — أظهر السجل + خياري اعتماد/رفض فقط ===== --}}
+                    <div style="padding:24px; display:flex; flex-direction:column; gap:20px;">
+
+                        {{-- سجل طلب التوضيح --}}
+                        <div style="background:var(--warn-bg); border:1px solid rgba(245,158,11,0.3); border-right:4px solid var(--warn); border-radius:var(--radius-md); padding:16px 20px;">
+                            <div style="font-size:13px; font-weight:800; color:var(--warn); margin-bottom:8px; display:flex; align-items:center; gap:8px;">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                                طلب توضيح مُرسل للسائق
+                            </div>
+                            <div style="font-size:14px; line-height:1.6; color:var(--text-primary); font-weight:600;">
+                                {{ $trip->review_note }}
+                            </div>
+                            @if($trip->reviewed_at)
+                                <div style="font-size:12px; color:var(--text-secondary); margin-top:8px;">
+                                    🕐 أُرسل في: {{ optional($trip->reviewed_at)->format('Y-m-d H:i') }}
+                                </div>
+                            @endif
+
+                            {{-- رد السائق إن وُجد --}}
+                            @if($trip->clarification_response)
+                                <div style="margin-top:14px; padding-top:14px; border-top:1px solid rgba(245,158,11,0.3);">
+                                    <div style="font-size:12px; font-weight:700; color:var(--ok); margin-bottom:6px;">✅ رد السائق:</div>
+                                    <div style="font-size:14px; line-height:1.5; color:var(--text-primary);">{{ $trip->clarification_response }}</div>
+                                    @if($trip->clarification_responded_at)
+                                        <div style="font-size:11px; color:var(--text-secondary); margin-top:4px;">{{ optional($trip->clarification_responded_at)->format('Y-m-d H:i') }}</div>
+                                    @endif
+                                </div>
+                            @else
+                                <div style="margin-top:12px; font-size:12px; color:var(--warn); font-weight:600;">
+                                    ⏳ بانتظار رد السائق...
+                                </div>
+                            @endif
+                        </div>
+
+                        {{-- خيارا الاعتماد والرفض فقط بعد التوضيح --}}
+                        <div class="review-actions" style="padding:0; margin-top:8px;">
+                            {{-- نموذج الموافقة --}}
+                            <form class="review-form" method="POST" action="{{ route('admin.trips.approve', $trip) }}">
+                                @csrf
+                                <input type="hidden" name="_from" value="show">
+                                <textarea class="review-textarea" name="note" placeholder="ملاحظة الموافقة (اختياري)..."></textarea>
+                                <div class="review-btns">
+                                    <button type="submit" class="btn-approve">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                        الموافقة على الرحلة
+                                    </button>
+                                </div>
+                            </form>
+
+                            <div style="width:1px; background:var(--stroke); align-self:stretch;"></div>
+
+                            {{-- نموذج الرفض --}}
+                            <form class="review-form" method="POST" action="{{ route('admin.trips.reject', $trip) }}">
+                                @csrf
+                                <input type="hidden" name="_from" value="show">
+                                <textarea class="review-textarea" name="note" placeholder="سبب الرفض (اختياري)..."></textarea>
+                                <div class="review-btns">
+                                    <button type="submit" class="btn-reject" onclick="return confirm('هل تريد رفض هذه الرحلة؟')">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                                        رفض الرحلة
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                @else
+                    {{-- ===== حالة: قيد المراجعة (pending) — النموذج الكامل بالثلاثة خيارات ===== --}}
+                    <div class="review-actions">
+
+                        {{-- نموذج الموافقة --}}
+                        <form class="review-form" method="POST" action="{{ route('admin.trips.approve', $trip) }}">
+                            @csrf
+                            <input type="hidden" name="_from" value="show">
+                            <textarea class="review-textarea" name="note" placeholder="ملاحظة الموافقة (اختياري)..."></textarea>
+                            <div class="review-btns">
+                                <button type="submit" class="btn-approve">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                    الموافقة على الرحلة
+                                </button>
+                            </div>
+                        </form>
+
+                        <div style="width:1px; background:var(--stroke); align-self:stretch;"></div>
+
+                        {{-- نموذج الرفض --}}
+                        <form class="review-form" method="POST" action="{{ route('admin.trips.reject', $trip) }}">
+                            @csrf
+                            <input type="hidden" name="_from" value="show">
+                            <textarea class="review-textarea" name="note" placeholder="سبب الرفض (مستحسن)..."></textarea>
+                            <div class="review-btns">
+                                <button type="submit" class="btn-reject" onclick="return confirm('هل تريد رفض هذه الرحلة؟')">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                                    رفض الرحلة
+                                </button>
+                            </div>
+                        </form>
+
+                        <div style="width:1px; background:var(--stroke); align-self:stretch;"></div>
+
+                        {{-- نموذج طلب التوضيح --}}
+                        <form class="review-form" method="POST" action="{{ route('admin.trips.clarify', $trip) }}">
+                            @csrf
+                            <input type="hidden" name="_from" value="show">
+                            <textarea class="review-textarea" name="note" placeholder="نص السؤال المطلوب من السائق (مطلوب)..." required></textarea>
+                            <div class="review-btns">
+                                <button type="submit" class="btn-clarify">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                                    طلب توضيح من السائق
+                                </button>
+                            </div>
+                        </form>
+
+                    </div>
+                @endif
+            @endif
+        </div>
+        {{-- ===== نهاية قسم المراجعة ===== --}}
 
     </div>
 

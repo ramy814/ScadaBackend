@@ -94,7 +94,11 @@ class AdminAuthController extends Controller
 
     public function approve(Request $request, Trip $trip): RedirectResponse
     {
-        return $this->review($request, $trip, 'approved');
+        $request->validate([
+            'note' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        return $this->review($request, $trip, 'approved', 'تمت الموافقة على الرحلة بنجاح.');
     }
 
 
@@ -410,45 +414,72 @@ class AdminAuthController extends Controller
 
     public function reject(Request $request, Trip $trip): RedirectResponse
     {
-        return $this->review($request, $trip, 'rejected');
+        $request->validate([
+            'note' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        return $this->review($request, $trip, 'rejected', 'تم رفض الرحلة.');
     }
 
     public function clarify(Request $request, Trip $trip): RedirectResponse
     {
-        return $this->review($request, $trip, 'needs_clarification');
+        $request->validate([
+            'note' => ['required', 'string', 'max:1000'],
+        ], [
+            'note.required' => 'يجب إدخال نص السؤال المطلوب من السائق قبل إرسال طلب التوضيح.',
+        ]);
+
+        return $this->review($request, $trip, 'needs_clarification', 'تم إرسال طلب التوضيح إلى السائق.');
     }
 
-    private function review(Request $request, Trip $trip, string $status): RedirectResponse
+    private function review(Request $request, Trip $trip, string $status, string $message = 'تم تحديث حالة المراجعة.'): RedirectResponse
     {
         if ($redirect = $this->ensureAdminAuthenticated()) {
             return $redirect;
         }
 
-        $request->validate([
-            'note' => ['nullable', 'string', 'max:1000'],
-        ]);
-
-        $trip->update([
+        // Build update payload — only overwrite review_note if the note field was submitted
+        $updatePayload = [
             'review_status' => $status,
-            'review_note' => $request->input('note'),
-            'reviewed_at' => now(),
-            'reviewed_by' => 'admin',
-        ]);
+            'reviewed_at'   => now(),
+            'reviewed_by'   => Auth::guard('admin')->id() ?? 'admin',
+        ];
+
+        if ($request->has('note')) {
+            $newNote = $request->input('note');
+            // If the trip already had a clarification note and response, preserve the old question
+            if ($newNote && $trip->review_note && $trip->clarification_response) {
+                $newNote = "الإجراء النهائي: " . $newNote . "\n---\nسؤال التوضيح: " . $trip->review_note;
+            }
+            $updatePayload['review_note'] = $newNote ?: null;
+        }
+
+        // No longer resetting clarification fields so the history remains visible
+        // after approval or rejection.
+
+        $trip->update($updatePayload);
 
         AuditLog::query()->create([
             'event_type' => 'trip.reviewed',
             'entity_type' => 'trip',
-            'entity_id' => $trip->id,
-            'actor' => 'admin',
-            'payload' => [
+            'entity_id'  => $trip->id,
+            'actor'      => Auth::guard('admin')->id() ?? 'admin',
+            'payload'    => [
                 'review_status' => $status,
-                'note' => $request->input('note'),
+                'note'          => $request->has('note') ? $request->input('note') : '(unchanged)',
             ],
         ]);
 
+        $fromShow = $request->input('_from') === 'show';
+
         return redirect()
-            ->route('admin.dashboard', ['period' => $request->query('period', 'daily')])
-            ->with('ok', 'تم تحديث حالة المراجعة.');
+            ->route(
+                $fromShow ? 'admin.trips.show' : 'admin.dashboard',
+                $fromShow
+                    ? ['trip' => $trip->id]
+                    : ['period' => $request->query('period', 'daily')]
+            )
+            ->with('ok', $message);
     }
 
     private function periodRange(string $period): array

@@ -23,6 +23,7 @@ class StoreTripRequest extends FormRequest
             'notes' => ['nullable', 'string', 'max:2000'],
             'start_odometer' => ['nullable', 'integer', 'min:0'],
             'end_odometer' => ['nullable', 'integer', 'min:0'],
+            'wait_minutes' => ['nullable', 'integer', 'min:0'],
             'points_expected' => ['nullable', 'integer', 'min:0'],
             'passengers' => ['array'],
             'passengers.*.employee_id' => ['nullable', 'string', 'max:120'],
