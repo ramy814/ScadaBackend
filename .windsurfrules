@@ -1,15 +1,13 @@
 # Fleet Management System — Windsurf Rules
 # يُقرأ تلقائياً بواسطة Windsurf IDE
 
-## اقرأ أولاً
-- `AGENTS.md` — القواعد الجوهرية
-- `docs/project-knowledge-base.md` — التوثيق الكامل
-
-## هوية المشروع
-- Laravel 11 + PHP 8.2 + Oracle DB (إنتاج) + SQLite (تطوير)
-- Admin Dashboard: Vue 3 + Inertia.js — لا Ziggy، استخدم `$page.props.urls`
-- Driver App: Flutter — Offline-first
-- Auth: MOG SSO للمدير | SMS OTP + Sanctum للسائق
+## قاعدة المعرفة الشاملة (Knowledge Base)
+قبل البدء في أي كود جديد، يجب عليك البحث في مجلد `.ai/` وقراءة الملف المناسب للمهمة.
+- الملف الأساسي: `AGENTS.md`
+- ملف المعمارية: `.ai/architecture.md`
+- ملف قواعد الكود: `.ai/coding-rules.md`
+- ملفات قاعدة البيانات: `.ai/database/tables.md`
+- تعليمات تطبيق Flutter: `.ai/prompts/flutter-generation.md`
 
 ## القواعد الصارمة
 - Controllers رفيعة — المنطق في Services
@@ -18,8 +16,3 @@
 - FormRequest للمدخلات | API Resources للاستجابة
 - Inertia::location() وليس redirect()->away()
 
-## الجداول المحلية
-trips, trip_points, trip_stops, trip_passengers, mission_locations, mission_types, audit_logs, sms_login_codes
-
-## Oracle (قراءة فقط)
-VEHICLE, BENEFICIARIES, USERS
