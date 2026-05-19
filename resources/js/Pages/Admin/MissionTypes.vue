@@ -80,8 +80,10 @@
 
 <script setup>
 import { reactive, watch } from 'vue';
-import { useForm, router } from '@inertiajs/vue3';
+import { useForm, router, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+
+const page = usePage();
 
 const props = defineProps({
   items: Array,
@@ -95,7 +97,7 @@ const addForm = useForm({
 });
 
 function submitAdd() {
-  addForm.post(route('admin.mission-types.store'), {
+  addForm.post(page.props.urls.missionTypes, {
     onSuccess: () => addForm.reset(),
   });
 }
@@ -115,7 +117,7 @@ watch(() => props.items, (items) => {
 }, { immediate: true });
 
 function submitUpdate(id) {
-  router.post(route('admin.mission-types.update', { missionType: id }), editForms[id]);
+  router.post(`${page.props.urls.missionTypes}/${id}`, editForms[id]);
 }
 </script>
 

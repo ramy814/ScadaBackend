@@ -5,7 +5,7 @@
         <h2 style="font-size:22px;font-weight:800;margin:0 0 4px;">تفاصيل الرحلة #{{ trip.id }}</h2>
         <p style="color:var(--text-secondary);margin:0;font-size:14px;">تتبع المسار ومراجعة التوقفات والنقاط المستلمة</p>
       </div>
-      <Link :href="route('admin.dashboard')" class="btn-back">
+      <Link :href="$page.props.urls.dashboard" class="btn-back">
         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
         العودة للداشبورد
       </Link>
@@ -234,8 +234,10 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
-import { Link, router } from '@inertiajs/vue3';
+import { Link, router, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+
+const page = usePage();
 
 const props = defineProps({
   trip: Object,
@@ -283,15 +285,15 @@ function sourceClass(s) {
 }
 
 function submitApprove() {
-  router.post(route('admin.trips.approve', { trip: props.trip.id }), { note: approveNote.value, _from: 'show' });
+  router.post(`${page.props.urls.trips_base}/${props.trip.id}/approve`, { note: approveNote.value, _from: 'show' });
 }
 function confirmReject() {
   if (!confirm('هل تريد رفض هذه الرحلة؟')) return;
-  router.post(route('admin.trips.reject', { trip: props.trip.id }), { note: rejectNote.value, _from: 'show' });
+  router.post(`${page.props.urls.trips_base}/${props.trip.id}/reject`, { note: rejectNote.value, _from: 'show' });
 }
 function submitClarify() {
   if (!clarifyNote.value) return;
-  router.post(route('admin.trips.clarify', { trip: props.trip.id }), { note: clarifyNote.value, _from: 'show' });
+  router.post(`${page.props.urls.trips_base}/${props.trip.id}/clarify`, { note: clarifyNote.value, _from: 'show' });
 }
 
 onMounted(async () => {

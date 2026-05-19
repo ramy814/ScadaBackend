@@ -47,6 +47,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 ])]
 class Trip extends Model
 {
+    protected $appends = ['driver', 'vehicle'];
+
     protected function casts(): array
     {
         return [

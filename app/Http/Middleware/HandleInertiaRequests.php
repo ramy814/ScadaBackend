@@ -35,6 +35,16 @@ class HandleInertiaRequests extends Middleware
                     ? ['name' => $request->user('admin')->name ?? 'مدير النظام']
                     : null,
             ],
+            'urls' => [
+                'dashboard'    => route('admin.dashboard'),
+                'locations'    => route('admin.locations'),
+                'missionTypes' => route('admin.mission-types'),
+                'reports'      => route('admin.reports'),
+                'reportsCsv'   => route('admin.reports.csv'),
+                'reportsPdf'   => route('admin.reports.pdf'),
+                'logout'       => route('admin.logout'),
+                'trips_base'   => url('/admin/trips'),
+            ],
         ]);
     }
 }

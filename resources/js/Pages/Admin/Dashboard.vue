@@ -6,7 +6,7 @@
         <Link
           v-for="p in periods"
           :key="p.value"
-          :href="route('admin.dashboard', { period: p.value, response_status: responseStatus })"
+          :href="$page.props.urls.dashboard + '?period=' + p.value + '&response_status=' + responseStatus"
           :class="{ active: period === p.value }"
         >{{ p.label }}</Link>
       </div>
@@ -14,7 +14,7 @@
         <Link
           v-for="f in responseFilters"
           :key="f.value"
-          :href="route('admin.dashboard', { period, response_status: f.value })"
+          :href="$page.props.urls.dashboard + '?period=' + period + '&response_status=' + f.value"
           :class="{ active: responseStatus === f.value }"
         >{{ f.label }}</Link>
       </div>
@@ -126,7 +126,7 @@
                 <div style="display:flex; flex-direction:column; gap:8px;">
                   <div class="actions-cell">
                     <!-- View -->
-                    <Link :href="route('admin.trips.show', { trip: trip.id })" class="btn-icon view" title="التفاصيل">
+                    <Link :href="`${$page.props.urls.trips_base}/${trip.id}`" class="btn-icon view" title="التفاصيل">
                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                     </Link>
 
@@ -172,8 +172,10 @@
 
 <script setup>
 import { ref } from 'vue';
-import { Link, router } from '@inertiajs/vue3';
+import { Link, router, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+
+const page = usePage();
 
 const props = defineProps({
   todayTrips: Number,
@@ -223,19 +225,19 @@ function reviewLabel(s) {
 }
 
 function submitReview(action, tripId) {
-  router.post(route(`admin.trips.${action}`, { trip: tripId, period: props.period }));
+  router.post(`${page.props.urls.trips_base}/${tripId}/${action}`, { period: props.period });
 }
 
 function confirmReject(tripId) {
   if (!confirm('رفض هذه الرحلة؟')) return;
-  router.post(route('admin.trips.reject', { trip: tripId, period: props.period }));
+  router.post(`${page.props.urls.trips_base}/${tripId}/reject`, { period: props.period });
 }
 
 function submitClarify(tripId, note) {
   if (!note) return;
   router.post(
-    route('admin.trips.clarify', { trip: tripId, period: props.period }),
-    { note },
+    `${page.props.urls.trips_base}/${tripId}/clarify`,
+    { note, period: props.period },
     { onSuccess: () => { clarifyNotes.value[tripId] = ''; } }
   );
 }

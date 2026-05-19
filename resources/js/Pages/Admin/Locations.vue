@@ -91,8 +91,10 @@
 
 <script setup>
 import { reactive, watch } from 'vue';
-import { useForm, router } from '@inertiajs/vue3';
+import { useForm, router, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+
+const page = usePage();
 
 const props = defineProps({
   items: Array,
@@ -107,7 +109,7 @@ const addForm = useForm({
 });
 
 function submitAdd() {
-  addForm.post(route('admin.locations.store'), {
+  addForm.post(page.props.urls.locations, {
     onSuccess: () => addForm.reset(),
   });
 }
@@ -129,7 +131,7 @@ watch(() => props.items, (items) => {
 }, { immediate: true });
 
 function submitUpdate(id) {
-  router.post(route('admin.locations.update', { location: id }), editForms[id]);
+  router.post(`${page.props.urls.locations}/${id}`, editForms[id]);
 }
 </script>
 

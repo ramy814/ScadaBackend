@@ -6,15 +6,15 @@
         <div class="title">لوحة تحكم المدير</div>
         <div class="sub">متابعة المركبات والسائقين وحالة مزامنة الرحلات</div>
         <div class="nav-links">
-          <Link :href="route('admin.dashboard')" :class="{ active: isActive('Admin/Dashboard') }">الداشبورد</Link>
-          <Link :href="route('admin.locations')" :class="{ active: isActive('Admin/Locations') }">المواقع</Link>
-          <Link :href="route('admin.mission-types')" :class="{ active: isActive('Admin/MissionTypes') }">أنواع المهام</Link>
-          <Link :href="route('admin.reports')" :class="{ active: isActive('Admin/Reports') }">التقارير</Link>
+          <Link :href="$page.props.urls.dashboard" :class="{ active: isActive('Admin/Dashboard') }">الداشبورد</Link>
+          <Link :href="$page.props.urls.locations" :class="{ active: isActive('Admin/Locations') }">المواقع</Link>
+          <Link :href="$page.props.urls.missionTypes" :class="{ active: isActive('Admin/MissionTypes') }">أنواع المهام</Link>
+          <Link :href="$page.props.urls.reports" :class="{ active: isActive('Admin/Reports') }">التقارير</Link>
         </div>
       </div>
 
       <Link
-        :href="route('admin.logout')"
+        :href="$page.props.urls.logout"
         method="post"
         as="button"
         class="btn-logout"

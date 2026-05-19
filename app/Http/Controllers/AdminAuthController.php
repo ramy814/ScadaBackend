@@ -8,7 +8,7 @@ use App\Models\MissionType;
 use App\Models\Trip;
 use App\Repositories\MunicipalityDriverRepository;
 use App\Repositories\MunicipalityVehicleRepository;
-use Barryvdh\DomPDF\Facade\Pdf;
+
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\RedirectResponse;
@@ -403,14 +403,28 @@ class AdminAuthController extends Controller
             'sum_virtual_fuel' => round((float) ($trips->sum('virtual_fuel_liters') ?? 0), 2),
         ];
 
-        $pdf = Pdf::loadView('admin.reports-pdf', [
+        $html = view('admin.reports-pdf', [
             ...$filters,
             'trips' => $trips,
             'summary' => $summary,
             'generatedAt' => now(),
-        ])->setPaper('a4', 'landscape');
+        ])->render();
 
-        return $pdf->download('fleet-report-'.$filters['period'].'-'.now()->format('Ymd_His').'.pdf');
+        $mpdf = new \Mpdf\Mpdf([
+            'mode' => 'utf-8',
+            'format' => 'A4-L',
+            'autoScriptToLang' => true,
+            'autoLangToFont' => true,
+        ]);
+
+        $mpdf->WriteHTML($html);
+        
+        $fileName = 'fleet-report-'.$filters['period'].'-'.now()->format('Ymd_His').'.pdf';
+
+        return response($mpdf->Output('', 'S'), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="' . $fileName . '"',
+        ]);
     }
 
     public function reject(Request $request, Trip $trip): RedirectResponse

@@ -14,7 +14,7 @@
             <Link
               v-for="p in periods"
               :key="p.value"
-              :href="route('admin.reports', { period: p.value, driver_id: driverId, vehicle_id: vehicleId })"
+              :href="`${$page.props.urls.reports}?period=${p.value}&driver_id=${driverId || ''}&vehicle_id=${vehicleId || ''}`"
               :class="{ active: period === p.value }"
             >{{ p.label }}</Link>
           </div>
@@ -34,14 +34,14 @@
           <button class="btn-primary" @click="applyFilters">تحديث</button>
 
           <!-- Export Links -->
-          <a :href="csvUrl" class="btn-export csv">
+          <button @click="downloadCsv" class="btn-export csv">
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
             تنزيل CSV
-          </a>
-          <a :href="pdfUrl" class="btn-export pdf">
+          </button>
+          <button @click="downloadPdf" class="btn-export pdf">
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
             تنزيل PDF
-          </a>
+          </button>
         </div>
       </div>
     </div>
@@ -143,19 +143,28 @@ const selectedDriver = ref(props.driverId ?? '');
 const selectedVehicle = ref(props.vehicleId ?? '');
 
 function applyFilters() {
-  router.get(route('admin.reports'), {
+  router.get(page.props.urls.reports, {
     period: props.period,
     driver_id: selectedDriver.value,
     vehicle_id: selectedVehicle.value,
   }, { preserveState: true });
 }
 
-const csvUrl = computed(() =>
-  route('admin.reports.csv', { period: props.period, driver_id: props.driverId, vehicle_id: props.vehicleId })
-);
-const pdfUrl = computed(() =>
-  route('admin.reports.pdf', { period: props.period, driver_id: props.driverId, vehicle_id: props.vehicleId })
-);
+function downloadCsv() {
+  const url = new URL(page.props.urls.reportsCsv);
+  url.searchParams.set('period', props.period);
+  if (props.driverId) url.searchParams.set('driver_id', props.driverId);
+  if (props.vehicleId) url.searchParams.set('vehicle_id', props.vehicleId);
+  window.open(url.toString(), '_blank');
+}
+
+function downloadPdf() {
+  const url = new URL(page.props.urls.reportsPdf);
+  url.searchParams.set('period', props.period);
+  if (props.driverId) url.searchParams.set('driver_id', props.driverId);
+  if (props.vehicleId) url.searchParams.set('vehicle_id', props.vehicleId);
+  window.open(url.toString(), '_blank');
+}
 
 function formatDate(d) {
   if (!d) return '-';
