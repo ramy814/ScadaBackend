@@ -1,0 +1,38 @@
+# Fleet Management System — Cursor Rules
+# هذا الملف يُقرأ تلقائياً بواسطة Cursor IDE مع كل محادثة
+
+## اقرأ أولاً قبل أي إجراء
+قبل كتابة أي كود أو تعديل، اقرأ الملفين التاليين:
+- `AGENTS.md` — القواعد الجوهرية
+- `docs/project-knowledge-base.md` — التوثيق الكامل للمشروع
+
+## هوية المشروع
+- Laravel 11 + PHP 8.2 + Oracle DB (إنتاج) + SQLite (تطوير)
+- Admin Dashboard: Vue 3 + Inertia.js — الروابط عبر `$page.props.urls` وليس Ziggy
+- Driver App: Flutter — Offline-first
+- Auth إدارة: MOG SSO → استخدم `Inertia::location()` وليس `redirect()->away()`
+- Auth سائق: SMS OTP → Sanctum Token
+
+## القواعد الصارمة
+- Controllers رفيعة — المنطق في Services فقط
+- Oracle → Repositories فقط لا direct queries
+- كل endpoint يدعم انقطاع الإنترنت
+- استخدم FormRequest للمدخلات المعقدة
+- استخدم API Resources لعقود الاستجابة
+- لا تغير review_status بعد approved/rejected
+
+## هيكل الجداول المحلية المهمة
+trips: local_id, oracle_driver_id, oracle_vehicle_id, vehicle_plate, vehicle_name, driver_name, driver_phone, status[uploaded|confirmed], review_status[pending|approved|rejected|needs_clarification], points_expected, points_received, client_checksum, server_checksum, wait_minutes, virtual_fuel_liters
+trip_points: trip_id, sequence_number, latitude, longitude, accuracy, speed, captured_at
+trip_stops: trip_id, started_at, ended_at, reason, notes
+trip_passengers: trip_id, name, employee_id, source[free_text|employee_list|manual]
+
+## جداول Oracle (قراءة فقط)
+VEHICLE(OID, PLATE_NUM, VEHICLE_NUM, BENEFICIARY_OID), BENEFICIARIES(OID, MOBILE_NUM, NAME, EMPLOYEE_NUM), USERS(SSO)
+
+## الملفات الجوهرية
+- app/Services/TripSyncService.php
+- app/Repositories/MunicipalityVehicleRepository.php
+- app/Http/Controllers/AdminAuthController.php
+- app/Models/Trip.php (has $appends = ['driver','vehicle'])
+- config/municipality.php
