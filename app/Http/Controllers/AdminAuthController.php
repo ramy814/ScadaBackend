@@ -15,25 +15,26 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\View\View;
+use Inertia\Inertia;
+use Inertia\Response as InertiaResponse;
 use Mog\ProjectHelper\AuthHelpers;
 
 class AdminAuthController extends Controller
 {
-    public function showLogin(Request $request): RedirectResponse
+    public function showLogin(Request $request)
     {
         if (Auth::guard('admin')->check()) {
             return redirect()->route('admin.dashboard');
         }
 
         $ssoRedirect = AuthHelpers::login($request);
-        return redirect()->away($ssoRedirect->getTargetUrl());
+        return Inertia::location($ssoRedirect->getTargetUrl());
     }
 
     public function dashboard(
         MunicipalityVehicleRepository $vehicleRepository,
         MunicipalityDriverRepository $driverRepository,
-    ): View|RedirectResponse {
+    ): InertiaResponse|RedirectResponse {
         if ($redirect = $this->ensureAdminAuthenticated()) {
             return $redirect;
         }
@@ -76,7 +77,7 @@ class AdminAuthController extends Controller
             ->whereNotNull('clarification_response')
             ->count();
 
-        return view('admin.dashboard', [
+        return Inertia::render('Admin/Dashboard', [
             'todayTrips' => $todayTrips,
             'confirmedTrips' => $confirmedTrips,
             'activeVehicles' => $activeVehicles,
@@ -102,7 +103,7 @@ class AdminAuthController extends Controller
     }
 
 
-    public function locations(): View|RedirectResponse
+    public function locations(): InertiaResponse|RedirectResponse
     {
         if ($redirect = $this->ensureAdminAuthenticated()) {
             return $redirect;
@@ -113,7 +114,7 @@ class AdminAuthController extends Controller
             ->orderBy('name')
             ->get();
 
-        return view('admin.locations', ['items' => $items]);
+        return Inertia::render('Admin/Locations', ['items' => $items]);
     }
 
     public function storeLocation(Request $request): RedirectResponse
@@ -162,7 +163,7 @@ class AdminAuthController extends Controller
         return redirect()->route('admin.locations')->with('ok', 'تم تعديل الموقع.');
     }
 
-    public function missionTypes(): View|RedirectResponse
+    public function missionTypes(): InertiaResponse|RedirectResponse
     {
         if ($redirect = $this->ensureAdminAuthenticated()) {
             return $redirect;
@@ -175,7 +176,7 @@ class AdminAuthController extends Controller
                 ->get();
         } catch (QueryException $exception) {
             if ((int) $exception->getCode() === 942 || str_contains($exception->getMessage(), 'ORA-00942')) {
-                return view('admin.mission-types', [
+                return Inertia::render('Admin/MissionTypes', [
                     'items' => collect(),
                     'tableMissing' => true,
                 ]);
@@ -184,7 +185,7 @@ class AdminAuthController extends Controller
             throw $exception;
         }
 
-        return view('admin.mission-types', ['items' => $items]);
+        return Inertia::render('Admin/MissionTypes', ['items' => $items]);
     }
 
     public function storeMissionType(Request $request): RedirectResponse
@@ -247,7 +248,7 @@ class AdminAuthController extends Controller
         return redirect()->route('admin.mission-types')->with('ok', 'تم تعديل نوع المهمة.');
     }
 
-    public function showTrip(Trip $trip): View|RedirectResponse
+    public function showTrip(Trip $trip): InertiaResponse|RedirectResponse
     {
         if ($redirect = $this->ensureAdminAuthenticated()) {
             return $redirect;
@@ -302,7 +303,7 @@ class AdminAuthController extends Controller
             ? $trip->started_at->diffInMinutes($trip->ended_at)
             : null;
 
-        return view('admin.trip-show', [
+        return Inertia::render('Admin/TripShow', [
             'trip' => $trip,
             'points' => $points,
             'mappedPoints' => $mappedPoints,
@@ -312,7 +313,7 @@ class AdminAuthController extends Controller
         ]);
     }
 
-    public function reports(Request $request): View|RedirectResponse
+    public function reports(Request $request): InertiaResponse|RedirectResponse
     {
         if ($redirect = $this->ensureAdminAuthenticated()) {
             return $redirect;
@@ -327,7 +328,7 @@ class AdminAuthController extends Controller
         $paginatedTrips = $trips->paginate(30)->withQueryString();
         $this->hydrateTripDrivers($paginatedTrips->getCollection(), app(MunicipalityDriverRepository::class));
 
-        return view('admin.reports', [
+        return Inertia::render('Admin/Reports', [
             ...$filters,
             'trips' => $paginatedTrips,
             'summary' => [
@@ -650,17 +651,20 @@ class AdminAuthController extends Controller
         );
     }
 
-    public function logout(Request $request): RedirectResponse
+    public function logout(Request $request)
     {
         if (! Auth::guard('admin')->check()) {
             return redirect()->route('admin.login');
         }
 
         $ssoRedirect = AuthHelpers::logout($request, 'admin');
-        return redirect()->away($ssoRedirect->getTargetUrl());
+
+        // Inertia::location() forces a full browser redirect (not XHR)
+        // required for external SSO logout URL
+        return Inertia::location($ssoRedirect->getTargetUrl());
     }
 
-    private function ensureAdminAuthenticated(): ?RedirectResponse
+    private function ensureAdminAuthenticated()
     {
         if (Auth::guard('admin')->check()) {
             return null;
@@ -668,10 +672,10 @@ class AdminAuthController extends Controller
 
         request()->session()->put('url.intended', request()->fullUrl());
 
-        return redirect()->route('admin.login');
+        return Inertia::location(route('admin.login'));
     }
 
-    private function oracleExtensionGuard(): ?View
+    private function oracleExtensionGuard(): mixed
     {
         if (config('database.default') !== 'oracle') {
             return null;
