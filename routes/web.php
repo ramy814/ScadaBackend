@@ -4,11 +4,7 @@ use App\Http\Controllers\AdminAuthController;
 use Illuminate\Support\Facades\Route;
 
 // ─── Redirect root to login ───────────────────────────────────────────────────
-Route::get('/', fn () => redirect()->route('admin.login'));
-
-// ─── Public: login & SSO callback ────────────────────────────────────────────
-Route::get('/admin/login', [AdminAuthController::class, 'showLogin'])->name('admin.login');
-Route::post('/admin/logout', [AdminAuthController::class, 'logout'])->name('admin.logout');
+Route::get('/', fn () => redirect()->route('login'));
 
 if (config('app.env') === 'local') {
     Route::get('/admin/dev-login', function () {

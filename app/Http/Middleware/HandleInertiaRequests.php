@@ -42,7 +42,7 @@ class HandleInertiaRequests extends Middleware
                 'reports'      => route('admin.reports'),
                 'reportsCsv'   => route('admin.reports.csv'),
                 'reportsPdf'   => route('admin.reports.pdf'),
-                'logout'       => route('admin.logout'),
+                'logout'       => route('logout'),
                 'trips_base'   => url('/admin/trips'),
             ],
         ]);
