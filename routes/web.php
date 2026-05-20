@@ -18,14 +18,7 @@ if (config('app.env') === 'local') {
     })->name('admin.dev-login');
 }
 
-Route::get('/auth/sso/callback', function (\Illuminate\Http\Request $request) {
-    $state = $request->input('state');
-    if (config('app.env') !== 'local' && $state && str_starts_with($state, 'dev_')) {
-        return redirect('http://127.0.0.1:8000/auth/sso/callback?' . http_build_query($request->all()));
-    }
 
-    return \Mog\ProjectHelper\AuthHelpers::callback($request);
-})->name('sso.callback');
 
 // ─── Protected: require authenticated admin ───────────────────────────────────
 Route::middleware(['auth:admin'])->group(function () {
