@@ -27,6 +27,20 @@ class AdminAuthController extends Controller
             return redirect()->route('admin.dashboard');
         }
 
+        // Break the redirect loop: if SSO failed, show an error page
+        if ($request->has('sso_error')) {
+            return response(
+                '<html><head><meta charset="utf-8"><title>خطأ في تسجيل الدخول</title></head>'
+                . '<body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#1a1a2e;color:#fff;">'
+                . '<div style="text-align:center;">'
+                . '<h2>⚠️ فشل تسجيل الدخول</h2>'
+                . '<p>تعذّر التحقق من رمز SSO. الرجاء المحاولة مرة أخرى.</p>'
+                . '<a href="/admin/login" style="color:#6c9ef8;">إعادة المحاولة</a>'
+                . '</div></body></html>',
+                200
+            );
+        }
+
         return AuthHelpers::login($request);
     }
 
