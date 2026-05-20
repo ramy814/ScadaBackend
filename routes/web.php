@@ -3,6 +3,8 @@
 use App\Http\Controllers\AdminAuthController;
 use Illuminate\Support\Facades\Route;
 
+// ─── Redirect root to admin dashboard (which will redirect to login if unauthenticated) ───
+Route::get('/', fn () => redirect()->route('admin.dashboard'));
 
 
 if (config('app.env') === 'local') {
