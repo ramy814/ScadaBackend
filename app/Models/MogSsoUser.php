@@ -17,7 +17,7 @@ class MogSsoUser extends Authenticatable
 
     public function getTable(): string
     {
-        return env('MOG_SSO_USERS_TABLE', 'MOG_USERS.USERS');
+        return 'mog_users.users_list';
     }
 
     public function getAuthIdentifierName(): string
@@ -28,6 +28,11 @@ class MogSsoUser extends Authenticatable
     public function getKeyName(): string
     {
         return $this->getAuthIdentifierName();
+    }
+
+    public function getRememberTokenName(): ?string
+    {
+        return null;
     }
 
     public function save(array $options = []): bool
