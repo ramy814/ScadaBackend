@@ -10,6 +10,14 @@ Route::get('/', fn () => redirect()->route('admin.login'));
 Route::get('/admin/login', [AdminAuthController::class, 'showLogin'])->name('admin.login');
 Route::post('/admin/logout', [AdminAuthController::class, 'logout'])->name('admin.logout');
 
+if (config('app.env') === 'local') {
+    Route::get('/admin/dev-login', function () {
+        $userId = request('user_id', 3); // Default to user ID 3 (سماح محمد داود الشوا)
+        \Illuminate\Support\Facades\Auth::guard('admin')->loginUsingId($userId);
+        return redirect()->route('admin.dashboard')->with('ok', 'تم تسجيل الدخول كمسؤول تطوير محلي.');
+    })->name('admin.dev-login');
+}
+
 Route::get('/auth/sso/callback', function (\Illuminate\Http\Request $request) {
     $state = $request->input('state');
     if (config('app.env') !== 'local' && $state && str_starts_with($state, 'dev_')) {
