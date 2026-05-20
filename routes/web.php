@@ -8,6 +8,17 @@ Route::get('/', function () {
 });
 
 Route::get('/admin/login', [AdminAuthController::class, 'showLogin'])->name('admin.login');
+
+Route::get('/auth/sso/callback', function (\Illuminate\Http\Request $request) {
+    $state = $request->input('state');
+    if (config('app.env') !== 'local' && $state && str_starts_with($state, 'dev_')) {
+        $query = http_build_query($request->all());
+        return redirect('http://127.0.0.1:8000/auth/sso/callback?' . $query);
+    }
+
+    return \Mog\ProjectHelper\AuthHelpers::callback($request);
+})->name('sso.callback')->middleware('web');
+
 Route::get('/admin/dashboard', [AdminAuthController::class, 'dashboard'])->name('admin.dashboard');
 Route::get('/admin/locations', [AdminAuthController::class, 'locations'])->name('admin.locations');
 Route::post('/admin/locations', [AdminAuthController::class, 'storeLocation'])->name('admin.locations.store');
