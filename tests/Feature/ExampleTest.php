@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-// use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class ExampleTest extends TestCase
@@ -10,10 +9,11 @@ class ExampleTest extends TestCase
     /**
      * A basic test example.
      */
-    public function test_the_application_redirects_to_admin_login(): void
+    public function test_login_route_redirects_to_sso(): void
     {
-        $response = $this->get('/');
+        $response = $this->get(route('login'));
 
-        $response->assertRedirect(route('login'));
+        $response->assertStatus(302); // SSO login performs redirect
     }
 }
+

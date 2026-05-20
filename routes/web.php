@@ -3,8 +3,7 @@
 use App\Http\Controllers\AdminAuthController;
 use Illuminate\Support\Facades\Route;
 
-// ─── Redirect root to login ───────────────────────────────────────────────────
-Route::get('/', fn () => redirect()->route('login'));
+
 
 if (config('app.env') === 'local') {
     Route::get('/admin/dev-login', function () {
