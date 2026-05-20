@@ -24,3 +24,8 @@ _ide_helper.php
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+/config/database.php
+/config/filesystems.php
+/config/app.php
+/config/session.php

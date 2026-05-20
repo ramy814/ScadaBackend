@@ -29,6 +29,7 @@ const loginUrl = page.props.urls.login;
 ```
 - For forms handling, use Inertia's `useForm`.
 - Implement visual loading states via `form.processing`.
+- **External Redirects (SSO)**: Never return a standard `RedirectResponse` (e.g., `redirect()->away(...)`) when redirecting to external services like MOG SSO, as Inertia XHR requests will fail due to CORS. Instead, **always** return `\Inertia\Inertia::location($url)`. Helpers must return `Inertia::location()` directly, and controllers must return the result without modifying it (do NOT call `getTargetUrl()`).
 
 ## 4. Repositories
 - Any query touching the Oracle Database must go into a Repository class (e.g., `MunicipalityVehicleRepository`).

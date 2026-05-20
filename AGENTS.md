@@ -38,3 +38,17 @@
 
 ## قبل البدء في أي ميزة جديدة
 ابحث في مجلد `.ai/` عن الملف المناسب للمهمة واقرأه.
+
+## Strict AI Directives
+Always read all `.ai` markdown files first.
+
+**Never:**
+- bypass service layer
+- place logic inside controllers
+- write direct SQL in controllers
+
+**Always:**
+- follow repository pattern
+- use existing response wrapper
+- preserve Oracle compatibility
+- follow existing naming conventions

@@ -27,8 +27,7 @@ class AdminAuthController extends Controller
             return redirect()->route('admin.dashboard');
         }
 
-        $ssoRedirect = AuthHelpers::login($request);
-        return Inertia::location($ssoRedirect->getTargetUrl());
+        return AuthHelpers::login($request);
     }
 
     public function dashboard(
@@ -671,11 +670,7 @@ class AdminAuthController extends Controller
             return redirect()->route('admin.login');
         }
 
-        $ssoRedirect = AuthHelpers::logout($request, 'admin');
-
-        // Inertia::location() forces a full browser redirect (not XHR)
-        // required for external SSO logout URL
-        return Inertia::location($ssoRedirect->getTargetUrl());
+        return AuthHelpers::logout($request, 'admin');
     }
 
     private function ensureAdminAuthenticated()
