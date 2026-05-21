@@ -12,6 +12,10 @@ Route::prefix('driver/auth')->group(function (): void {
     Route::post('/send-code', [AuthController::class, 'sendCode']);
     Route::post('/verify', [AuthController::class, 'verify']);
 });
+// dsfsd
+// sdsdfsws?
+
+// Deployment trigger
 
 Route::middleware('auth:sanctum')->prefix('driver')->group(function (): void {
     Route::post('/auth/logout', [AuthController::class, 'logout']);
