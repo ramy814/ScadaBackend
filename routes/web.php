@@ -15,6 +15,7 @@ if (config('app.env') === 'local') {
 
 // ─── Protected: require authenticated admin ───────────────────────────────────
 Route::middleware(['auth:admin'])->group(function () {
+    Route::get('/', [AdminAuthController::class, 'dashboard']);
     Route::get('/admin/dashboard', [AdminAuthController::class, 'dashboard'])->name('admin.dashboard');
     Route::get('/admin/trips/{trip}', [AdminAuthController::class, 'showTrip'])->name('admin.trips.show');
     Route::post('/admin/trips/{trip}/approve', [AdminAuthController::class, 'approve'])->name('admin.trips.approve');

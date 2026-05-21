@@ -15,6 +15,13 @@ class ExampleTest extends TestCase
 
         $response->assertStatus(302); // SSO login performs redirect
     }
+
+    public function test_root_route_redirects_to_dashboard(): void
+    {
+        $response = $this->get('/');
+        $response->dump();
+        $response->assertRedirect(route('login'));
+    }
 }
 
 
