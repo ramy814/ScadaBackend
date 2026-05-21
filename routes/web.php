@@ -5,6 +5,13 @@ use Illuminate\Support\Facades\Route;
 
 // ─── Redirect root to admin dashboard (which will redirect to login if unauthenticated) ───
 
+if (config('app.env') === 'local') {
+    Route::get('/admin/dev-login', function () {
+        $userId = request('user_id', 3); // Default to user ID 3 (سماح محمد داود الشوا)
+        \Illuminate\Support\Facades\Auth::guard('admin')->loginUsingId($userId);
+        return redirect()->route('admin.dashboard')->with('ok', 'تم تسجيل الدخول كمسؤول تطوير محلي.');
+    })->name('admin.dev-login');
+}
 
 // ─── Protected: require authenticated admin ───────────────────────────────────
 Route::middleware(['auth:admin'])->group(function () {
