@@ -15,7 +15,7 @@
 
       <Link
         :href="$page.props.urls.logout"
-        method="post"
+        method="get"
         as="button"
         class="btn-logout"
       >
