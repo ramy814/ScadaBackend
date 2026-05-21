@@ -15,7 +15,7 @@ Route::prefix('driver/auth')->group(function (): void {
 // dsfsd
 // sdsdfsws?
 
-// Deployment trigger
+// Deployment trigger v2
 
 Route::middleware('auth:sanctum')->prefix('driver')->group(function (): void {
     Route::post('/auth/logout', [AuthController::class, 'logout']);
