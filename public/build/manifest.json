@@ -1,16 +1,16 @@
 {
-  "_AppLayout-!~{008}~.js": {
-    "file": "assets/AppLayout-h1C4-YXx.css",
-    "src": "_AppLayout-!~{008}~.js"
+  "_AppLayout-!~{009}~.js": {
+    "file": "assets/AppLayout-IbP9IMn3.css",
+    "src": "_AppLayout-!~{009}~.js"
   },
-  "_AppLayout-woZ2WH1L.js": {
-    "file": "assets/AppLayout-woZ2WH1L.js",
+  "_AppLayout-BO1eDcKw.js": {
+    "file": "assets/AppLayout-BO1eDcKw.js",
     "name": "AppLayout",
     "imports": [
       "resources/js/app.js"
     ],
     "css": [
-      "assets/AppLayout-h1C4-YXx.css"
+      "assets/AppLayout-IbP9IMn3.css"
     ]
   },
   "__plugin-vue_export-helper-DlAUqK2U.js": {
@@ -39,28 +39,42 @@
     "src": "node_modules/leaflet/dist/leaflet.css"
   },
   "resources/css/app.css": {
-    "file": "assets/app-Dxyc8bc1.css",
+    "file": "assets/app-Bus3mted.css",
     "src": "resources/css/app.css",
     "isEntry": true
   },
+  "resources/js/Pages/Admin/Allowlist.vue": {
+    "file": "assets/Allowlist-DG0k7_-V.js",
+    "name": "Allowlist",
+    "src": "resources/js/Pages/Admin/Allowlist.vue",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.js",
+      "_AppLayout-BO1eDcKw.js",
+      "__plugin-vue_export-helper-DlAUqK2U.js"
+    ],
+    "css": [
+      "assets/Allowlist-BWqZhmS7.css"
+    ]
+  },
   "resources/js/Pages/Admin/Dashboard.vue": {
-    "file": "assets/Dashboard-DNOxRxEU.js",
+    "file": "assets/Dashboard-CN40R7Cy.js",
     "name": "Dashboard",
     "src": "resources/js/Pages/Admin/Dashboard.vue",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.js",
-      "_AppLayout-woZ2WH1L.js"
+      "_AppLayout-BO1eDcKw.js"
     ]
   },
   "resources/js/Pages/Admin/Locations.vue": {
-    "file": "assets/Locations-CPXttj4Y.js",
+    "file": "assets/Locations-Diy6w7E1.js",
     "name": "Locations",
     "src": "resources/js/Pages/Admin/Locations.vue",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.js",
-      "_AppLayout-woZ2WH1L.js",
+      "_AppLayout-BO1eDcKw.js",
       "__plugin-vue_export-helper-DlAUqK2U.js"
     ],
     "css": [
@@ -68,13 +82,13 @@
     ]
   },
   "resources/js/Pages/Admin/MissionTypes.vue": {
-    "file": "assets/MissionTypes-Cwm3hjeC.js",
+    "file": "assets/MissionTypes-D5O1A3ub.js",
     "name": "MissionTypes",
     "src": "resources/js/Pages/Admin/MissionTypes.vue",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.js",
-      "_AppLayout-woZ2WH1L.js",
+      "_AppLayout-BO1eDcKw.js",
       "__plugin-vue_export-helper-DlAUqK2U.js"
     ],
     "css": [
@@ -82,13 +96,13 @@
     ]
   },
   "resources/js/Pages/Admin/Reports.vue": {
-    "file": "assets/Reports-DlGCQ3n3.js",
+    "file": "assets/Reports-DgncGJLG.js",
     "name": "Reports",
     "src": "resources/js/Pages/Admin/Reports.vue",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.js",
-      "_AppLayout-woZ2WH1L.js",
+      "_AppLayout-BO1eDcKw.js",
       "__plugin-vue_export-helper-DlAUqK2U.js"
     ],
     "css": [
@@ -96,13 +110,13 @@
     ]
   },
   "resources/js/Pages/Admin/TripShow.vue": {
-    "file": "assets/TripShow-M8dgoiWB.js",
+    "file": "assets/TripShow-DXORaPnt.js",
     "name": "TripShow",
     "src": "resources/js/Pages/Admin/TripShow.vue",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.js",
-      "_AppLayout-woZ2WH1L.js",
+      "_AppLayout-BO1eDcKw.js",
       "__plugin-vue_export-helper-DlAUqK2U.js"
     ],
     "dynamicImports": [
@@ -113,11 +127,12 @@
     ]
   },
   "resources/js/app.js": {
-    "file": "assets/app-DFmSzfFY.js",
+    "file": "assets/app-C-eN5iY7.js",
     "name": "app",
     "src": "resources/js/app.js",
     "isEntry": true,
     "dynamicImports": [
+      "resources/js/Pages/Admin/Allowlist.vue",
       "resources/js/Pages/Admin/Dashboard.vue",
       "resources/js/Pages/Admin/Locations.vue",
       "resources/js/Pages/Admin/MissionTypes.vue",

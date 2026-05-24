@@ -314,6 +314,28 @@ tr:hover td { background: rgba(248,250,252,0.5); }
 .filters-group a:hover { border-color: var(--brand); color: var(--brand); }
 .filters-group a.active { background: var(--text-primary); border-color: var(--text-primary); color: #fff; }
 
+.btn-log-server {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  color: #475569;
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: 700;
+  transition: var(--transition);
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+}
+.btn-log-server:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+  color: #0f172a;
+  transform: translateY(-1px);
+}
+
 /* Fade transition */
 .fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
