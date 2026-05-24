@@ -9,7 +9,10 @@ use Illuminate\Support\Facades\Route;
 if (config('app.env') === 'local') {
     Route::get('/admin/dev-login', function () {
         $userId = request('user_id', 3); // Default to user ID 3 (سماح محمد داود الشوا)
-        \Illuminate\Support\Facades\Auth::guard('admin')->loginUsingId($userId);
+        $guard = \Illuminate\Support\Facades\Auth::guard('admin');
+        if ($guard instanceof \Illuminate\Contracts\Auth\StatefulGuard) {
+            $guard->loginUsingId($userId);
+        }
         return redirect()->route('admin.dashboard')->with('ok', 'تم تسجيل الدخول كمسؤول تطوير محلي.');
     })->name('admin.dev-login');
 }

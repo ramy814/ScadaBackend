@@ -381,7 +381,10 @@ class AdminAuthController extends Controller
 
     public function logout(Request $request)
     {
-        Auth::guard('admin')->logout();
+        $guard = Auth::guard('admin');
+        if ($guard instanceof \Illuminate\Contracts\Auth\StatefulGuard) {
+            $guard->logout();
+        }
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
