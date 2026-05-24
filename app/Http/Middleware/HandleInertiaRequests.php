@@ -44,6 +44,7 @@ class HandleInertiaRequests extends Middleware
                 'reportsPdf'   => route('admin.reports.pdf'),
                 'logout'       => route('logout'),
                 'trips_base'   => url('/admin/trips'),
+                'allowlist'    => route('admin.allowlist'),
             ],
         ]);
     }

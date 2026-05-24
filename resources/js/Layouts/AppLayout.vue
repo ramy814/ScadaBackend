@@ -10,13 +10,12 @@
           <Link :href="$page.props.urls.locations" :class="{ active: isActive('Admin/Locations') }">المواقع</Link>
           <Link :href="$page.props.urls.missionTypes" :class="{ active: isActive('Admin/MissionTypes') }">أنواع المهام</Link>
           <Link :href="$page.props.urls.reports" :class="{ active: isActive('Admin/Reports') }">التقارير</Link>
+          <Link :href="$page.props.urls.allowlist" :class="{ active: isActive('Admin/Allowlist') }" class="nav-link-security">🔒 الصلاحيات</Link>
         </div>
       </div>
 
-      <Link
+      <a
         :href="$page.props.urls.logout"
-        method="get"
-        as="button"
         class="btn-logout"
       >
         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -25,7 +24,7 @@
           <line x1="21" y1="12" x2="9" y2="12"></line>
         </svg>
         تسجيل خروج
-      </Link>
+      </a>
     </nav>
 
     <!-- Flash Messages -->
@@ -134,6 +133,9 @@ html, body {
 }
 .nav-links a:hover { background: var(--brand-light); color: var(--brand); }
 .nav-links a.active { background: var(--brand); color: #fff; box-shadow: 0 4px 6px rgba(59,130,246,0.2); }
+.nav-links a.nav-link-security { color: #d97706; }
+.nav-links a.nav-link-security:hover { background: #fef3c7; color: #d97706; }
+.nav-links a.nav-link-security.active { background: #d97706; color: #fff; box-shadow: 0 4px 6px rgba(217,119,6,0.2); }
 
 .btn-logout {
   border: none;

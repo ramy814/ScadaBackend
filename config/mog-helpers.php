@@ -7,4 +7,9 @@ return [
     'sso_default_guard' => env('SSO_DEFAULT_GUARD', 'admin'),
     'main-disk'         => env('MAIN_DISK', 'local'),
     'oracle_conn_name'  => env('ORACLE_CONN_NAME', 'oracle'),
+
+    // The column name in the SSO users table that holds the employee number.
+    // Used by EnsureAdminIsAllowlisted middleware to match against FLEET_ADMIN_ALLOWLIST.
+    'sso_emp_column'    => env('MOG_SSO_EMP_COLUMN', 'EMP_ID'),
 ];
+
