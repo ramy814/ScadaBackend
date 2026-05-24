@@ -37,8 +37,8 @@ class EnsureAdminIsAllowlisted
         }
 
         // ── Read the employee number from the SSO user object ─────────────────
-        $empColumn = config('mog-helpers.sso_emp_column', 'EMP_ID');
-        $empNo     = (string) ($user->{$empColumn} ?? '');
+        $empColumn = config('mog-helpers.sso_emp_column', 'emp_id');
+        $empNo     = (string) ($user->{$empColumn} ?? $user->{strtolower($empColumn)} ?? $user->{strtoupper($empColumn)} ?? '');
 
         if ($empNo === '') {
             Auth::guard('admin')->logout();

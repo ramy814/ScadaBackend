@@ -10,6 +10,6 @@ return [
 
     // The column name in the SSO users table that holds the employee number.
     // Used by EnsureAdminIsAllowlisted middleware to match against FLEET_ADMIN_ALLOWLIST.
-    'sso_emp_column'    => env('MOG_SSO_EMP_COLUMN', 'EMP_ID'),
+    'sso_emp_column'    => env('MOG_SSO_EMP_COLUMN', 'emp_id'),
 ];
 
