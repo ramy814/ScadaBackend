@@ -2,12 +2,10 @@
 
 ## [2026-05-24] SSO Logout Fix & Error Logs Button Integration
 
-### 1. Unified SSO Logout CORS Resolution
-- **Context**: The driver app and admin dashboard use MOG SSO for authentication. Standard redirect via `RedirectResponse` (equivalent to `redirect()->away()`) was used for external SAML/OAuth redirects. However, when the logout button was clicked in the Inertia SPA (making a browser/XHR request), the external 302 redirect triggered a CORS error (`HttpNetworkError`) and was blocked by the browser.
-- **Solution**: 
-  - Overrode the default SSO logout route `/auth/sso/logout` in the main application's `routes/web.php` to target `AdminAuthController@logout`.
-  - Refactored `AdminAuthController@logout` to perform local session destruction and return `Inertia::location($ssoLogoutUrl)`.
-  - `Inertia::location()` properly returns a `409` conflict response with the `X-Inertia-Location` header, instructing the client-side Inertia library to perform a clean, full-page redirection (`window.location.href`) to the external SSO server, completely bypassing CORS constraints.
+### 1. Unified SSO Logout Route Usage
+- **Context**: The driver app and admin dashboard use MOG SSO for authentication.
+- **Requirement**: Use the library's routes directly without any external overrides in the main application's `routes/web.php` or `AdminAuthController.php`.
+- **Status**: Reverted the custom logout override route and method to ensure the application delegates directly to the package's `Mog\ProjectHelper\AuthHelpers@logout` controller/action via the registered library routes.
 
 ### 2. Guard Static Analysis & IDE Error Resolution
 - **Context**: Calls like `Auth::guard('admin')->logout()` and `Auth::guard('admin')->loginUsingId($id)` triggered static analysis warnings/errors in PHPStan (`Call to undefined method Illuminate\Contracts\Auth\Guard::...()`) and IDE squiggly lines because the base `Guard` contract does not define these stateful methods.
