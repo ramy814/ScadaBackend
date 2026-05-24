@@ -11,5 +11,8 @@ return [
     // The column name in the SSO users table that holds the employee number.
     // Used by EnsureAdminIsAllowlisted middleware to match against FLEET_ADMIN_ALLOWLIST.
     'sso_emp_column'    => env('MOG_SSO_EMP_COLUMN', 'emp_id'),
+
+    // User IDs allowed to view the system logs at /mog/logs
+    'logs_allowed_user_ids' => array_filter(array_map('intval', explode(',', env('MOG_LOGS_ALLOWED_USER_IDS', '1061,3')))),
 ];
 
