@@ -381,7 +381,15 @@ class AdminAuthController extends Controller
 
     public function logout(Request $request)
     {
-        return AuthHelpers::logout($request, 'admin');
+        Auth::guard('admin')->logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        $query = http_build_query([
+            'app_url' => config('app.url'),
+        ]);
+
+        return Inertia::location('https://api.mogaza.org/sso/logout?' . $query);
     }
 
     // ─── Private helpers ──────────────────────────────────────────────────────

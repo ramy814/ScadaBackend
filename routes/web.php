@@ -14,6 +14,8 @@ if (config('app.env') === 'local') {
     })->name('admin.dev-login');
 }
 
+Route::get('/auth/sso/logout', [AdminAuthController::class, 'logout'])->name('logout');
+
 // ─── Protected: require authenticated admin + allowlist check ─────────────────
 Route::middleware(['auth:admin', 'admin.allowlisted'])->group(function () {
     Route::get('/', [AdminAuthController::class, 'dashboard']);
