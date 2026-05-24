@@ -8,8 +8,6 @@ use App\Models\MissionType;
 use App\Models\Trip;
 use App\Repositories\MunicipalityDriverRepository;
 use App\Repositories\MunicipalityVehicleRepository;
-
-use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -569,21 +567,5 @@ class AdminAuthController extends Controller
                 $trip->saveQuietly();
             }
         }
-    }
-
-    private function paginateCollection(Collection $items, int $perPage): LengthAwarePaginator
-    {
-        $page = (int) request()->query('page', 1);
-
-        return new \Illuminate\Pagination\LengthAwarePaginator(
-            $items->forPage($page, $perPage)->values(),
-            $items->count(),
-            $perPage,
-            $page,
-            [
-                'path'  => request()->url(),
-                'query' => request()->query(),
-            ],
-        );
     }
 }
