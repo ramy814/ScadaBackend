@@ -23,7 +23,7 @@ app/
     └── AppServiceProvider.php
 
 config/
-└── municipality.php          # Configuration mapping for Oracle table/column names
+└── database.php              # Includes the Oracle connection configuration
 
 database/
 └── migrations/               # SQLite/PGSQL schema for managed data

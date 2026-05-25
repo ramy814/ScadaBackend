@@ -9,6 +9,10 @@ use LogicException;
 
 class OracleVehicle extends Model
 {
+    private const TABLE = 'VEHICLE';
+
+    private const ID_COLUMN = 'ID';
+
     protected $connection = 'oracle';
 
     public $timestamps = false;
@@ -21,12 +25,12 @@ class OracleVehicle extends Model
 
     public function getTable(): string
     {
-        return config('municipality.oracle.vehicles_table', 'VEHICLE');
+        return self::TABLE;
     }
 
     public function getKeyName(): string
     {
-        return config('municipality.oracle.vehicle_columns.id', 'ID');
+        return self::ID_COLUMN;
     }
 
     public function save(array $options = []): bool

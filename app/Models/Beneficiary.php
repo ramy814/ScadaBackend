@@ -12,6 +12,16 @@ class Beneficiary extends Authenticatable
 {
     use HasApiTokens;
 
+    private const TABLE = 'BENEFICIARIES';
+
+    private const ID_COLUMN = 'ID';
+
+    private const PHONE_COLUMN = 'MOBILE';
+
+    private const NAME_COLUMN = 'NAME';
+
+    private const EMPLOYEE_NUMBER_COLUMN = 'EMP_NO';
+
     protected $connection = 'oracle';
 
     public $timestamps = false;
@@ -24,27 +34,27 @@ class Beneficiary extends Authenticatable
 
     public function getTable(): string
     {
-        return config('municipality.oracle.drivers_table', 'BENEFICIARIES');
+        return self::TABLE;
     }
 
     public function getKeyName(): string
     {
-        return config('municipality.oracle.driver_columns.id', 'ID');
+        return self::ID_COLUMN;
     }
 
     public function phoneNumber(): ?string
     {
-        return $this->stringAttribute(config('municipality.oracle.driver_columns.phone', 'MOBILE'));
+        return $this->stringAttribute(self::PHONE_COLUMN);
     }
 
     public function displayName(): ?string
     {
-        return $this->stringAttribute(config('municipality.oracle.driver_columns.name', 'NAME'));
+        return $this->stringAttribute(self::NAME_COLUMN);
     }
 
     public function employeeNumber(): ?string
     {
-        return $this->stringAttribute(config('municipality.oracle.driver_columns.employee_number', 'EMP_NO'));
+        return $this->stringAttribute(self::EMPLOYEE_NUMBER_COLUMN);
     }
 
     public function getAuthIdentifier()

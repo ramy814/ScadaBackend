@@ -9,6 +9,15 @@ use Illuminate\Support\Facades\Log;
 
 class MunicipalityDriverRepository
 {
+    private const DRIVERS_TABLE = 'BENEFICIARIES';
+
+    private const DRIVER_COLUMNS = [
+        'id' => 'ID',
+        'phone' => 'MOBILE',
+        'name' => 'NAME',
+        'employee_number' => 'EMP_NO',
+    ];
+
     public function __construct(private readonly OracleReadiness $readiness) {}
 
     public function findBeneficiaryByPhone(string $phone): ?Beneficiary
@@ -17,7 +26,7 @@ class MunicipalityDriverRepository
             throw new \RuntimeException('Oracle database connection is not ready or configured. Cannot check beneficiary table directly.');
         }
 
-        $columns = config('municipality.oracle.driver_columns');
+        $columns = self::DRIVER_COLUMNS;
 
         // Convert Eastern Arabic numerals to Western Arabic numerals
         $arabicDigits = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
@@ -69,7 +78,7 @@ class MunicipalityDriverRepository
 
         if (! $beneficiary) {
             Log::warning('Driver beneficiary phone lookup failed.', [
-                'drivers_table' => config('municipality.oracle.drivers_table'),
+                'drivers_table' => self::DRIVERS_TABLE,
                 'phone_column' => $columns['phone'],
                 'id_column' => $columns['id'] ?? null,
                 'clean_phone' => $clean,
@@ -103,8 +112,8 @@ class MunicipalityDriverRepository
             throw new \RuntimeException('Oracle database connection is not ready or configured. Cannot search beneficiaries directly.');
         }
 
-        $table = config('municipality.oracle.drivers_table');
-        $columns = config('municipality.oracle.driver_columns');
+        $table = self::DRIVERS_TABLE;
+        $columns = self::DRIVER_COLUMNS;
 
         return Beneficiary::query()
             ->from($table)
@@ -148,7 +157,7 @@ class MunicipalityDriverRepository
             throw new \RuntimeException('Oracle database connection is not ready or configured. Cannot check beneficiaries directly.');
         }
 
-        $columns = config('municipality.oracle.driver_columns');
+        $columns = self::DRIVER_COLUMNS;
 
         return Beneficiary::query()
             ->whereIn($columns['id'], $ids->all())

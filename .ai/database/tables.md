@@ -77,14 +77,14 @@ Temporary table for handling SMS OTP authentication.
 ## External Oracle Tables (Read-Only)
 
 ### `VEHICLE`
-Configurable via `config('municipality.oracle.vehicles_table')`.
+Read through `MunicipalityVehicleRepository`.
 - `OID`: Vehicle ID.
 - `PLATE_NUM`: License plate.
 - `VEHICLE_NUM`: Vehicle name/identifier.
 - `BENEFICIARY_OID`: ID of the driver assigned to the vehicle.
 
 ### `BENEFICIARIES`
-Configurable via `config('municipality.oracle.drivers_table')`.
+Read through `MunicipalityDriverRepository` and `Beneficiary`.
 - `OID`: Driver ID.
 - `MOBILE_NUM`: Phone number.
 - `NAME`: Driver name.

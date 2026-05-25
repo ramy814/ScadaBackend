@@ -141,10 +141,10 @@ used_at
 
 ### الجداول في Oracle (للقراءة فقط - لا نكتب عليها)
 
-> يتم الوصول إليها عبر `DB::connection('oracle')`
-> الأعمدة مضبوطة في `config/municipality.php`
+> يتم الوصول إليها عبر Repositories فقط
+> أسماء الجداول والأعمدة معرفة داخل Models/Repositories الخاصة بـ Oracle
 
-#### `VEHICLE` (أو حسب إعداد `oracle.vehicles_table`)
+#### `VEHICLE`
 ```
 OID (id)             — معرف المركبة
 PLATE_NUM (plate)    — رقم اللوحة
@@ -153,7 +153,7 @@ vehicle_type         — نوع المركبة
 BENEFICIARY_OID      — معرف السائق المرتبط بالمركبة
 ```
 
-#### `BENEFICIARIES` (أو حسب إعداد `oracle.drivers_table`)
+#### `BENEFICIARIES`
 ```
 OID (id)             — معرف السائق
 MOBILE_NUM (phone)   — رقم الجوال
@@ -399,22 +399,6 @@ ORACLE_PASSWORD=...
 
 MOG_SSO_USERS_TABLE=USERS   # جدول المستخدمين في Oracle SSO
 ```
-
-### config/municipality.php
-```php
-oracle.vehicles_table     → اسم جدول المركبات في Oracle
-oracle.vehicle_columns.id     → اسم عمود الـ ID
-oracle.vehicle_columns.plate  → اسم عمود اللوحة
-oracle.vehicle_columns.name   → اسم عمود الاسم
-oracle.vehicle_columns.type   → اسم عمود النوع
-oracle.vehicle_columns.beneficiary_id → عمود ربط المركبة بالسائق
-
-oracle.drivers_table      → اسم جدول السائقين في Oracle
-oracle.driver_columns.id      → عمود الـ ID
-oracle.driver_columns.phone   → عمود الهاتف
-```
-
----
 
 ## 9. API للسائق (Driver App)
 

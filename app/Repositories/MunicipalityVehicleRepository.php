@@ -7,6 +7,25 @@ use Illuminate\Support\Facades\DB;
 
 class MunicipalityVehicleRepository
 {
+    private const VEHICLES_TABLE = 'VEHICLE';
+
+    private const DRIVERS_TABLE = 'BENEFICIARIES';
+
+    private const VEHICLE_COLUMNS = [
+        'id' => 'ID',
+        'plate' => 'PLATE_NO',
+        'name' => 'VEHICLE_NAME',
+        'type' => 'VEHICLE_TYPE',
+        'beneficiary_id' => 'BENEFICIARY_OID',
+    ];
+
+    private const DRIVER_COLUMNS = [
+        'id' => 'ID',
+        'phone' => 'MOBILE',
+        'name' => 'NAME',
+        'employee_number' => 'EMP_NO',
+    ];
+
     public function __construct(private readonly OracleReadiness $readiness) {}
 
     public function search(?string $term = null, int $limit = 25): Collection
@@ -15,8 +34,8 @@ class MunicipalityVehicleRepository
             return collect();
         }
 
-        $table = config('municipality.oracle.vehicles_table');
-        $columns = config('municipality.oracle.vehicle_columns');
+        $table = self::VEHICLES_TABLE;
+        $columns = self::VEHICLE_COLUMNS;
 
         return DB::connection('oracle')
             ->table($table)
@@ -39,8 +58,8 @@ class MunicipalityVehicleRepository
             return null;
         }
 
-        $table = config('municipality.oracle.vehicles_table');
-        $columns = config('municipality.oracle.vehicle_columns');
+        $table = self::VEHICLES_TABLE;
+        $columns = self::VEHICLE_COLUMNS;
 
         $row = DB::connection('oracle')
             ->table($table)
@@ -82,10 +101,10 @@ class MunicipalityVehicleRepository
         if (! $this->readiness->available()) {
             return collect();
         }
-        $table = config('municipality.oracle.vehicles_table', 'VEHICLE');
-        $vehicleColumns = config('municipality.oracle.vehicle_columns', []);
-        $driversTable = config('municipality.oracle.drivers_table', 'BENEFICIARIES');
-        $driverColumns = config('municipality.oracle.driver_columns', []);
+        $table = self::VEHICLES_TABLE;
+        $vehicleColumns = self::VEHICLE_COLUMNS;
+        $driversTable = self::DRIVERS_TABLE;
+        $driverColumns = self::DRIVER_COLUMNS;
         $vehicleIdColumn = $vehicleColumns['id'] ?? 'OID';
         $vehiclePlateColumn = $vehicleColumns['plate'] ?? 'PLATE_NUM';
         $vehicleNameColumn = $vehicleColumns['name'] ?? 'VEHICLE_NUM';
@@ -141,8 +160,8 @@ class MunicipalityVehicleRepository
         if (! $this->readiness->available()) {
             return collect();
         }
-        $table = config('municipality.oracle.vehicles_table', 'VEHICLE');
-        $vehicleColumns = config('municipality.oracle.vehicle_columns', []);
+        $table = self::VEHICLES_TABLE;
+        $vehicleColumns = self::VEHICLE_COLUMNS;
         $vehicleIdColumn = $vehicleColumns['id'] ?? 'OID';
         $vehiclePlateColumn = $vehicleColumns['plate'] ?? 'PLATE_NUM';
         $vehicleNameColumn = $vehicleColumns['name'] ?? 'VEHICLE_NUM';
