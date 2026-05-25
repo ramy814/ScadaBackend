@@ -15,15 +15,15 @@ class MunicipalityVehicleRepository
         'id' => 'OID',
         'plate' => 'PLATE_NUM',
         'name' => 'VEHICLE_NUM',
-        'type' => 'VEHICLE_TYPE',
+        'type' => 'VEHICLE_TYPE_OID',
         'beneficiary_id' => 'BENEFICIARY_OID',
     ];
 
     private const DRIVER_COLUMNS = [
         'id' => 'OID',
         'phone' => 'MOBILE_NUM',
-        'name' => 'NAME',
-        'employee_number' => 'EMPLOYEE_NUM',
+        'name' => 'FULL_NAME',
+        'employee_number' => 'NATIONAL_ID',
     ];
 
     public function __construct(private readonly OracleReadiness $readiness) {}

@@ -18,9 +18,9 @@ class Beneficiary extends Authenticatable
 
     private const PHONE_COLUMN = 'MOBILE_NUM';
 
-    private const NAME_COLUMN = 'NAME';
+    private const NAME_COLUMN = 'FULL_NAME';
 
-    private const EMPLOYEE_NUMBER_COLUMN = 'EMPLOYEE_NUM';
+    private const EMPLOYEE_NUMBER_COLUMN = 'NATIONAL_ID';
 
     protected $connection = 'oracle';
 

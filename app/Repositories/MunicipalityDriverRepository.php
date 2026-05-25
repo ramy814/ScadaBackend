@@ -14,8 +14,8 @@ class MunicipalityDriverRepository
     private const DRIVER_COLUMNS = [
         'id' => 'OID',
         'phone' => 'MOBILE_NUM',
-        'name' => 'NAME',
-        'employee_number' => 'EMPLOYEE_NUM',
+        'name' => 'FULL_NAME',
+        'employee_number' => 'NATIONAL_ID',
     ];
 
     public function __construct(private readonly OracleReadiness $readiness) {}
