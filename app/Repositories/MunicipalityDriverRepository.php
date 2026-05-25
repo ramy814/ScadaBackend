@@ -5,6 +5,7 @@ namespace App\Repositories;
 use App\Models\Beneficiary;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class MunicipalityDriverRepository
 {
@@ -59,12 +60,25 @@ class MunicipalityDriverRepository
             $columns['phone'],
         );
 
-        return Beneficiary::query()
+        $beneficiary = Beneficiary::query()
             ->where(function ($query) use ($columns, $variations, $cleanVariations, $normalizedColumn): void {
                 $query->whereIn($columns['phone'], $variations)
                     ->orWhereIn(DB::raw($normalizedColumn), $cleanVariations);
             })
             ->first();
+
+        if (! $beneficiary) {
+            Log::warning('Driver beneficiary phone lookup failed.', [
+                'drivers_table' => config('municipality.oracle.drivers_table'),
+                'phone_column' => $columns['phone'],
+                'id_column' => $columns['id'] ?? null,
+                'clean_phone' => $clean,
+                'variations' => $variations,
+                'clean_variations' => $cleanVariations,
+            ]);
+        }
+
+        return $beneficiary;
     }
 
     public function findByPhone(string $phone): ?array
