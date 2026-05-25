@@ -2,12 +2,17 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 
-#[Fillable(['phone', 'code_hash', 'expires_at', 'consumed_at'])]
 class SmsLoginCode extends Model
 {
+    protected $fillable = [
+        'phone',
+        'code_hash',
+        'expires_at',
+        'consumed_at',
+    ];
+
     protected function casts(): array
     {
         return [
@@ -16,4 +21,3 @@ class SmsLoginCode extends Model
         ];
     }
 }
-
