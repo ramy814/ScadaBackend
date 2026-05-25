@@ -4,6 +4,7 @@ namespace App\Repositories;
 
 use App\Models\Beneficiary;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 class MunicipalityDriverRepository
 {
@@ -36,14 +37,33 @@ class MunicipalityDriverRepository
             $variations[] = '0' . $national;
             $variations[] = $national;
             $variations[] = '970' . $national;
+            $variations[] = '9700' . $national;
             $variations[] = '+970' . $national;
+            $variations[] = '+9700' . $national;
             $variations[] = '00970' . $national;
+            $variations[] = '009700' . $national;
         }
 
         $variations = array_values(array_unique(array_filter($variations)));
+        $cleanVariations = array_values(array_unique(array_filter(array_map(
+            fn (string $value): string => preg_replace(
+                '/[^0-9+]/',
+                '',
+                str_replace($arabicDigits, $westernDigits, $value),
+            ),
+            $variations,
+        ))));
+
+        $normalizedColumn = sprintf(
+            "REGEXP_REPLACE(TRANSLATE(%s, '٠١٢٣٤٥٦٧٨٩', '0123456789'), '[^0-9+]', '')",
+            $columns['phone'],
+        );
 
         return Beneficiary::query()
-            ->whereIn($columns['phone'], $variations)
+            ->where(function ($query) use ($columns, $variations, $cleanVariations, $normalizedColumn): void {
+                $query->whereIn($columns['phone'], $variations)
+                    ->orWhereIn(DB::raw($normalizedColumn), $cleanVariations);
+            })
             ->first();
     }
 
