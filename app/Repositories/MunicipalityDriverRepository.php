@@ -12,13 +12,38 @@ class MunicipalityDriverRepository
     public function findBeneficiaryByPhone(string $phone): ?Beneficiary
     {
         if (! $this->readiness->available()) {
-            return null;
+            throw new \RuntimeException('Oracle database connection is not ready or configured. Cannot check beneficiary table directly.');
         }
 
         $columns = config('municipality.oracle.driver_columns');
 
+        // Convert Eastern Arabic numerals to Western Arabic numerals
+        $arabicDigits = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+        $westernDigits = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+        $normalized = str_replace($arabicDigits, $westernDigits, $phone);
+
+        // Strip everything except digits and plus sign
+        $clean = preg_replace('/[^0-9+]/', '', $normalized);
+
+        // Try to identify Palestinian mobile pattern (Jawwal 59xxxxxxx or Ooredoo 56xxxxxxx)
+        $national = null;
+        if (preg_match('/^(?:\+?970|00970|0)?(5[69]\d{7})$/', $clean, $matches)) {
+            $national = $matches[1];
+        }
+
+        $variations = [$phone, $normalized, $clean];
+        if ($national) {
+            $variations[] = '0' . $national;
+            $variations[] = $national;
+            $variations[] = '970' . $national;
+            $variations[] = '+970' . $national;
+            $variations[] = '00970' . $national;
+        }
+
+        $variations = array_values(array_unique(array_filter($variations)));
+
         return Beneficiary::query()
-            ->where($columns['phone'], $phone)
+            ->whereIn($columns['phone'], $variations)
             ->first();
     }
 
@@ -41,7 +66,7 @@ class MunicipalityDriverRepository
     public function search(?string $term = null, int $limit = 25): Collection
     {
         if (! $this->readiness->available()) {
-            return collect();
+            throw new \RuntimeException('Oracle database connection is not ready or configured. Cannot search beneficiaries directly.');
         }
 
         $table = config('municipality.oracle.drivers_table');
@@ -81,8 +106,12 @@ class MunicipalityDriverRepository
             ->unique()
             ->values();
 
-        if ($ids->isEmpty() || ! $this->readiness->available()) {
+        if ($ids->isEmpty()) {
             return collect();
+        }
+
+        if (! $this->readiness->available()) {
+            throw new \RuntimeException('Oracle database connection is not ready or configured. Cannot check beneficiaries directly.');
         }
 
         $columns = config('municipality.oracle.driver_columns');
