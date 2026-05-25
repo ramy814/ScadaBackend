@@ -61,6 +61,11 @@ class HandleInertiaRequests extends Middleware
                 'allowlist'    => route('admin.allowlist'),
                 'logs'         => $logsUrl,
             ],
+            'system' => [
+                'last_update' => fn () => file_exists(base_path('.git/FETCH_HEAD')) 
+                    ? \Carbon\Carbon::createFromTimestamp(filemtime(base_path('.git/FETCH_HEAD')))->locale('ar')->diffForHumans()
+                    : (file_exists(base_path('.git/HEAD')) ? \Carbon\Carbon::createFromTimestamp(filemtime(base_path('.git/HEAD')))->locale('ar')->diffForHumans() : 'غير متوفر'),
+            ],
         ]);
     }
 }

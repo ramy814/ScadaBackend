@@ -4,7 +4,13 @@
     <nav class="top-navbar">
       <div class="nav-brand">
         <div class="title">لوحة تحكم المدير</div>
-        <div class="sub">متابعة المركبات والسائقين وحالة مزامنة الرحلات</div>
+        <div class="sub">
+          متابعة المركبات والسائقين وحالة مزامنة الرحلات
+          <span v-if="$page.props.system?.last_update" class="update-indicator" title="تاريخ سحب أحدث كود على السيرفر (Production Deploy)">
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.59-9.21L21.5 8"/></svg>
+            آخر تحديث للسيرفر: {{ $page.props.system.last_update }}
+          </span>
+        </div>
         <div class="nav-links">
           <Link :href="$page.props.urls.dashboard" :class="{ active: isActive('Admin/Dashboard') }">الداشبورد</Link>
           <Link :href="$page.props.urls.locations" :class="{ active: isActive('Admin/Locations') }">المواقع</Link>
@@ -121,7 +127,20 @@ html, body {
   box-shadow: var(--shadow-sm);
 }
 .nav-brand .title { font-size: 22px; font-weight: 800; color: var(--text-primary); letter-spacing: -0.5px; }
-.nav-brand .sub { font-size: 13px; color: var(--text-secondary); margin-top: 4px; font-weight: 500; }
+.nav-brand .sub { display: flex; align-items: center; font-size: 13px; color: var(--text-secondary); margin-top: 4px; font-weight: 500; }
+.update-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--ok-bg);
+  color: var(--ok);
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  margin-right: 12px;
+  border: 1px solid rgba(16,185,129,0.2);
+}
 .nav-links { display: flex; gap: 8px; margin-top: 12px; }
 .nav-links a {
   text-decoration: none;
