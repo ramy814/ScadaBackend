@@ -12,18 +12,18 @@ class MunicipalityVehicleRepository
     private const DRIVERS_TABLE = 'BENEFICIARIES';
 
     private const VEHICLE_COLUMNS = [
-        'id' => 'ID',
-        'plate' => 'PLATE_NO',
-        'name' => 'VEHICLE_NAME',
+        'id' => 'OID',
+        'plate' => 'PLATE_NUM',
+        'name' => 'VEHICLE_NUM',
         'type' => 'VEHICLE_TYPE',
         'beneficiary_id' => 'BENEFICIARY_OID',
     ];
 
     private const DRIVER_COLUMNS = [
-        'id' => 'ID',
-        'phone' => 'MOBILE',
+        'id' => 'OID',
+        'phone' => 'MOBILE_NUM',
         'name' => 'NAME',
-        'employee_number' => 'EMP_NO',
+        'employee_number' => 'EMPLOYEE_NUM',
     ];
 
     public function __construct(private readonly OracleReadiness $readiness) {}

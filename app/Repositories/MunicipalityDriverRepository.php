@@ -12,10 +12,10 @@ class MunicipalityDriverRepository
     private const DRIVERS_TABLE = 'BENEFICIARIES';
 
     private const DRIVER_COLUMNS = [
-        'id' => 'ID',
-        'phone' => 'MOBILE',
+        'id' => 'OID',
+        'phone' => 'MOBILE_NUM',
         'name' => 'NAME',
-        'employee_number' => 'EMP_NO',
+        'employee_number' => 'EMPLOYEE_NUM',
     ];
 
     public function __construct(private readonly OracleReadiness $readiness) {}

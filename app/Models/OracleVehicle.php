@@ -11,7 +11,7 @@ class OracleVehicle extends Model
 {
     private const TABLE = 'VEHICLE';
 
-    private const ID_COLUMN = 'ID';
+    private const ID_COLUMN = 'OID';
 
     protected $connection = 'oracle';
 

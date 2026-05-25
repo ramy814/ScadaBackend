@@ -14,13 +14,13 @@ class Beneficiary extends Authenticatable
 
     private const TABLE = 'BENEFICIARIES';
 
-    private const ID_COLUMN = 'ID';
+    private const ID_COLUMN = 'OID';
 
-    private const PHONE_COLUMN = 'MOBILE';
+    private const PHONE_COLUMN = 'MOBILE_NUM';
 
     private const NAME_COLUMN = 'NAME';
 
-    private const EMPLOYEE_NUMBER_COLUMN = 'EMP_NO';
+    private const EMPLOYEE_NUMBER_COLUMN = 'EMPLOYEE_NUM';
 
     protected $connection = 'oracle';
 
