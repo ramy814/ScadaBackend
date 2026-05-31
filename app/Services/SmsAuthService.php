@@ -4,8 +4,10 @@ namespace App\Services;
 
 use App\Models\SmsLoginCode;
 use App\Repositories\MunicipalityDriverRepository;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 
 class SmsAuthService
 {
@@ -28,11 +30,38 @@ class SmsAuthService
 
         $code = (string) random_int(100000, 999999);
 
-        SmsLoginCode::create([
-            'phone' => $phone,
-            'code_hash' => Hash::make($code),
-            'expires_at' => now()->addMinutes(10),
-        ]);
+        try {
+            SmsLoginCode::create([
+                'phone' => $phone,
+                'code_hash' => Hash::make($code),
+                'expires_at' => now()->addMinutes(10),
+            ]);
+        } catch (\Throwable $exception) {
+            Log::error('Failed to create driver SMS login code.', [
+                'phone_suffix' => substr(preg_replace('/\D+/', '', $phone) ?? '', -4),
+                'exception' => $exception::class,
+                'message' => $exception->getMessage(),
+            ]);
+
+            if (request()->header('X-Driver-Debug') === 'lookup') {
+                throw new HttpResponseException(response()->json([
+                    'message' => 'تم العثور على المنتفع ولكن فشل إنشاء رمز التحقق.',
+                    'debug' => [
+                        'code_version' => 'driver-sms-create-debug-2026-05-31',
+                        'exception' => $exception::class,
+                        'error' => $exception->getMessage(),
+                        'sql_state' => $exception instanceof QueryException ? $exception->errorInfo[0] ?? null : null,
+                        'driver' => [
+                            'oracle_id' => (string) $beneficiary->getAuthIdentifier(),
+                            'phone' => $beneficiary->phoneNumber(),
+                            'name_present' => filled($beneficiary->displayName()),
+                        ],
+                    ],
+                ], 500));
+            }
+
+            throw $exception;
+        }
 
         // TODO: Integrate the municipality SMS provider. In local development,
         // inspect the latest sms_login_codes row and use a test override.
