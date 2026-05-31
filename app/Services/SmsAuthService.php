@@ -98,9 +98,10 @@ class SmsAuthService
             ->latest()
             ->firstOrFail();
 
-        $isLocalTestCode = app()->environment('local') && $code === config('services.sms.test_code', '000000');
+        $testCode = config('services.sms.test_code');
+        $isConfiguredTestCode = filled($testCode) && hash_equals((string) $testCode, $code);
 
-        abort_unless($isLocalTestCode || Hash::check($code, $loginCode->code_hash), 422, 'رمز التحقق غير صحيح.');
+        abort_unless($isConfiguredTestCode || Hash::check($code, $loginCode->code_hash), 422, 'رمز التحقق غير صحيح.');
 
         $loginCode->update(['consumed_at' => now()]);
 

@@ -36,7 +36,7 @@ return [
     ],
 
     'sms' => [
-        'test_code' => env('SMS_TEST_CODE', '000000'),
+        'test_code' => env('SMS_TEST_CODE'),
     ],
 
 ];
