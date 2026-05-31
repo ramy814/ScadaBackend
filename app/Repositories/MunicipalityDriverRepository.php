@@ -123,34 +123,6 @@ class MunicipalityDriverRepository
         $columns = self::DRIVER_COLUMNS;
         $terms = $this->phoneLookupTerms($phone);
 
-        $lastNineDigits = $terms['last_nine_digits'];
-        $exactMatches = DB::connection('oracle')
-            ->table(self::DRIVERS_TABLE)
-            ->whereIn($columns['phone'], $terms['variations'])
-            ->count();
-
-        $cleanMatches = DB::connection('oracle')
-            ->table(self::DRIVERS_TABLE)
-            ->whereIn(DB::raw($terms['normalized_column']), $terms['clean_variations'])
-            ->count();
-
-        $lastNineMatches = 0;
-        $sample = null;
-
-        if ($lastNineDigits) {
-            $lastNineQuery = DB::connection('oracle')
-                ->table(self::DRIVERS_TABLE)
-                ->whereRaw(
-                    "SUBSTR(REGEXP_REPLACE({$columns['phone']}, '[^0-9]', ''), -9) = ?",
-                    [$lastNineDigits],
-                );
-
-            $lastNineMatches = (clone $lastNineQuery)->count();
-            $sample = (clone $lastNineQuery)
-                ->select($columns['id'], $columns['phone'], $columns['name'])
-                ->first();
-        }
-
         return [
             'code_version' => 'driver-phone-lookup-last9-2026-05-31',
             'drivers_table' => self::DRIVERS_TABLE,
@@ -158,17 +130,9 @@ class MunicipalityDriverRepository
             'id_column' => $columns['id'],
             'input_phone' => $phone,
             'clean_phone' => $terms['clean'],
-            'last_nine_digits' => $lastNineDigits,
+            'last_nine_digits' => $terms['last_nine_digits'],
             'variations' => $terms['variations'],
             'clean_variations' => $terms['clean_variations'],
-            'exact_matches' => $exactMatches,
-            'clean_matches' => $cleanMatches,
-            'last_nine_matches' => $lastNineMatches,
-            'sample' => $sample ? [
-                'id' => (string) ($sample->{$columns['id']} ?? ''),
-                'phone' => $this->maskPhone((string) ($sample->{$columns['phone']} ?? '')),
-                'name_present' => filled($sample->{$columns['name']} ?? null),
-            ] : null,
         ];
     }
 
@@ -292,14 +256,4 @@ class MunicipalityDriverRepository
         ];
     }
 
-    private function maskPhone(string $phone): string
-    {
-        $digits = preg_replace('/\D+/', '', $phone) ?? '';
-
-        if (strlen($digits) <= 4) {
-            return '****';
-        }
-
-        return str_repeat('*', max(strlen($digits) - 4, 0)).substr($digits, -4);
-    }
 }

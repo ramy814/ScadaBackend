@@ -15,7 +15,29 @@ class SmsAuthService
 
     public function sendCode(string $phone): void
     {
-        $beneficiary = $this->drivers->findBeneficiaryByPhone($phone);
+        try {
+            $beneficiary = $this->drivers->findBeneficiaryByPhone($phone);
+        } catch (\Throwable $exception) {
+            Log::error('Failed to lookup driver beneficiary phone.', [
+                'phone_suffix' => substr(preg_replace('/\D+/', '', $phone) ?? '', -4),
+                'exception' => $exception::class,
+                'message' => $exception->getMessage(),
+            ]);
+
+            if (request()->header('X-Driver-Debug') === 'lookup') {
+                throw new HttpResponseException(response()->json([
+                    'message' => 'فشل فحص رقم الجوال في قاعدة المنتفعين.',
+                    'debug' => [
+                        'code_version' => 'driver-phone-lookup-exception-debug-2026-05-31',
+                        'exception' => $exception::class,
+                        'error' => $exception->getMessage(),
+                        'sql_state' => $exception instanceof QueryException ? $exception->errorInfo[0] ?? null : null,
+                    ],
+                ], 500));
+            }
+
+            throw $exception;
+        }
 
         if (! $beneficiary) {
             if (request()->header('X-Driver-Debug') === 'lookup') {
