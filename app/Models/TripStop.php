@@ -2,13 +2,13 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['trip_id', 'started_at', 'ended_at', 'reason', 'notes'])]
 class TripStop extends Model
 {
+    protected $fillable = ['trip_id', 'started_at', 'ended_at', 'reason', 'notes'];
+
     protected function casts(): array
     {
         return [
@@ -22,4 +22,3 @@ class TripStop extends Model
         return $this->belongsTo(Trip::class);
     }
 }
-

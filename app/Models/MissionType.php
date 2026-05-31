@@ -2,12 +2,12 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 
-#[Fillable(['name', 'sort_order', 'active'])]
 class MissionType extends Model
 {
+    protected $fillable = ['name', 'sort_order', 'active'];
+
     protected function casts(): array
     {
         return [
@@ -16,4 +16,3 @@ class MissionType extends Model
         ];
     }
 }
-

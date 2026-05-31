@@ -2,24 +2,24 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable([
-    'trip_id',
-    'sequence_number',
-    'latitude',
-    'longitude',
-    'accuracy',
-    'speed',
-    'heading',
-    'battery_level',
-    'provider',
-    'captured_at',
-])]
 class TripPoint extends Model
 {
+    protected $fillable = [
+        'trip_id',
+        'sequence_number',
+        'latitude',
+        'longitude',
+        'accuracy',
+        'speed',
+        'heading',
+        'battery_level',
+        'provider',
+        'captured_at',
+    ];
+
     public $timestamps = false;
 
     protected function casts(): array
@@ -40,4 +40,3 @@ class TripPoint extends Model
         return $this->belongsTo(Trip::class);
     }
 }
-
