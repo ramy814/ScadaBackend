@@ -69,10 +69,21 @@ class MunicipalityDriverRepository
             $columns['phone'],
         );
 
+        $lastNineDigits = strlen(preg_replace('/\D+/', '', $clean) ?? '') >= 9
+            ? substr(preg_replace('/\D+/', '', $clean), -9)
+            : null;
+
         $beneficiary = Beneficiary::query()
-            ->where(function ($query) use ($columns, $variations, $cleanVariations, $normalizedColumn): void {
+            ->where(function ($query) use ($columns, $variations, $cleanVariations, $lastNineDigits, $normalizedColumn): void {
                 $query->whereIn($columns['phone'], $variations)
                     ->orWhereIn(DB::raw($normalizedColumn), $cleanVariations);
+
+                if ($lastNineDigits) {
+                    $query->orWhereRaw(
+                        "SUBSTR(REGEXP_REPLACE({$columns['phone']}, '[^0-9]', ''), -9) = ?",
+                        [$lastNineDigits],
+                    );
+                }
             })
             ->first();
 
@@ -82,6 +93,7 @@ class MunicipalityDriverRepository
                 'phone_column' => $columns['phone'],
                 'id_column' => $columns['id'] ?? null,
                 'clean_phone' => $clean,
+                'last_nine_digits' => $lastNineDigits,
                 'variations' => $variations,
                 'clean_variations' => $cleanVariations,
             ]);
