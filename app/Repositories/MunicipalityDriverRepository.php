@@ -118,6 +118,60 @@ class MunicipalityDriverRepository
         ];
     }
 
+    public function debugPhoneLookup(string $phone): array
+    {
+        $columns = self::DRIVER_COLUMNS;
+        $terms = $this->phoneLookupTerms($phone);
+
+        $lastNineDigits = $terms['last_nine_digits'];
+        $exactMatches = DB::connection('oracle')
+            ->table(self::DRIVERS_TABLE)
+            ->whereIn($columns['phone'], $terms['variations'])
+            ->count();
+
+        $cleanMatches = DB::connection('oracle')
+            ->table(self::DRIVERS_TABLE)
+            ->whereIn(DB::raw($terms['normalized_column']), $terms['clean_variations'])
+            ->count();
+
+        $lastNineMatches = 0;
+        $sample = null;
+
+        if ($lastNineDigits) {
+            $lastNineQuery = DB::connection('oracle')
+                ->table(self::DRIVERS_TABLE)
+                ->whereRaw(
+                    "SUBSTR(REGEXP_REPLACE({$columns['phone']}, '[^0-9]', ''), -9) = ?",
+                    [$lastNineDigits],
+                );
+
+            $lastNineMatches = (clone $lastNineQuery)->count();
+            $sample = (clone $lastNineQuery)
+                ->select($columns['id'], $columns['phone'], $columns['name'])
+                ->first();
+        }
+
+        return [
+            'code_version' => 'driver-phone-lookup-last9-2026-05-31',
+            'drivers_table' => self::DRIVERS_TABLE,
+            'phone_column' => $columns['phone'],
+            'id_column' => $columns['id'],
+            'input_phone' => $phone,
+            'clean_phone' => $terms['clean'],
+            'last_nine_digits' => $lastNineDigits,
+            'variations' => $terms['variations'],
+            'clean_variations' => $terms['clean_variations'],
+            'exact_matches' => $exactMatches,
+            'clean_matches' => $cleanMatches,
+            'last_nine_matches' => $lastNineMatches,
+            'sample' => $sample ? [
+                'id' => (string) ($sample->{$columns['id']} ?? ''),
+                'phone' => $this->maskPhone((string) ($sample->{$columns['phone']} ?? '')),
+                'name_present' => filled($sample->{$columns['name']} ?? null),
+            ] : null,
+        ];
+    }
+
     public function search(?string $term = null, int $limit = 25): Collection
     {
         if (! $this->readiness->available()) {
@@ -186,5 +240,66 @@ class MunicipalityDriverRepository
     public function count(?string $term = null): int
     {
         return $this->search($term, 1000)->count();
+    }
+
+    private function phoneLookupTerms(string $phone): array
+    {
+        $columns = self::DRIVER_COLUMNS;
+
+        $arabicDigits = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+        $westernDigits = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+        $normalized = str_replace($arabicDigits, $westernDigits, $phone);
+        $clean = preg_replace('/[^0-9+]/', '', $normalized);
+
+        $national = null;
+        if (preg_match('/^(?:\+?970|00970|0)?(5[69]\d{7})$/', $clean, $matches)) {
+            $national = $matches[1];
+        }
+
+        $variations = [$phone, $normalized, $clean];
+        if ($national) {
+            $variations[] = '0' . $national;
+            $variations[] = $national;
+            $variations[] = '970' . $national;
+            $variations[] = '9700' . $national;
+            $variations[] = '+970' . $national;
+            $variations[] = '+9700' . $national;
+            $variations[] = '00970' . $national;
+            $variations[] = '009700' . $national;
+        }
+
+        $variations = array_values(array_unique(array_filter($variations)));
+        $cleanVariations = array_values(array_unique(array_filter(array_map(
+            fn (string $value): string => preg_replace(
+                '/[^0-9+]/',
+                '',
+                str_replace($arabicDigits, $westernDigits, $value),
+            ),
+            $variations,
+        ))));
+
+        $digitsOnly = preg_replace('/\D+/', '', $clean) ?? '';
+
+        return [
+            'clean' => $clean,
+            'variations' => $variations,
+            'clean_variations' => $cleanVariations,
+            'last_nine_digits' => strlen($digitsOnly) >= 9 ? substr($digitsOnly, -9) : null,
+            'normalized_column' => sprintf(
+                "REGEXP_REPLACE(TRANSLATE(%s, '٠١٢٣٤٥٦٧٨٩', '0123456789'), '[^0-9+]', '')",
+                $columns['phone'],
+            ),
+        ];
+    }
+
+    private function maskPhone(string $phone): string
+    {
+        $digits = preg_replace('/\D+/', '', $phone) ?? '';
+
+        if (strlen($digits) <= 4) {
+            return '****';
+        }
+
+        return str_repeat('*', max(strlen($digits) - 4, 0)).substr($digits, -4);
     }
 }

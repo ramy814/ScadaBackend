@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\SmsLoginCode;
 use App\Repositories\MunicipalityDriverRepository;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Support\Facades\Hash;
 
 class SmsAuthService
@@ -12,11 +13,18 @@ class SmsAuthService
 
     public function sendCode(string $phone): void
     {
-        abort_unless(
-            $this->drivers->findBeneficiaryByPhone($phone),
-            403,
-            'رقم الجوال غير مسجل ضمن المنتفعين.',
-        );
+        $beneficiary = $this->drivers->findBeneficiaryByPhone($phone);
+
+        if (! $beneficiary) {
+            if (request()->header('X-Driver-Debug') === 'lookup') {
+                throw new HttpResponseException(response()->json([
+                    'message' => 'رقم الجوال غير مسجل ضمن المنتفعين.',
+                    'debug' => $this->drivers->debugPhoneLookup($phone),
+                ], 403));
+            }
+
+            abort(403, 'رقم الجوال غير مسجل ضمن المنتفعين.');
+        }
 
         $code = (string) random_int(100000, 999999);
 
