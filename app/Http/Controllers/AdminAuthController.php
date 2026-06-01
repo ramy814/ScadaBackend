@@ -420,7 +420,10 @@ class AdminAuthController extends Controller
                 $fromShow ? 'admin.trips.show' : 'admin.dashboard',
                 $fromShow
                     ? ['trip' => $trip->id]
-                    : ['period' => $request->query('period', 'daily')]
+                    : [
+                        'period' => $request->input('period', $request->query('period', 'daily')),
+                        'response_status' => $request->input('response_status', $request->query('response_status', 'all')),
+                    ]
             )
             ->with('ok', $message);
     }
@@ -429,9 +432,9 @@ class AdminAuthController extends Controller
     {
         $now = now();
         return match ($period) {
-            'weekly'  => [$now->copy()->startOfWeek(), $now->copy()->endOfWeek()],
-            'monthly' => [$now->copy()->startOfMonth(), $now->copy()->endOfMonth()],
-            default   => [$now->copy()->startOfDay(), $now->copy()->endOfDay()],
+            'weekly'  => [$now->copy()->subWeek(), $now],
+            'monthly' => [$now->copy()->subMonth(), $now],
+            default   => [$now->copy()->subDay(), $now],
         };
     }
 

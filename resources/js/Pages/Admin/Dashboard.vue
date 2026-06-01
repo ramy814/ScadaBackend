@@ -244,19 +244,25 @@ function reviewLabel(s) {
 }
 
 function submitReview(action, tripId) {
-  router.post(`${page.props.urls.trips_base}/${tripId}/${action}`, { period: props.period });
+  router.post(`${page.props.urls.trips_base}/${tripId}/${action}`, {
+    period: props.period,
+    response_status: props.responseStatus,
+  });
 }
 
 function confirmReject(tripId) {
   if (!confirm('رفض هذه الرحلة؟')) return;
-  router.post(`${page.props.urls.trips_base}/${tripId}/reject`, { period: props.period });
+  router.post(`${page.props.urls.trips_base}/${tripId}/reject`, {
+    period: props.period,
+    response_status: props.responseStatus,
+  });
 }
 
 function submitClarify(tripId, note) {
   if (!note) return;
   router.post(
     `${page.props.urls.trips_base}/${tripId}/clarify`,
-    { note, period: props.period },
+    { note, period: props.period, response_status: props.responseStatus },
     { onSuccess: () => { clarifyNotes.value[tripId] = ''; } }
   );
 }
