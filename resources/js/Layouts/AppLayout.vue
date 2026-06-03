@@ -16,7 +16,7 @@
           <Link :href="$page.props.urls.locations" :class="{ active: isActive('Admin/Locations') }">المواقع</Link>
           <Link :href="$page.props.urls.missionTypes" :class="{ active: isActive('Admin/MissionTypes') }">أنواع المهام</Link>
           <Link :href="$page.props.urls.reports" :class="{ active: isActive('Admin/Reports') }">التقارير</Link>
-          <Link :href="$page.props.urls.allowlist" :class="{ active: isActive('Admin/Allowlist') }" class="nav-link-security">🔒 الصلاحيات</Link>
+          <Link v-if="$page.props.urls.allowlist" :href="$page.props.urls.allowlist" :class="{ active: isActive('Admin/Allowlist') }" class="nav-link-security">🔒 الصلاحيات</Link>
         </div>
       </div>
 

@@ -39,8 +39,10 @@ Route::middleware(['auth:admin', 'admin.allowlisted'])->group(function () {
     Route::get('/admin/reports/pdf', [AdminAuthController::class, 'reportsPdf'])->name('admin.reports.pdf');
 
     // ─── Allowlist management (who can access this dashboard) ────────────────
-    Route::get('/admin/allowlist', [AdminAllowlistController::class, 'index'])->name('admin.allowlist');
-    Route::post('/admin/allowlist', [AdminAllowlistController::class, 'store'])->name('admin.allowlist.store');
-    Route::delete('/admin/allowlist/{id}', [AdminAllowlistController::class, 'destroy'])->name('admin.allowlist.destroy');
+    if (config('app.env') === 'local') {
+        Route::get('/admin/allowlist', [AdminAllowlistController::class, 'index'])->name('admin.allowlist');
+        Route::post('/admin/allowlist', [AdminAllowlistController::class, 'store'])->name('admin.allowlist.store');
+        Route::delete('/admin/allowlist/{id}', [AdminAllowlistController::class, 'destroy'])->name('admin.allowlist.destroy');
+    }
 });
 

@@ -58,7 +58,7 @@ class HandleInertiaRequests extends Middleware
                 'reportsPdf'   => route('admin.reports.pdf'),
                 'logout'       => route('logout'),
                 'trips_base'   => url('/admin/trips'),
-                'allowlist'    => route('admin.allowlist'),
+                'allowlist'    => \Illuminate\Support\Facades\Route::has('admin.allowlist') ? route('admin.allowlist') : null,
                 'logs'         => $logsUrl,
             ],
             'system' => [
