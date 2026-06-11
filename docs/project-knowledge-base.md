@@ -144,7 +144,7 @@ used_at
 > يتم الوصول إليها عبر Repositories فقط
 > أسماء الجداول والأعمدة معرفة داخل Models/Repositories الخاصة بـ Oracle
 
-#### `VEHICLE`
+#### `g_store.VEHICLE`
 ```
 OID (id)             — معرف المركبة
 PLATE_NUM (plate)    — رقم اللوحة
@@ -153,7 +153,7 @@ vehicle_type         — نوع المركبة
 BENEFICIARY_OID      — معرف السائق المرتبط بالمركبة
 ```
 
-#### `BENEFICIARIES`
+#### `g_store.BENEFICIARIES`
 ```
 OID (id)             — معرف السائق
 MOBILE_NUM (phone)   — رقم الجوال

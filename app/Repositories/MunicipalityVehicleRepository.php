@@ -7,9 +7,9 @@ use Illuminate\Support\Facades\DB;
 
 class MunicipalityVehicleRepository
 {
-    private const VEHICLES_TABLE = 'VEHICLE';
+    private const VEHICLES_TABLE = 'g_store.VEHICLE';
 
-    private const DRIVERS_TABLE = 'BENEFICIARIES';
+    private const DRIVERS_TABLE = 'g_store.BENEFICIARIES';
 
     private const VEHICLE_COLUMNS = [
         'id' => 'OID',

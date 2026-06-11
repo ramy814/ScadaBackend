@@ -12,7 +12,7 @@ class Beneficiary extends Authenticatable
 {
     use HasApiTokens;
 
-    private const TABLE = 'BENEFICIARIES';
+    private const TABLE = 'g_store.BENEFICIARIES';
 
     private const ID_COLUMN = 'OID';
 

@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Log;
 
 class MunicipalityDriverRepository
 {
-    private const DRIVERS_TABLE = 'BENEFICIARIES';
+    private const DRIVERS_TABLE = 'g_store.BENEFICIARIES';
 
     private const DRIVER_COLUMNS = [
         'id' => 'OID',

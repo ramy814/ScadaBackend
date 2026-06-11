@@ -78,7 +78,7 @@ return [
 
         // 'beneficiaries' => [
         //     'driver' => 'database',
-        //     'table' => 'BENEFICIARIES',
+        //     'table' => 'g_store.BENEFICIARIES',
         // ],
     ],
 
