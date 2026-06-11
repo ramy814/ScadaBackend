@@ -3,6 +3,7 @@
 namespace App\Repositories;
 
 use App\Models\Beneficiary;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -139,36 +140,42 @@ class MunicipalityDriverRepository
     public function search(?string $term = null, int $limit = 25): Collection
     {
         if (! $this->readiness->available()) {
-            throw new \RuntimeException('Oracle database connection is not ready or configured. Cannot search beneficiaries directly.');
+            return collect();
         }
 
         $table = self::DRIVERS_TABLE;
         $columns = self::DRIVER_COLUMNS;
 
-        return Beneficiary::query()
-            ->from($table)
-            ->selectRaw(sprintf(
-                '%s as oracle_id, %s as phone, %s as name, %s as employee_number',
-                $columns['id'],
-                $columns['phone'],
-                $columns['name'],
-                $columns['employee_number'],
-            ))
-            ->when($term, function ($query) use ($term, $columns): void {
-                $query->where(function ($nested) use ($term, $columns): void {
-                    $nested->where($columns['name'], 'like', "%{$term}%")
-                        ->orWhere($columns['phone'], 'like', "%{$term}%")
-                        ->orWhere($columns['employee_number'], 'like', "%{$term}%");
-                });
-            })
-            ->limit($limit)
-            ->get()
-            ->map(fn (Beneficiary $beneficiary): array => [
-                'oracle_id' => (string) $beneficiary->getAuthIdentifier(),
-                'phone' => $beneficiary->phoneNumber(),
-                'name' => $beneficiary->displayName(),
-                'employee_number' => $beneficiary->employeeNumber(),
-            ]);
+        try {
+            return Beneficiary::query()
+                ->from($table)
+                ->selectRaw(sprintf(
+                    '%s as oracle_id, %s as phone, %s as name, %s as employee_number',
+                    $columns['id'],
+                    $columns['phone'],
+                    $columns['name'],
+                    $columns['employee_number'],
+                ))
+                ->when($term, function ($query) use ($term, $columns): void {
+                    $query->where(function ($nested) use ($term, $columns): void {
+                        $nested->where($columns['name'], 'like', "%{$term}%")
+                            ->orWhere($columns['phone'], 'like', "%{$term}%")
+                            ->orWhere($columns['employee_number'], 'like', "%{$term}%");
+                    });
+                })
+                ->limit($limit)
+                ->get()
+                ->map(fn (Beneficiary $beneficiary): array => [
+                    'oracle_id' => (string) $beneficiary->getAuthIdentifier(),
+                    'phone' => $beneficiary->phoneNumber(),
+                    'name' => $beneficiary->displayName(),
+                    'employee_number' => $beneficiary->employeeNumber(),
+                ]);
+        } catch (QueryException $e) {
+            $this->logOracleReadFailure('search', $e);
+
+            return collect();
+        }
     }
 
     public function findManyByIds(array $ids): Collection
@@ -184,26 +191,42 @@ class MunicipalityDriverRepository
         }
 
         if (! $this->readiness->available()) {
-            throw new \RuntimeException('Oracle database connection is not ready or configured. Cannot check beneficiaries directly.');
+            return collect();
         }
 
         $columns = self::DRIVER_COLUMNS;
 
-        return Beneficiary::query()
-            ->whereIn($columns['id'], $ids->all())
-            ->get()
-            ->map(fn (Beneficiary $beneficiary): array => [
-                'oracle_id' => (string) $beneficiary->getAuthIdentifier(),
-                'phone' => $beneficiary->phoneNumber(),
-                'name' => $beneficiary->displayName(),
-                'employee_number' => $beneficiary->employeeNumber(),
-            ])
-            ->keyBy('oracle_id');
+        try {
+            return Beneficiary::query()
+                ->whereIn($columns['id'], $ids->all())
+                ->get()
+                ->map(fn (Beneficiary $beneficiary): array => [
+                    'oracle_id' => (string) $beneficiary->getAuthIdentifier(),
+                    'phone' => $beneficiary->phoneNumber(),
+                    'name' => $beneficiary->displayName(),
+                    'employee_number' => $beneficiary->employeeNumber(),
+                ])
+                ->keyBy('oracle_id');
+        } catch (QueryException $e) {
+            $this->logOracleReadFailure('find_many_by_ids', $e);
+
+            return collect();
+        }
     }
 
     public function count(?string $term = null): int
     {
         return $this->search($term, 1000)->count();
+    }
+
+    private function logOracleReadFailure(string $operation, QueryException $e): void
+    {
+        Log::warning('Municipality driver Oracle read failed.', [
+            'operation' => $operation,
+            'drivers_table' => self::DRIVERS_TABLE,
+            'error_code' => $e->getCode(),
+            'error' => $e->getMessage(),
+        ]);
     }
 
     private function phoneLookupTerms(string $phone): array

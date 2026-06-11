@@ -2,8 +2,10 @@
 
 namespace App\Repositories;
 
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class MunicipalityVehicleRepository
 {
@@ -37,19 +39,25 @@ class MunicipalityVehicleRepository
         $table = self::VEHICLES_TABLE;
         $columns = self::VEHICLE_COLUMNS;
 
-        return DB::connection('oracle')
-            ->table($table)
-            ->selectRaw(sprintf(
-                '%s as oracle_id, %s as plate_number, %s as name, %s as vehicle_type',
-                $columns['id'],
-                $columns['plate'],
-                $columns['name'],
-                $columns['type'],
-            ))
-            ->when($term, fn ($query) => $query->where($columns['plate'], 'like', "%{$term}%"))
-            ->limit($limit)
-            ->get()
-            ->map(fn ($row): array => (array) $row);
+        try {
+            return DB::connection('oracle')
+                ->table($table)
+                ->selectRaw(sprintf(
+                    '%s as oracle_id, %s as plate_number, %s as name, %s as vehicle_type',
+                    $columns['id'],
+                    $columns['plate'],
+                    $columns['name'],
+                    $columns['type'],
+                ))
+                ->when($term, fn ($query) => $query->where($columns['plate'], 'like', "%{$term}%"))
+                ->limit($limit)
+                ->get()
+                ->map(fn ($row): array => (array) $row);
+        } catch (QueryException $e) {
+            $this->logOracleReadFailure('search', $e);
+
+            return collect();
+        }
     }
 
     public function findByPlate(string $plate): ?array
@@ -61,17 +69,23 @@ class MunicipalityVehicleRepository
         $table = self::VEHICLES_TABLE;
         $columns = self::VEHICLE_COLUMNS;
 
-        $row = DB::connection('oracle')
-            ->table($table)
-            ->selectRaw(sprintf(
-                '%s as oracle_id, %s as plate_number, %s as name, %s as vehicle_type',
-                $columns['id'],
-                $columns['plate'],
-                $columns['name'],
-                $columns['type'],
-            ))
-            ->where($columns['plate'], $plate)
-            ->first();
+        try {
+            $row = DB::connection('oracle')
+                ->table($table)
+                ->selectRaw(sprintf(
+                    '%s as oracle_id, %s as plate_number, %s as name, %s as vehicle_type',
+                    $columns['id'],
+                    $columns['plate'],
+                    $columns['name'],
+                    $columns['type'],
+                ))
+                ->where($columns['plate'], $plate)
+                ->first();
+        } catch (QueryException $e) {
+            $this->logOracleReadFailure('find_by_plate', $e);
+
+            return null;
+        }
 
         return $row ? (array) $row : null;
     }
@@ -110,7 +124,6 @@ class MunicipalityVehicleRepository
         $vehicleNameColumn = $vehicleColumns['name'] ?? 'VEHICLE_NUM';
         $vehicleTypeColumn = $vehicleColumns['type'] ?? null;
         $vehicleBeneficiaryColumn = $vehicleColumns['beneficiary_id'] ?? 'BENEFICIARY_OID';
-        $driverIdColumn = $driverColumns['id'] ?? 'OID';
         $driverPhoneColumn = $driverColumns['phone'] ?? 'MOBILE_NUM';
 
         $digits = preg_replace('/\D+/', '', $mobileNum) ?? '';
@@ -127,32 +140,48 @@ class MunicipalityVehicleRepository
 
         $last9 = strlen($digits) >= 9 ? substr($digits, -9) : null;
 
-        return DB::connection('oracle')
-            ->table($table.' as t')
-            ->join($driversTable.' as b', 't.'.$vehicleBeneficiaryColumn, '=', 'b.'.$driverIdColumn)
-            ->where(function ($query) use ($variants, $last9, $driverPhoneColumn): void {
-                $query->whereIn('b.'.$driverPhoneColumn, $variants->all());
-                if ($last9) {
-                    $query->orWhereRaw(
-                        "SUBSTR(REGEXP_REPLACE(b.$driverPhoneColumn, '[^0-9]', ''), -9) = ?",
-                        [$last9]
-                    );
-                }
-            })
-            ->selectRaw(sprintf(
-                't.%s as oracle_id, t.%s as plate_number, t.%s as name%s',
-                $vehicleIdColumn,
-                $vehiclePlateColumn,
-                $vehicleNameColumn,
-                $vehicleTypeColumn ? ', t.'.$vehicleTypeColumn.' as vehicle_type' : ''
-            ))
-            ->get()
-            ->map(fn ($row): array => [
-                'oracle_id' => $row->oracle_id ?? null,
-                'plate_number' => $row->plate_number,
-                'name' => $row->name ?? null,
-                'vehicle_type' => $row->vehicle_type ?? null,
-            ]);
+        try {
+            return DB::connection('oracle')
+                ->table($table.' as t')
+                ->whereIn('t.'.$vehicleBeneficiaryColumn, function ($query) use (
+                    $driversTable,
+                    $driverColumns,
+                    $driverPhoneColumn,
+                    $variants,
+                    $last9,
+                ): void {
+                    $query
+                        ->select($driverColumns['id'] ?? 'OID')
+                        ->from($driversTable)
+                        ->where(function ($nested) use ($variants, $last9, $driverPhoneColumn): void {
+                            $nested->whereIn($driverPhoneColumn, $variants->all());
+                            if ($last9) {
+                                $nested->orWhereRaw(
+                                    "SUBSTR(REGEXP_REPLACE($driverPhoneColumn, '[^0-9]', ''), -9) = ?",
+                                    [$last9]
+                                );
+                            }
+                        });
+                })
+                ->selectRaw(sprintf(
+                    't.%s as oracle_id, t.%s as plate_number, t.%s as name%s',
+                    $vehicleIdColumn,
+                    $vehiclePlateColumn,
+                    $vehicleNameColumn,
+                    $vehicleTypeColumn ? ', t.'.$vehicleTypeColumn.' as vehicle_type' : ''
+                ))
+                ->get()
+                ->map(fn ($row): array => [
+                    'oracle_id' => $row->oracle_id ?? null,
+                    'plate_number' => $row->plate_number,
+                    'name' => $row->name ?? null,
+                    'vehicle_type' => $row->vehicle_type ?? null,
+                ]);
+        } catch (QueryException $e) {
+            $this->logOracleReadFailure('find_by_driver_mobile', $e);
+
+            return collect();
+        }
     }
 
     public function findByDriverOracleId(int|string $oracleDriverId): Collection
@@ -168,22 +197,39 @@ class MunicipalityVehicleRepository
         $vehicleTypeColumn = $vehicleColumns['type'] ?? null;
         $vehicleBeneficiaryColumn = $vehicleColumns['beneficiary_id'] ?? 'BENEFICIARY_OID';
 
-        return DB::connection('oracle')
-            ->table($table.' as t')
-            ->where('t.'.$vehicleBeneficiaryColumn, $oracleDriverId)
-            ->selectRaw(sprintf(
-                't.%s as oracle_id, t.%s as plate_number, t.%s as name%s',
-                $vehicleIdColumn,
-                $vehiclePlateColumn,
-                $vehicleNameColumn,
-                $vehicleTypeColumn ? ', t.'.$vehicleTypeColumn.' as vehicle_type' : ''
-            ))
-            ->get()
-            ->map(fn ($row): array => [
-                'oracle_id' => $row->oracle_id ?? null,
-                'plate_number' => $row->plate_number,
-                'name' => $row->name ?? null,
-                'vehicle_type' => $row->vehicle_type ?? null,
-            ]);
+        try {
+            return DB::connection('oracle')
+                ->table($table.' as t')
+                ->where('t.'.$vehicleBeneficiaryColumn, $oracleDriverId)
+                ->selectRaw(sprintf(
+                    't.%s as oracle_id, t.%s as plate_number, t.%s as name%s',
+                    $vehicleIdColumn,
+                    $vehiclePlateColumn,
+                    $vehicleNameColumn,
+                    $vehicleTypeColumn ? ', t.'.$vehicleTypeColumn.' as vehicle_type' : ''
+                ))
+                ->get()
+                ->map(fn ($row): array => [
+                    'oracle_id' => $row->oracle_id ?? null,
+                    'plate_number' => $row->plate_number,
+                    'name' => $row->name ?? null,
+                    'vehicle_type' => $row->vehicle_type ?? null,
+                ]);
+        } catch (QueryException $e) {
+            $this->logOracleReadFailure('find_by_driver_oracle_id', $e);
+
+            return collect();
+        }
+    }
+
+    private function logOracleReadFailure(string $operation, QueryException $e): void
+    {
+        Log::warning('Municipality vehicle Oracle read failed.', [
+            'operation' => $operation,
+            'vehicles_table' => self::VEHICLES_TABLE,
+            'drivers_table' => self::DRIVERS_TABLE,
+            'error_code' => $e->getCode(),
+            'error' => $e->getMessage(),
+        ]);
     }
 }

@@ -7,6 +7,7 @@ use App\Models\Beneficiary;
 use App\Repositories\MunicipalityVehicleRepository;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 
 class VehicleLookupController extends Controller
@@ -17,8 +18,23 @@ class VehicleLookupController extends Controller
             'search' => ['nullable', 'string', 'max:50'],
         ]);
 
+        $user = $request->user();
+        abort_unless($user instanceof Beneficiary, 401, 'غير مصرح.');
+
+        $items = $this->vehiclesForBeneficiary($user, $vehicles);
+        $search = $request->query('search');
+
+        if (is_string($search) && $search !== '') {
+            $items = $items
+                ->filter(fn (array $item): bool => str_contains(
+                    (string) ($item['plate_number'] ?? ''),
+                    $search,
+                ))
+                ->values();
+        }
+
         return response()->json([
-            'vehicles' => $vehicles->search($request->query('search')),
+            'vehicles' => $items,
         ]);
     }
 
@@ -28,10 +44,21 @@ class VehicleLookupController extends Controller
     ): JsonResponse {
         $user = $request->user();
         abort_unless($user instanceof Beneficiary, 401, 'غير مصرح.');
+
+        $items = $this->vehiclesForBeneficiary($user, $vehicles);
+
+        return response()->json([
+            'vehicles' => $items,
+        ]);
+    }
+
+    private function vehiclesForBeneficiary(Beneficiary $user, MunicipalityVehicleRepository $vehicles): Collection
+    {
         $phone = $user->phoneNumber();
 
-        $items = collect();
-        $items = $items->merge($vehicles->findByDriverOracleId((string) $user->getAuthIdentifier()));
+        $items = collect()
+            ->merge($vehicles->findByDriverOracleId((string) $user->getAuthIdentifier()));
+
         if ($phone) {
             $items = $items->merge($vehicles->findByDriverMobile($phone));
         }
@@ -49,8 +76,6 @@ class VehicleLookupController extends Controller
             'vehicles_count' => $items->count(),
         ]);
 
-        return response()->json([
-            'vehicles' => $items,
-        ]);
+        return $items;
     }
 }
