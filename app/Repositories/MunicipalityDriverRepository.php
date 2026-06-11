@@ -17,6 +17,7 @@ class MunicipalityDriverRepository
         'phone' => 'MOBILE_NUM',
         'name' => 'FULL_NAME',
         'employee_number' => 'NATIONAL_ID',
+        'active' => 'IS_ACTIVE',
     ];
 
     public function __construct(private readonly OracleReadiness $readiness) {}
@@ -216,7 +217,30 @@ class MunicipalityDriverRepository
 
     public function count(?string $term = null): int
     {
-        return $this->search($term, 1000)->count();
+        if (! $this->readiness->available()) {
+            return 0;
+        }
+
+        $table = self::DRIVERS_TABLE;
+        $columns = self::DRIVER_COLUMNS;
+
+        try {
+            return (int) DB::connection('oracle')
+                ->table($table)
+                ->where($columns['active'], 1)
+                ->when($term, function ($query) use ($term, $columns): void {
+                    $query->where(function ($nested) use ($term, $columns): void {
+                        $nested->where($columns['name'], 'like', "%{$term}%")
+                            ->orWhere($columns['phone'], 'like', "%{$term}%")
+                            ->orWhere($columns['employee_number'], 'like', "%{$term}%");
+                    });
+                })
+                ->count();
+        } catch (QueryException $e) {
+            $this->logOracleReadFailure('count_active', $e);
+
+            return 0;
+        }
     }
 
     private function logOracleReadFailure(string $operation, QueryException $e): void

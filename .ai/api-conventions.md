@@ -49,3 +49,21 @@ When searching for entities (like Vehicles) by the driver's phone number, the AP
 - `599123456` (No leading zero)
 - Fallback: Comparing the last 9 digits.
 This is implemented in `MunicipalityVehicleRepository`.
+
+## Driver Vehicle Lookup
+Driver-facing vehicle endpoints must be scoped to the authenticated beneficiary:
+- `GET /api/driver/vehicles` returns only vehicles assigned to the current authenticated beneficiary.
+- `GET /api/driver/my-vehicles` uses the same scoped logic and is kept for compatibility.
+- Do not expose the general Oracle vehicle search to the driver app.
+- Vehicle assignment is resolved through `g_store.VEHICLE.BENEFICIARY_OID` matching beneficiary `OID` values from `g_store.BENEFICIARIES`.
+- When resolving by mobile number, use the equivalent of:
+```sql
+select v.plate_num
+from g_store.vehicle v
+where v.beneficiary_oid in (
+    select b.oid
+    from g_store.beneficiaries b
+    where b.mobile_num = :mobile_num
+)
+```
+- Keep phone normalization support for local, international, and last-9-digit matching, but the result must remain beneficiary-scoped.

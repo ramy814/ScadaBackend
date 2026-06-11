@@ -19,6 +19,7 @@ class MunicipalityVehicleRepository
         'name' => 'VEHICLE_NUM',
         'type' => 'VEHICLE_TYPE_OID',
         'beneficiary_id' => 'BENEFICIARY_OID',
+        'active' => 'IS_ACTIVE',
     ];
 
     private const DRIVER_COLUMNS = [
@@ -107,7 +108,24 @@ class MunicipalityVehicleRepository
 
     public function count(?string $term = null): int
     {
-        return $this->search($term, 1000)->count();
+        if (! $this->readiness->available()) {
+            return 0;
+        }
+
+        $table = self::VEHICLES_TABLE;
+        $columns = self::VEHICLE_COLUMNS;
+
+        try {
+            return (int) DB::connection('oracle')
+                ->table($table)
+                ->where($columns['active'], 1)
+                ->when($term, fn ($query) => $query->where($columns['plate'], 'like', "%{$term}%"))
+                ->count();
+        } catch (QueryException $e) {
+            $this->logOracleReadFailure('count_active', $e);
+
+            return 0;
+        }
     }
 
     public function findByDriverMobile(string $mobileNum): Collection

@@ -82,6 +82,7 @@ Read through `MunicipalityVehicleRepository`.
 - `PLATE_NUM`: License plate.
 - `VEHICLE_NUM`: Vehicle name/identifier.
 - `BENEFICIARY_OID`: ID of the driver assigned to the vehicle.
+- Driver app vehicle lists must filter by `BENEFICIARY_OID`; never return the unscoped vehicle list to an authenticated driver.
 
 ### `g_store.BENEFICIARIES`
 Read through `MunicipalityDriverRepository` and `Beneficiary`.
@@ -89,3 +90,4 @@ Read through `MunicipalityDriverRepository` and `Beneficiary`.
 - `MOBILE_NUM`: Phone number.
 - `NAME`: Driver name.
 - `EMPLOYEE_NUM`: Employee ID.
+- Vehicle lookup by phone resolves beneficiary `OID` from this table and uses it against `g_store.VEHICLE.BENEFICIARY_OID`.
