@@ -32,3 +32,15 @@ resources/
 2. **Dynamic URLs**: Because `ziggy-js` is removed, components must read URLs passed from the server in `props.urls`.
 3. **Map Rendering**: We use `leaflet` for rendering maps in `Dashboard.vue` and `TripShow.vue`. Leaflet is initialized in `onMounted`.
 4. **Export Buttons**: CSV and PDF generation is handled by standard `<button>` clicks that trigger a programmatic file download, rather than `<a>` tags, because Inertia intercepts `<a>` tags.
+
+## Trip Map Display Contract
+
+- `TripShow.vue` displays the original GPS trace from `trip_points`, ordered by `sequence_number`.
+- The trip map does not provide an original/corrected toggle and does not request a server-side or third-party road-matched route.
+- No Docker, OSRM service, Windows service, map-matching environment variables, or external routing API is required for production deployment.
+- Start is a green marker and end is a red marker, both with permanent Arabic labels.
+- The original route uses a white casing to remain legible over streets, buildings, and map labels.
+- Repeating arrows show chronological travel direction.
+- A conservatively detected outbound leg is blue; a detected return leg is orange.
+- Direction and return-leg coloring are visual aids only. They do not modify `trip_points`, checksums, distance, virtual fuel, or audit data.
+- Apparent travel across buildings can result from GPS accuracy. Do not snap, smooth, or rewrite points in a way that could imply false data accuracy.

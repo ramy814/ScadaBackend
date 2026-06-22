@@ -1,5 +1,17 @@
 # Changelog & Recent Actions
 
+## [2026-06-22] Original GPS Route Readability
+
+- Final deployment decision: production runs on Windows and must not require Docker or additional map-matching software.
+- The admin trip map displays only the authoritative original `trip_points`; no road-matching service or external routing API is required.
+- Removed the original/corrected route toggle and all OSRM configuration and server calls.
+- Added clear green start and red end markers with permanent Arabic labels.
+- Added a white casing around the GPS trace so it remains readable over streets, buildings, and map labels.
+- Repeating direction arrows show chronological movement.
+- Return legs are detected conservatively and colored orange when the trip comes materially back toward its start; the outbound leg remains blue.
+- Checksums, distance, virtual fuel calculations, and audit data remain unchanged.
+- Future work must not reintroduce route snapping or transmit municipal vehicle traces to a third party without explicit product-owner approval.
+
 ## [2026-06-11] Oracle g_store Schema & Driver Vehicle Scoping
 
 ### 1. Oracle Source Tables Moved Under `g_store`

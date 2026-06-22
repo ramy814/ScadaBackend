@@ -24,6 +24,8 @@ Once a trip is `confirmed` by the system, it enters the administrative review pi
 - **Framework**: Vue 3 + Inertia.js.
 - **Routing**: The project *does not* use Ziggy. Instead, all necessary backend URLs are injected globally into the Inertia shared props via `HandleInertiaRequests.php` (`$page.props.urls`). Vue components must use these URLs for navigation and API calls.
 - **State**: The `usePage()` hook is the primary way to access global state (like the authenticated user or flash messages) in the frontend.
+- **Trip Map Source of Truth**: `TripShow.vue` renders only the original ordered `trip_points`. Do not introduce road matching, route snapping, OSRM, Docker, or an external routing API unless the product owner explicitly reverses this decision.
+- **Map Interpretation**: The map may show GPS segments crossing buildings because it visualizes recorded coordinates directly. Never move or overwrite authoritative GPS points merely to make the route look aligned with streets.
 
 ## 5. Security & Authentication
 - **Admin**: Uses the Municipality's MOG SSO package. Authentication state is stored in the session.

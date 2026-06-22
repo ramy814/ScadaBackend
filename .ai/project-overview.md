@@ -17,6 +17,7 @@ The Fleet Management System is an enterprise application designed for Gaza Munic
 - **Auditable Operations**: All administrative actions (approving, rejecting, clarifying trips) are logged in the `audit_logs` table.
 - **Thin Controllers**: Controllers only handle HTTP request routing and basic validation. Complex business logic resides in Services (e.g., `TripSyncService`).
 - **Repository Pattern**: All queries to the external Oracle database are strictly encapsulated within Repositories.
+- **Authoritative Trip Maps**: Administrative trip maps show the recorded GPS points without road matching. Visual direction aids may be derived in the browser, but stored coordinates and calculated trip data remain unchanged.
 
 ## Tech Stack
 - **Framework**: Laravel 11.x

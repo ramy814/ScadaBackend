@@ -74,12 +74,48 @@
     </div>
 
     <!-- Map -->
-    <div class="panel">
-      <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;">
-        <div>مسار الرحلة الفعلي (GPS)</div>
-        <span class="badge neutral">{{ points.length }} نقطة مسجلة</span>
+    <div class="panel trip-map-panel">
+      <div class="panel-header map-panel-header">
+        <div>
+          <div>مسار الرحلة</div>
+          <div class="map-panel-subtitle">عرض نقاط GPS الأصلية بالترتيب الزمني</div>
+        </div>
+        <div class="map-header-actions">
+          <span class="badge neutral">{{ points.length }} نقطة مسجلة</span>
+        </div>
       </div>
-      <div ref="mapEl" style="height:400px;width:100%;z-index:10;"></div>
+      <div class="map-legend" aria-label="دليل مسار الرحلة">
+        <div class="map-legend-item">
+          <span class="map-legend-marker start" aria-hidden="true"></span>
+          <div><span>بداية الرحلة</span><strong>{{ trip.origin_text || 'أول نقطة مسجلة' }}</strong></div>
+        </div>
+        <div class="map-legend-item">
+          <span class="map-legend-marker end" aria-hidden="true"></span>
+          <div><span>نهاية الرحلة</span><strong>{{ trip.destination_text || 'آخر نقطة مسجلة' }}</strong></div>
+        </div>
+        <div class="map-legend-item route">
+          <span class="map-legend-route" aria-hidden="true"></span>
+          <div>
+            <span>المسار الفعلي</span>
+            <strong>حسب نقاط GPS الأصلية</strong>
+          </div>
+        </div>
+      </div>
+      <div class="map-integrity-note">المسار المعروض هو سجل GPS الأصلي غير المعدّل.</div>
+      <div class="map-stage">
+        <div ref="mapEl" class="trip-map" aria-label="خريطة مسار الرحلة"></div>
+        <div class="map-floating-panel">
+          <div class="map-direction-key" aria-label="دليل اتجاه الحركة">
+            <span><i class="outbound" aria-hidden="true"></i>{{ routeHasReturn ? 'اتجاه الذهاب' : 'اتجاه الحركة' }}</span>
+            <span v-if="routeHasReturn"><i class="return" aria-hidden="true"></i>اتجاه العودة</span>
+            <strong>الأسهم توضح اتجاه السير</strong>
+          </div>
+        </div>
+        <div v-if="!mappedPoints.length" class="map-empty-state">لا توجد نقاط GPS كافية لعرض مسار هذه الرحلة.</div>
+        <button v-if="mappedPoints.length" type="button" class="map-fit-button" @click="fitRouteBounds">
+          عرض المسار كاملاً
+        </button>
+      </div>
     </div>
 
     <!-- Stops Table -->
@@ -233,16 +269,16 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onBeforeUnmount, onMounted } from 'vue';
 import { Link, router, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
 const page = usePage();
 
 const props = defineProps({
-  trip: Object,
-  points: Array,
-  mappedPoints: Array,
+  trip: { type: Object, required: true },
+  points: { type: Array, default: () => [] },
+  mappedPoints: { type: Array, default: () => [] },
   distanceKm: Number,
   stopsMinutes: Number,
   tripDurationMinutes: Number,
@@ -252,6 +288,10 @@ const mapEl = ref(null);
 const approveNote = ref('');
 const rejectNote = ref('');
 const clarifyNote = ref('');
+const routeHasReturn = ref(false);
+let mapInstance = null;
+let routeLayer = null;
+let routeBounds = null;
 
 const totalWait = computed(() =>
   Math.max(props.stopsMinutes ?? 0, props.trip.wait_minutes ?? 0)
@@ -296,21 +336,186 @@ function submitClarify() {
   router.post(`${page.props.urls.trips_base}/${props.trip.id}/clarify`, { note: clarifyNote.value, _from: 'show' });
 }
 
+function fitRouteBounds() {
+  if (!mapInstance || !routeBounds?.isValid()) return;
+
+  if (routeBounds.getNorthEast().equals(routeBounds.getSouthWest())) {
+    mapInstance.setView(routeBounds.getCenter(), 17);
+    return;
+  }
+
+  mapInstance.fitBounds(routeBounds, {
+    paddingTopLeft: [56, 72],
+    paddingBottomRight: [56, 56],
+    maxZoom: 18,
+  });
+}
+
 onMounted(async () => {
   if (!mapEl.value) return;
   const L = (await import('leaflet')).default;
   await import('leaflet/dist/leaflet.css');
+  await import('leaflet-polylinedecorator');
 
-  const map = L.map(mapEl.value);
-  map.setView([31.5017, 34.4668], 12);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
+  mapInstance = L.map(mapEl.value, {
+    preferCanvas: true,
+    zoomControl: false,
+  });
+  mapInstance.setView([31.5017, 34.4668], 12);
+  L.control.zoom({ position: 'bottomleft' }).addTo(mapInstance);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '© OpenStreetMap',
+  }).addTo(mapInstance);
 
   if (!props.mappedPoints.length) return;
-  const latLngs = props.mappedPoints.map(p => [p.lat, p.lng]);
-  const route = L.polyline(latLngs, { color: '#3b82f6', weight: 5, opacity: 0.8 }).addTo(map);
-  L.marker(latLngs[0]).addTo(map).bindPopup('<b>نقطة الانطلاق</b>');
-  L.marker(latLngs[latLngs.length - 1]).addTo(map).bindPopup('<b>نقطة الوصول</b>');
-  map.fitBounds(route.getBounds(), { padding: [32, 32] });
+  const rawLatLngs = props.mappedPoints.map(p => [p.lat, p.lng]);
+  const routeStyle = {
+    lineCap: 'round',
+    lineJoin: 'round',
+    smoothFactor: 1.25,
+  };
+  const markerStyle = {
+    radius: 10,
+    color: '#ffffff',
+    weight: 4,
+    opacity: 1,
+    fillOpacity: 1,
+  };
+
+  function splitRouteDirections(segments) {
+    const points = segments.flat();
+    if (points.length < 4) return { parts: segments.map(segment => ({ points: segment, leg: 'outbound' })), hasReturn: false };
+
+    const start = L.latLng(points[0]);
+    let furthestIndex = 0;
+    let furthestDistance = 0;
+    points.forEach((point, index) => {
+      const distance = start.distanceTo(L.latLng(point));
+      if (distance > furthestDistance) {
+        furthestDistance = distance;
+        furthestIndex = index;
+      }
+    });
+
+    const endDistance = start.distanceTo(L.latLng(points[points.length - 1]));
+    const hasReturn = furthestDistance >= 100
+      && endDistance <= furthestDistance * 0.65
+      && furthestIndex >= points.length * 0.15
+      && furthestIndex <= points.length * 0.85;
+
+    if (!hasReturn) return { parts: segments.map(segment => ({ points: segment, leg: 'outbound' })), hasReturn: false };
+
+    const parts = [];
+    let globalIndex = 0;
+    segments.forEach(segment => {
+      const segmentStart = globalIndex;
+      const segmentEnd = globalIndex + segment.length - 1;
+
+      if (segmentEnd <= furthestIndex) {
+        parts.push({ points: segment, leg: 'outbound' });
+      } else if (segmentStart >= furthestIndex) {
+        parts.push({ points: segment, leg: 'return' });
+      } else {
+        const splitIndex = furthestIndex - segmentStart;
+        parts.push({ points: segment.slice(0, splitIndex + 1), leg: 'outbound' });
+        parts.push({ points: segment.slice(splitIndex), leg: 'return' });
+      }
+
+      globalIndex += segment.length;
+    });
+
+    return { parts: parts.filter(part => part.points.length >= 2), hasReturn: true };
+  }
+
+  function buildRouteLayer(segments) {
+    const group = L.layerGroup();
+    const bounds = L.latLngBounds([]);
+    const directionalRoute = splitRouteDirections(segments);
+
+    directionalRoute.parts.forEach(({ points: segment, leg }) => {
+      if (!segment.length) return;
+      bounds.extend(segment);
+
+      if (segment.length < 2) return;
+      const routeColor = leg === 'return' ? '#ea580c' : '#2563eb';
+
+      // The white casing keeps each trace distinct from roads and map labels.
+      L.polyline(segment, {
+        ...routeStyle,
+        color: '#ffffff',
+        weight: 11,
+        opacity: 0.96,
+        interactive: false,
+      }).addTo(group);
+      L.polyline(segment, {
+        ...routeStyle,
+        color: routeColor,
+        weight: 6,
+        opacity: 1,
+      }).addTo(group);
+      L.polylineDecorator(segment, {
+        patterns: [{
+          offset: 45,
+          repeat: 90,
+          symbol: L.Symbol.arrowHead({
+            pixelSize: 9,
+            polygon: true,
+            pathOptions: {
+              color: '#ffffff',
+              fillColor: '#ffffff',
+              fillOpacity: 1,
+              opacity: 1,
+              weight: 1,
+              interactive: false,
+            },
+          }),
+        }],
+      }).addTo(group);
+    });
+
+    const start = segments[0]?.[0];
+    const lastSegment = segments[segments.length - 1];
+    const end = lastSegment?.[lastSegment.length - 1];
+
+    if (start && end) {
+      L.circleMarker(start, { ...markerStyle, fillColor: '#059669' })
+        .bindTooltip('بداية الرحلة', {
+          permanent: true,
+          direction: 'bottom',
+          offset: [0, 14],
+          className: 'trip-map-tooltip trip-map-tooltip-start',
+        })
+        .bindPopup('نقطة انطلاق GPS الأصلية')
+        .addTo(group);
+      L.circleMarker(end, { ...markerStyle, fillColor: '#dc2626' })
+        .bindTooltip('نهاية الرحلة', {
+          permanent: true,
+          direction: 'top',
+          offset: [0, -14],
+          className: 'trip-map-tooltip trip-map-tooltip-end',
+        })
+        .bindPopup('نقطة وصول GPS الأصلية')
+        .addTo(group);
+    }
+
+    return { group, bounds, hasReturn: directionalRoute.hasReturn };
+  }
+
+  const rawRoute = buildRouteLayer([rawLatLngs]);
+  routeLayer = rawRoute.group;
+  routeBounds = rawRoute.bounds;
+  routeHasReturn.value = rawRoute.hasReturn;
+  routeLayer.addTo(mapInstance);
+  fitRouteBounds();
+});
+
+onBeforeUnmount(() => {
+  mapInstance?.remove();
+  mapInstance = null;
+  routeLayer = null;
+  routeBounds = null;
+  routeHasReturn.value = false;
 });
 </script>
 
@@ -325,6 +530,36 @@ onMounted(async () => {
 .panel { background:var(--surface); border-radius:var(--radius-lg); box-shadow:var(--shadow-lg); overflow:hidden; margin-bottom:24px; }
 .panel-header { padding:16px 24px; border-bottom:1px solid var(--stroke); font-size:16px; font-weight:800; }
 .panel-body { padding:24px; }
+.map-panel-header { display:flex; justify-content:space-between; align-items:center; gap:16px; }
+.map-panel-subtitle { color:var(--text-secondary); font-size:12px; font-weight:500; margin-top:4px; }
+.map-header-actions { display:flex; align-items:center; justify-content:flex-end; gap:12px; flex-wrap:wrap; }
+.map-floating-panel { position:absolute; top:16px; right:16px; z-index:500; display:flex; flex-direction:column; gap:8px; padding:8px; border:1px solid rgba(15,23,42,0.14); border-radius:12px; background:rgba(255,255,255,0.96); box-shadow:0 6px 18px rgba(15,23,42,0.14); }
+.map-direction-key { display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:2px 4px 0; color:var(--text-secondary); font-size:10px; font-weight:700; }
+.map-direction-key span { display:inline-flex; align-items:center; gap:5px; }
+.map-direction-key i { display:block; width:20px; height:4px; border-radius:999px; }
+.map-direction-key i.outbound { background:#2563eb; }
+.map-direction-key i.return { background:#ea580c; }
+.map-direction-key strong { color:var(--text-primary); font-size:10px; }
+.map-legend { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; padding:14px 24px; background:#f8fafc; border-bottom:1px solid var(--stroke); }
+.map-legend-item { display:flex; align-items:center; gap:10px; min-width:0; }
+.map-legend-item > div { display:flex; flex-direction:column; min-width:0; }
+.map-legend-item span:not(.map-legend-marker):not(.map-legend-route) { color:var(--text-secondary); font-size:11px; font-weight:600; }
+.map-legend-item strong { font-size:13px; line-height:1.4; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.map-legend-marker { width:16px; height:16px; border:3px solid #fff; border-radius:50%; box-shadow:0 0 0 1px rgba(15,23,42,0.16), 0 2px 5px rgba(15,23,42,0.18); flex:0 0 auto; }
+.map-legend-marker.start { background:#059669; }
+.map-legend-marker.end { background:#dc2626; }
+.map-legend-route { width:34px; height:6px; border-radius:999px; background:#2563eb; box-shadow:0 0 0 3px #fff, 0 0 0 4px rgba(15,23,42,0.12); flex:0 0 auto; }
+.map-integrity-note { padding:9px 24px; border-bottom:1px solid var(--stroke); background:#f8fafc; color:var(--text-secondary); font-size:12px; font-weight:600; }
+.map-stage { position:relative; }
+.trip-map { height:500px; width:100%; z-index:1; background:#e8eef5; }
+.map-empty-state { position:absolute; top:50%; right:50%; z-index:500; width:max-content; max-width:calc(100% - 32px); transform:translate(50%,-50%); border:1px solid rgba(15,23,42,0.12); border-radius:10px; padding:10px 16px; background:rgba(255,255,255,0.96); color:var(--text-secondary); box-shadow:0 4px 12px rgba(15,23,42,0.1); font-size:13px; font-weight:700; text-align:center; }
+.map-fit-button { position:absolute; bottom:16px; right:16px; z-index:500; border:1px solid rgba(15,23,42,0.14); border-radius:10px; padding:9px 13px; background:rgba(255,255,255,0.96); color:var(--text-primary); box-shadow:0 4px 12px rgba(15,23,42,0.12); font-family:'Tajawal',sans-serif; font-size:12px; font-weight:800; cursor:pointer; transition:var(--transition); }
+.map-fit-button:hover { color:var(--brand-hover); border-color:rgba(37,99,235,0.32); transform:translateY(-1px); }
+.trip-map-panel :deep(.leaflet-control-zoom a) { color:var(--text-primary); }
+.trip-map-panel :deep(.trip-map-tooltip) { border:0; border-radius:8px; padding:6px 10px; color:#fff; font-family:'Tajawal',sans-serif; font-size:12px; font-weight:800; box-shadow:0 4px 12px rgba(15,23,42,0.2); direction:rtl; }
+.trip-map-panel :deep(.trip-map-tooltip::before) { display:none; }
+.trip-map-panel :deep(.trip-map-tooltip-start) { background:#047857; }
+.trip-map-panel :deep(.trip-map-tooltip-end) { background:#b91c1c; }
 .kv-group { display:flex; flex-direction:column; gap:16px; }
 .kv-item { display:grid; grid-template-columns:140px 1fr; gap:12px; align-items:center; }
 .kv-label { color:var(--text-secondary); font-size:14px; font-weight:600; }
@@ -355,4 +590,13 @@ onMounted(async () => {
 .ar-title { font-size:15px; font-weight:700; }
 
 @media (max-width:1100px) { .stats-grid-5 { grid-template-columns:repeat(2,1fr); } .two-cols { grid-template-columns:1fr; } }
+@media (max-width:700px) {
+  .map-panel-header { align-items:flex-start; flex-direction:column; }
+  .map-header-actions { width:100%; justify-content:space-between; }
+  .map-floating-panel { top:12px; right:12px; left:12px; }
+  .map-integrity-note { padding:10px 18px; }
+  .map-legend { grid-template-columns:1fr; padding:14px 18px; }
+  .trip-map { height:420px; }
+  .map-fit-button { bottom:12px; right:12px; }
+}
 </style>
