@@ -2,8 +2,8 @@
 -- Run this inside the application schema only if PHP oci8 is not available
 -- and you cannot run: php artisan migrate --database=oracle
 --
--- Existing municipality source tables are intentionally not modified:
--- g_store.VEHICLE and g_store.BENEFICIARIES are read-only integration sources.
+-- Existing municipality source tables are intentionally not modified.
+-- Configure ORACLE_VEHICLES_TABLE and ORACLE_DRIVERS_TABLE for the active schema.
 
 CREATE TABLE sessions (
     id VARCHAR2(255 CHAR) PRIMARY KEY,
@@ -178,7 +178,7 @@ CREATE TABLE trip_passengers (
 
 CREATE INDEX tpass_emp_id_idx ON trip_passengers (employee_id);
 
--- Upgrade helper for existing TRIPS tables created before g_store.VEHICLE became read-only.
+-- Upgrade helper for existing TRIPS tables created before Oracle vehicle snapshots were added.
 -- Run only the missing ALTER statements if these columns do not exist yet.
 -- ALTER TABLE trips ADD oracle_driver_id VARCHAR2(255 CHAR) NULL;
 -- ALTER TABLE trips ADD driver_name VARCHAR2(255 CHAR) NULL;

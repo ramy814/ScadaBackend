@@ -55,15 +55,15 @@ Driver-facing vehicle endpoints must be scoped to the authenticated beneficiary:
 - `GET /api/driver/vehicles` returns only vehicles assigned to the current authenticated beneficiary.
 - `GET /api/driver/my-vehicles` uses the same scoped logic and is kept for compatibility.
 - Do not expose the general Oracle vehicle search to the driver app.
-- Vehicle assignment is resolved through `g_store.VEHICLE.BENEFICIARY_OID` matching beneficiary `OID` values from `g_store.BENEFICIARIES`.
+- Vehicle assignment in the `CONTROL_UNIT` schema is resolved through `FLEET_USERS`: the authenticated driver is `FLEET_USERS.ID`, and the assigned vehicle is read from `VEHICLE_ID`, `VEHICLE_NO`, `VEHICLE_MODEL`, and `VEHICLE_TYPE`.
 - When resolving by mobile number, use the equivalent of:
 ```sql
-select v.plate_num
-from g_store.vehicle v
-where v.beneficiary_oid in (
-    select b.oid
-    from g_store.beneficiaries b
-    where b.mobile_num = :mobile_num
+select fu.vehicle_no
+from fleet_users fu
+where fu.id in (
+    select driver.id
+    from fleet_users driver
+    where driver.user_mobile = :mobile_num
 )
 ```
 - Keep phone normalization support for local, international, and last-9-digit matching, but the result must remain beneficiary-scoped.

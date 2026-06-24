@@ -51,8 +51,8 @@ class AdminAuthController extends Controller
 
         $todayTrips          = Trip::query()->whereDate('started_at', now()->toDateString())->count();
         $confirmedTrips      = Trip::query()->where('status', 'confirmed')->count();
-        $activeVehicles      = $vehicleRepository->count();
-        $activeDrivers       = $driverRepository->count();
+        $activeVehicles      = \Illuminate\Support\Facades\DB::connection('oracle')->table('g_store.VEHICLE')->where('IS_ACTIVE', 1)->count();
+        $activeDrivers       = \Illuminate\Support\Facades\DB::connection('oracle')->table('g_store.BENEFICIARIES')->where('IS_ACTIVE', 1)->count();
         $approvedTrips       = Trip::query()->where('review_status', 'approved')->count();
         $rejectedTrips       = Trip::query()->where('review_status', 'rejected')->count();
         $clarificationTrips  = Trip::query()->where('review_status', 'needs_clarification')->count();

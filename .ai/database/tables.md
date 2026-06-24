@@ -74,20 +74,24 @@ Temporary table for handling SMS OTP authentication.
 - `expires_at`: Expiration timestamp.
 - `used_at`: When the code was consumed.
 
-## External Oracle Tables (Read-Only)
+## External Oracle Tables (CONTROL_UNIT)
 
-### `g_store.VEHICLE`
-Read through `MunicipalityVehicleRepository`.
-- `OID`: Vehicle ID.
-- `PLATE_NUM`: License plate.
-- `VEHICLE_NUM`: Vehicle name/identifier.
-- `BENEFICIARY_OID`: ID of the driver assigned to the vehicle.
-- Driver app vehicle lists must filter by `BENEFICIARY_OID`; never return the unscoped vehicle list to an authenticated driver.
+### `FLEET_USERS`
+Read through `MunicipalityDriverRepository`, `MunicipalityVehicleRepository`, and `Beneficiary`.
+- `ID`: Driver row ID used as the authenticated Oracle driver ID.
+- `USER_MOBILE`: Driver phone number.
+- `USER_NAME`: Driver display name.
+- `USER_ID`: Driver employee/user number snapshot.
+- `VEHICLE_ID`: Assigned vehicle ID.
+- `VEHICLE_NO`: Assigned vehicle plate/number.
+- `VEHICLE_MODEL`: Assigned vehicle name/model snapshot.
+- `VEHICLE_TYPE`: Assigned vehicle type snapshot.
+- Driver app vehicle lists must filter by the authenticated `FLEET_USERS.ID`; never return an unscoped vehicle list to an authenticated driver.
 
-### `g_store.BENEFICIARIES`
-Read through `MunicipalityDriverRepository` and `Beneficiary`.
-- `OID`: Driver ID.
-- `MOBILE_NUM`: Phone number.
-- `NAME`: Driver name.
-- `EMPLOYEE_NUM`: Employee ID.
-- Vehicle lookup by phone resolves beneficiary `OID` from this table and uses it against `g_store.VEHICLE.BENEFICIARY_OID`.
+### `MOG_VEHICLES`
+Available in `CONTROL_UNIT` as a general vehicle reference table.
+- `ID`: Vehicle ID.
+- `PLATE`: Plate/vehicle number.
+- `MODEL`: Vehicle model.
+- `TYPE`: Vehicle type.
+- Do not use `MOG_VEHICLES` for driver-scoped vehicle assignment unless a verified relationship to `FLEET_USERS` is added.

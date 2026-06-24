@@ -78,7 +78,7 @@ return [
 
         // 'beneficiaries' => [
         //     'driver' => 'database',
-        //     'table' => 'g_store.BENEFICIARIES',
+        //     'table' => env('ORACLE_DRIVERS_TABLE', 'BENEFICIARIES'),
         // ],
     ],
 

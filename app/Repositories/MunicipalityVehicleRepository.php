@@ -9,26 +9,6 @@ use Illuminate\Support\Facades\Log;
 
 class MunicipalityVehicleRepository
 {
-    private const VEHICLES_TABLE = 'g_store.VEHICLE';
-
-    private const DRIVERS_TABLE = 'g_store.BENEFICIARIES';
-
-    private const VEHICLE_COLUMNS = [
-        'id' => 'OID',
-        'plate' => 'PLATE_NUM',
-        'name' => 'VEHICLE_NUM',
-        'type' => 'VEHICLE_TYPE_OID',
-        'beneficiary_id' => 'BENEFICIARY_OID',
-        'active' => 'IS_ACTIVE',
-    ];
-
-    private const DRIVER_COLUMNS = [
-        'id' => 'OID',
-        'phone' => 'MOBILE_NUM',
-        'name' => 'FULL_NAME',
-        'employee_number' => 'NATIONAL_ID',
-    ];
-
     public function __construct(private readonly OracleReadiness $readiness) {}
 
     public function search(?string $term = null, int $limit = 25): Collection
@@ -37,8 +17,8 @@ class MunicipalityVehicleRepository
             return collect();
         }
 
-        $table = self::VEHICLES_TABLE;
-        $columns = self::VEHICLE_COLUMNS;
+        $table = $this->vehiclesTable();
+        $columns = $this->vehicleColumns();
 
         try {
             return DB::connection('oracle')
@@ -50,6 +30,7 @@ class MunicipalityVehicleRepository
                     $columns['name'],
                     $columns['type'],
                 ))
+                ->whereNotNull($columns['plate'])
                 ->when($term, fn ($query) => $query->where($columns['plate'], 'like', "%{$term}%"))
                 ->limit($limit)
                 ->get()
@@ -67,8 +48,8 @@ class MunicipalityVehicleRepository
             return null;
         }
 
-        $table = self::VEHICLES_TABLE;
-        $columns = self::VEHICLE_COLUMNS;
+        $table = $this->vehiclesTable();
+        $columns = $this->vehicleColumns();
 
         try {
             $row = DB::connection('oracle')
@@ -112,13 +93,14 @@ class MunicipalityVehicleRepository
             return 0;
         }
 
-        $table = self::VEHICLES_TABLE;
-        $columns = self::VEHICLE_COLUMNS;
+        $table = $this->vehiclesTable();
+        $columns = $this->vehicleColumns();
 
         try {
             return (int) DB::connection('oracle')
                 ->table($table)
-                ->where($columns['active'], 1)
+                ->whereNotNull($columns['plate'])
+                ->when(filled($columns['active'] ?? null), fn ($query) => $query->where($columns['active'], 1))
                 ->when($term, fn ($query) => $query->where($columns['plate'], 'like', "%{$term}%"))
                 ->count();
         } catch (QueryException $e) {
@@ -133,10 +115,10 @@ class MunicipalityVehicleRepository
         if (! $this->readiness->available()) {
             return collect();
         }
-        $table = self::VEHICLES_TABLE;
-        $vehicleColumns = self::VEHICLE_COLUMNS;
-        $driversTable = self::DRIVERS_TABLE;
-        $driverColumns = self::DRIVER_COLUMNS;
+        $table = $this->vehiclesTable();
+        $vehicleColumns = $this->vehicleColumns();
+        $driversTable = $this->driversTable();
+        $driverColumns = $this->driverColumns();
         $vehicleIdColumn = $vehicleColumns['id'] ?? 'OID';
         $vehiclePlateColumn = $vehicleColumns['plate'] ?? 'PLATE_NUM';
         $vehicleNameColumn = $vehicleColumns['name'] ?? 'VEHICLE_NUM';
@@ -161,6 +143,7 @@ class MunicipalityVehicleRepository
         try {
             return DB::connection('oracle')
                 ->table($table.' as t')
+                ->whereNotNull('t.'.$vehiclePlateColumn)
                 ->whereIn('t.'.$vehicleBeneficiaryColumn, function ($query) use (
                     $driversTable,
                     $driverColumns,
@@ -207,8 +190,8 @@ class MunicipalityVehicleRepository
         if (! $this->readiness->available()) {
             return collect();
         }
-        $table = self::VEHICLES_TABLE;
-        $vehicleColumns = self::VEHICLE_COLUMNS;
+        $table = $this->vehiclesTable();
+        $vehicleColumns = $this->vehicleColumns();
         $vehicleIdColumn = $vehicleColumns['id'] ?? 'OID';
         $vehiclePlateColumn = $vehicleColumns['plate'] ?? 'PLATE_NUM';
         $vehicleNameColumn = $vehicleColumns['name'] ?? 'VEHICLE_NUM';
@@ -218,6 +201,7 @@ class MunicipalityVehicleRepository
         try {
             return DB::connection('oracle')
                 ->table($table.' as t')
+                ->whereNotNull('t.'.$vehiclePlateColumn)
                 ->where('t.'.$vehicleBeneficiaryColumn, $oracleDriverId)
                 ->selectRaw(sprintf(
                     't.%s as oracle_id, t.%s as plate_number, t.%s as name%s',
@@ -244,10 +228,30 @@ class MunicipalityVehicleRepository
     {
         Log::warning('Municipality vehicle Oracle read failed.', [
             'operation' => $operation,
-            'vehicles_table' => self::VEHICLES_TABLE,
-            'drivers_table' => self::DRIVERS_TABLE,
+            'vehicles_table' => $this->vehiclesTable(),
+            'drivers_table' => $this->driversTable(),
             'error_code' => $e->getCode(),
             'error' => $e->getMessage(),
         ]);
+    }
+
+    private function vehiclesTable(): string
+    {
+        return (string) config('fleet.oracle.vehicles_table', 'VEHICLE');
+    }
+
+    private function driversTable(): string
+    {
+        return (string) config('fleet.oracle.drivers_table', 'BENEFICIARIES');
+    }
+
+    private function vehicleColumns(): array
+    {
+        return (array) config('fleet.oracle.vehicle_columns', []);
+    }
+
+    private function driverColumns(): array
+    {
+        return (array) config('fleet.oracle.driver_columns', []);
     }
 }

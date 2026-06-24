@@ -9,10 +9,6 @@ use LogicException;
 
 class OracleVehicle extends Model
 {
-    private const TABLE = 'g_store.VEHICLE';
-
-    private const ID_COLUMN = 'OID';
-
     protected $connection = 'oracle';
 
     public $timestamps = false;
@@ -25,33 +21,33 @@ class OracleVehicle extends Model
 
     public function getTable(): string
     {
-        return self::TABLE;
+        return (string) config('fleet.oracle.vehicles_table', 'VEHICLE');
     }
 
     public function getKeyName(): string
     {
-        return self::ID_COLUMN;
+        return (string) config('fleet.oracle.vehicle_columns.id', 'OID');
     }
 
     public function save(array $options = []): bool
     {
-        throw new LogicException('g_store.VEHICLE is a read-only Oracle integration source.');
+        throw new LogicException('VEHICLE is a read-only Oracle integration source.');
     }
 
     public function delete(): ?bool
     {
-        throw new LogicException('g_store.VEHICLE is a read-only Oracle integration source.');
+        throw new LogicException('VEHICLE is a read-only Oracle integration source.');
     }
 
     public function forceDelete(): ?bool
     {
-        throw new LogicException('g_store.VEHICLE is a read-only Oracle integration source.');
+        throw new LogicException('VEHICLE is a read-only Oracle integration source.');
     }
 
     public function fill(array $attributes): static
     {
         if ($attributes !== []) {
-            throw new MassAssignmentException('g_store.VEHICLE is read-only.');
+            throw new MassAssignmentException('VEHICLE is read-only.');
         }
 
         return $this;
@@ -59,11 +55,11 @@ class OracleVehicle extends Model
 
     protected function performInsert(Builder $query): bool
     {
-        throw new LogicException('g_store.VEHICLE is a read-only Oracle integration source.');
+        throw new LogicException('VEHICLE is a read-only Oracle integration source.');
     }
 
     protected function performUpdate(Builder $query): bool
     {
-        throw new LogicException('g_store.VEHICLE is a read-only Oracle integration source.');
+        throw new LogicException('VEHICLE is a read-only Oracle integration source.');
     }
 }

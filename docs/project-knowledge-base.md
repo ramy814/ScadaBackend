@@ -142,24 +142,28 @@ used_at
 ### الجداول في Oracle (للقراءة فقط - لا نكتب عليها)
 
 > يتم الوصول إليها عبر Repositories فقط
-> أسماء الجداول والأعمدة معرفة داخل Models/Repositories الخاصة بـ Oracle
+> أسماء الجداول والأعمدة معرفة عبر `config/fleet.php` ومتغيرات `.env`
 
-#### `g_store.VEHICLE`
+#### `FLEET_USERS`
 ```
-OID (id)             — معرف المركبة
-PLATE_NUM (plate)    — رقم اللوحة
-VEHICLE_NUM (name)   — اسم المركبة
-vehicle_type         — نوع المركبة
-BENEFICIARY_OID      — معرف السائق المرتبط بالمركبة
+ID (driver id)       — معرف السائق داخل CONTROL_UNIT
+USER_MOBILE          — رقم جوال السائق
+USER_NAME            — اسم السائق
+USER_ID              — رقم الموظف/المستخدم
+VEHICLE_ID           — معرف المركبة المرتبطة
+VEHICLE_NO           — رقم المركبة/اللوحة
+VEHICLE_MODEL        — موديل/اسم المركبة
+VEHICLE_TYPE         — نوع المركبة
 ```
 
-#### `g_store.BENEFICIARIES`
+#### `MOG_VEHICLES`
 ```
-OID (id)             — معرف السائق
-MOBILE_NUM (phone)   — رقم الجوال
-NAME (name)          — الاسم
-EMPLOYEE_NUM         — رقم الموظف
+ID                  — معرف المركبة
+PLATE               — رقم اللوحة
+MODEL               — الموديل
+TYPE                — النوع
 ```
+> جدول مرجعي عام للمركبات. لا تعتمد عليه لقائمة مركبات السائق إلا إذا أضيفت علاقة موثقة مع `FLEET_USERS`.
 
 #### `USERS` (جدول SSO)
 ```
@@ -391,11 +395,11 @@ DB_CONNECTION=sqlite    # للتطوير
 # أو
 DB_CONNECTION=oracle    # للإنتاج
 
-ORACLE_HOST=...
-ORACLE_PORT=1521
-ORACLE_DATABASE=...
-ORACLE_USERNAME=...
-ORACLE_PASSWORD=...
+DB_HOST=...
+DB_PORT=1521
+DB_DATABASE=...
+DB_USERNAME=...
+DB_PASSWORD=...
 
 MOG_SSO_USERS_TABLE=USERS   # جدول المستخدمين في Oracle SSO
 ```

@@ -1,5 +1,20 @@
 # Changelog & Recent Actions
 
+## [2026-06-24] CONTROL_UNIT Production Schema Switch
+
+- Production Oracle connection moved to the `CONTROL_UNIT` schema on `gisdb`.
+- Laravel migrations were verified on `CONTROL_UNIT`; the pending `FLEET_ADMIN_ALLOWLIST` migration was run successfully.
+- Direct hard-coded old-schema references were removed from active Models and Repositories.
+- Oracle source table/column names are now configured through `config/fleet.php` and `.env` keys.
+- Driver and assigned vehicle lookup now use `FLEET_USERS` in `CONTROL_UNIT`:
+  - Driver: `ID`, `USER_MOBILE`, `USER_NAME`, `USER_ID`.
+  - Assigned vehicle: `VEHICLE_ID`, `VEHICLE_NO`, `VEHICLE_MODEL`, `VEHICLE_TYPE`.
+- `MOG_VEHICLES` exists as a general vehicle reference table, but driver-scoped vehicle lookup must continue to use `FLEET_USERS` unless a verified assignment relationship is added.
+- Added `php artisan oracle:copy-schema-data {source_schema}` for Oracle-to-Oracle managed-data migration.
+  - Default mode is dry-run and shows source readability, source counts, target counts, and shared columns.
+  - Use `--execute` to copy rows and `--replace` to clear `CONTROL_UNIT` target rows before copying.
+  - The command requires `CONTROL_UNIT` to have `SELECT` grants on the old source schema tables.
+
 ## [2026-06-22] Original GPS Route Readability
 
 - Final deployment decision: production runs on Windows and must not require Docker or additional map-matching software.
@@ -11,34 +26,6 @@
 - Return legs are detected conservatively and colored orange when the trip comes materially back toward its start; the outbound leg remains blue.
 - Checksums, distance, virtual fuel calculations, and audit data remain unchanged.
 - Future work must not reintroduce route snapping or transmit municipal vehicle traces to a third party without explicit product-owner approval.
-
-## [2026-06-11] Oracle g_store Schema & Driver Vehicle Scoping
-
-### 1. Oracle Source Tables Moved Under `g_store`
-- **Context**: Municipality Oracle source tables for beneficiaries and vehicles are now accessed through the `g_store` schema.
-- **Actions**:
-  - Updated driver lookups to use `g_store.BENEFICIARIES`.
-  - Updated vehicle lookups to use `g_store.VEHICLE`.
-  - Updated AI knowledge files to reflect the schema-qualified source tables.
-- **Operational note**: The application Oracle user must have `SELECT` grants on both source tables:
-```sql
-GRANT SELECT ON g_store.VEHICLE TO <app_user>;
-GRANT SELECT ON g_store.BENEFICIARIES TO <app_user>;
-```
-
-### 2. Dashboard Resilience When Oracle Is Unavailable
-- **Context**: Admin dashboard counts and report filters can touch Oracle vehicle/driver repositories.
-- **Actions**:
-  - Repository read methods now catch Oracle `QueryException` for non-critical list/count reads.
-  - Admin pages return empty lists or zero counts instead of crashing when Oracle grants/schema are temporarily unavailable.
-  - Failures are logged with operation and table context.
-
-### 3. Driver Vehicle Lists Scoped To Authenticated Beneficiary
-- **Context**: Driver app vehicle lists must vary by the authenticated beneficiary and must not show the general vehicle list.
-- **Actions**:
-  - `GET /api/driver/vehicles` now returns only vehicles assigned to the authenticated beneficiary.
-  - `GET /api/driver/my-vehicles` uses the same scoped lookup.
-  - Vehicle lookup by phone follows the `g_store.VEHICLE.BENEFICIARY_OID in (select OID from g_store.BENEFICIARIES where MOBILE_NUM = phone)` pattern, with existing phone normalization fallback.
 
 ## [2026-05-24] SSO Logout Fix & Error Logs Button Integration
 

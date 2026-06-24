@@ -12,16 +12,6 @@ class Beneficiary extends Authenticatable
 {
     use HasApiTokens;
 
-    private const TABLE = 'g_store.BENEFICIARIES';
-
-    private const ID_COLUMN = 'OID';
-
-    private const PHONE_COLUMN = 'MOBILE_NUM';
-
-    private const NAME_COLUMN = 'FULL_NAME';
-
-    private const EMPLOYEE_NUMBER_COLUMN = 'NATIONAL_ID';
-
     protected $connection = 'oracle';
 
     public $timestamps = false;
@@ -34,27 +24,27 @@ class Beneficiary extends Authenticatable
 
     public function getTable(): string
     {
-        return self::TABLE;
+        return (string) config('fleet.oracle.drivers_table', 'BENEFICIARIES');
     }
 
     public function getKeyName(): string
     {
-        return self::ID_COLUMN;
+        return $this->driverColumn('id', 'OID');
     }
 
     public function phoneNumber(): ?string
     {
-        return $this->stringAttribute(self::PHONE_COLUMN);
+        return $this->stringAttribute($this->driverColumn('phone', 'MOBILE_NUM'));
     }
 
     public function displayName(): ?string
     {
-        return $this->stringAttribute(self::NAME_COLUMN);
+        return $this->stringAttribute($this->driverColumn('name', 'FULL_NAME'));
     }
 
     public function employeeNumber(): ?string
     {
-        return $this->stringAttribute(self::EMPLOYEE_NUMBER_COLUMN);
+        return $this->stringAttribute($this->driverColumn('employee_number', 'NATIONAL_ID'));
     }
 
     public function getAuthIdentifier()
@@ -144,5 +134,10 @@ class Beneficiary extends Authenticatable
         }
 
         return $this->getAttribute($column);
+    }
+
+    private function driverColumn(string $key, string $default): string
+    {
+        return (string) config("fleet.oracle.driver_columns.$key", $default);
     }
 }

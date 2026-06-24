@@ -10,16 +10,6 @@ use Illuminate\Support\Facades\Log;
 
 class MunicipalityDriverRepository
 {
-    private const DRIVERS_TABLE = 'g_store.BENEFICIARIES';
-
-    private const DRIVER_COLUMNS = [
-        'id' => 'OID',
-        'phone' => 'MOBILE_NUM',
-        'name' => 'FULL_NAME',
-        'employee_number' => 'NATIONAL_ID',
-        'active' => 'IS_ACTIVE',
-    ];
-
     public function __construct(private readonly OracleReadiness $readiness) {}
 
     public function findBeneficiaryByPhone(string $phone): ?Beneficiary
@@ -28,7 +18,7 @@ class MunicipalityDriverRepository
             throw new \RuntimeException('Oracle database connection is not ready or configured. Cannot check beneficiary table directly.');
         }
 
-        $columns = self::DRIVER_COLUMNS;
+        $columns = $this->driverColumns();
 
         // Convert Eastern Arabic numerals to Western Arabic numerals
         $arabicDigits = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
@@ -91,7 +81,7 @@ class MunicipalityDriverRepository
 
         if (! $beneficiary) {
             Log::warning('Driver beneficiary phone lookup failed.', [
-                'drivers_table' => self::DRIVERS_TABLE,
+                'drivers_table' => $this->driversTable(),
                 'phone_column' => $columns['phone'],
                 'id_column' => $columns['id'] ?? null,
                 'clean_phone' => $clean,
@@ -122,12 +112,12 @@ class MunicipalityDriverRepository
 
     public function debugPhoneLookup(string $phone): array
     {
-        $columns = self::DRIVER_COLUMNS;
+        $columns = $this->driverColumns();
         $terms = $this->phoneLookupTerms($phone);
 
         return [
             'code_version' => 'driver-phone-lookup-last9-2026-05-31',
-            'drivers_table' => self::DRIVERS_TABLE,
+            'drivers_table' => $this->driversTable(),
             'phone_column' => $columns['phone'],
             'id_column' => $columns['id'],
             'input_phone' => $phone,
@@ -144,8 +134,8 @@ class MunicipalityDriverRepository
             return collect();
         }
 
-        $table = self::DRIVERS_TABLE;
-        $columns = self::DRIVER_COLUMNS;
+        $table = $this->driversTable();
+        $columns = $this->driverColumns();
 
         try {
             return Beneficiary::query()
@@ -195,7 +185,7 @@ class MunicipalityDriverRepository
             return collect();
         }
 
-        $columns = self::DRIVER_COLUMNS;
+        $columns = $this->driverColumns();
 
         try {
             return Beneficiary::query()
@@ -221,13 +211,13 @@ class MunicipalityDriverRepository
             return 0;
         }
 
-        $table = self::DRIVERS_TABLE;
-        $columns = self::DRIVER_COLUMNS;
+        $table = $this->driversTable();
+        $columns = $this->driverColumns();
 
         try {
             return (int) DB::connection('oracle')
                 ->table($table)
-                ->where($columns['active'], 1)
+                ->when(filled($columns['active'] ?? null), fn ($query) => $query->where($columns['active'], 1))
                 ->when($term, function ($query) use ($term, $columns): void {
                     $query->where(function ($nested) use ($term, $columns): void {
                         $nested->where($columns['name'], 'like', "%{$term}%")
@@ -247,7 +237,7 @@ class MunicipalityDriverRepository
     {
         Log::warning('Municipality driver Oracle read failed.', [
             'operation' => $operation,
-            'drivers_table' => self::DRIVERS_TABLE,
+            'drivers_table' => $this->driversTable(),
             'error_code' => $e->getCode(),
             'error' => $e->getMessage(),
         ]);
@@ -255,7 +245,7 @@ class MunicipalityDriverRepository
 
     private function phoneLookupTerms(string $phone): array
     {
-        $columns = self::DRIVER_COLUMNS;
+        $columns = $this->driverColumns();
 
         $arabicDigits = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
         $westernDigits = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
@@ -301,6 +291,16 @@ class MunicipalityDriverRepository
                 $columns['phone'],
             ),
         ];
+    }
+
+    private function driversTable(): string
+    {
+        return (string) config('fleet.oracle.drivers_table', 'BENEFICIARIES');
+    }
+
+    private function driverColumns(): array
+    {
+        return (array) config('fleet.oracle.driver_columns', []);
     }
 
 }
