@@ -95,3 +95,11 @@ Available in `CONTROL_UNIT` as a general vehicle reference table.
 - `MODEL`: Vehicle model.
 - `TYPE`: Vehicle type.
 - Do not use `MOG_VEHICLES` for driver-scoped vehicle assignment unless a verified relationship to `FLEET_USERS` is added.
+
+### `g_store.BENEFICIARIES`
+Used directly to query the true count of all active drivers within the municipality for the Admin Dashboard performance stats.
+- Filter by `IS_ACTIVE = 1`.
+
+### `g_store.VEHICLE`
+Used directly to query the true count of all active vehicles within the municipality for the Admin Dashboard performance stats.
+- Filter by `IS_ACTIVE = 1`.
