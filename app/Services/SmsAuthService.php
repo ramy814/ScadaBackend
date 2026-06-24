@@ -11,7 +11,10 @@ use Illuminate\Support\Facades\Log;
 
 class SmsAuthService
 {
-    public function __construct(private readonly MunicipalityDriverRepository $drivers) {}
+    public function __construct(
+        private readonly MunicipalityDriverRepository $drivers,
+        private readonly \App\Repositories\MunicipalityVehicleRepository $vehicles
+    ) {}
 
     public function sendCode(string $phone): void
     {
@@ -49,6 +52,9 @@ class SmsAuthService
 
             abort(403, 'رقم الجوال غير مسجل ضمن المنتفعين.');
         }
+
+        $driverVehicles = $this->vehicles->findByDriverOracleId($beneficiary->getAuthIdentifier());
+        abort_unless($driverVehicles->isNotEmpty(), 403, 'لا يوجد مركبات لهذا الرقم');
 
         $code = (string) random_int(100000, 999999);
 
@@ -108,6 +114,9 @@ class SmsAuthService
         $beneficiary = $this->drivers->findBeneficiaryByPhone($phone);
 
         abort_unless($beneficiary, 403, 'رقم الجوال غير مسجل ضمن المنتفعين.');
+
+        $driverVehicles = $this->vehicles->findByDriverOracleId($beneficiary->getAuthIdentifier());
+        abort_unless($driverVehicles->isNotEmpty(), 403, 'لا يوجد مركبات لهذا الرقم');
 
         $token = $beneficiary->createToken($deviceName ?: 'driver-android')->plainTextToken;
 
