@@ -77,6 +77,7 @@ class MunicipalityDriverRepository
                     );
                 }
             })
+            ->when(filled($columns['active'] ?? null), fn ($q) => $q->where($columns['active'], 1))
             ->first();
 
         if (! $beneficiary) {
