@@ -97,9 +97,12 @@ Available in `CONTROL_UNIT` as a general vehicle reference table.
 - Do not use `MOG_VEHICLES` for driver-scoped vehicle assignment unless a verified relationship to `FLEET_USERS` is added.
 
 ### `g_store.BENEFICIARIES`
-Used directly to query the true count of all active drivers within the municipality for the Admin Dashboard performance stats.
-- Filter by `IS_ACTIVE = 1`.
+Used directly to:
+1. Authenticate drivers via their phone number (`MOBILE_NUM`) and ensure they are active (`IS_ACTIVE = 1`).
+2. Query the true count of all active drivers within the municipality for the Admin Dashboard performance stats.
 
 ### `g_store.VEHICLE`
-Used directly to query the true count of all active vehicles within the municipality for the Admin Dashboard performance stats.
+Used directly to:
+1. Lookup a driver's assigned vehicle by matching `BENEFICIARY_OID`.
+2. Query the true count of all active vehicles within the municipality for the Admin Dashboard performance stats.
 - Filter by `IS_ACTIVE = 1`.
