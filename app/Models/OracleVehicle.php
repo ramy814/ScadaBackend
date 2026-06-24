@@ -21,12 +21,12 @@ class OracleVehicle extends Model
 
     public function getTable(): string
     {
-        return (string) config('fleet.oracle.vehicles_table', 'VEHICLE');
+        return 'g_store.VEHICLE';
     }
 
     public function getKeyName(): string
     {
-        return (string) config('fleet.oracle.vehicle_columns.id', 'OID');
+        return 'OID';
     }
 
     public function save(array $options = []): bool

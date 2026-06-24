@@ -24,27 +24,27 @@ class Beneficiary extends Authenticatable
 
     public function getTable(): string
     {
-        return (string) config('fleet.oracle.drivers_table', 'BENEFICIARIES');
+        return 'g_store.BENEFICIARIES';
     }
 
     public function getKeyName(): string
     {
-        return $this->driverColumn('id', 'OID');
+        return 'OID';
     }
 
     public function phoneNumber(): ?string
     {
-        return $this->stringAttribute($this->driverColumn('phone', 'MOBILE_NUM'));
+        return $this->stringAttribute('MOBILE_NUM');
     }
 
     public function displayName(): ?string
     {
-        return $this->stringAttribute($this->driverColumn('name', 'FULL_NAME'));
+        return $this->stringAttribute('FULL_NAME');
     }
 
     public function employeeNumber(): ?string
     {
-        return $this->stringAttribute($this->driverColumn('employee_number', 'NATIONAL_ID'));
+        return $this->stringAttribute('NATIONAL_ID');
     }
 
     public function getAuthIdentifier()
@@ -134,10 +134,5 @@ class Beneficiary extends Authenticatable
         }
 
         return $this->getAttribute($column);
-    }
-
-    private function driverColumn(string $key, string $default): string
-    {
-        return (string) config("fleet.oracle.driver_columns.$key", $default);
     }
 }

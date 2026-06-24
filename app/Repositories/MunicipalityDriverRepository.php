@@ -296,12 +296,18 @@ class MunicipalityDriverRepository
 
     private function driversTable(): string
     {
-        return (string) config('fleet.oracle.drivers_table', 'BENEFICIARIES');
+        return 'g_store.BENEFICIARIES';
     }
 
     private function driverColumns(): array
     {
-        return (array) config('fleet.oracle.driver_columns', []);
+        return [
+            'id' => 'OID',
+            'phone' => 'MOBILE_NUM',
+            'name' => 'FULL_NAME',
+            'employee_number' => 'NATIONAL_ID',
+            'active' => 'IS_ACTIVE',
+        ];
     }
 
 }
