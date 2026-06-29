@@ -53,7 +53,11 @@ class SmsAuthService
             abort(403, 'رقم الجوال غير مسجل ضمن المنتفعين.');
         }
 
-        $driverVehicles = $this->vehicles->findByDriverOracleId($beneficiary->getAuthIdentifier());
+        $driverVehicles = collect()
+            ->merge($this->vehicles->findByDriverOracleId($beneficiary->getAuthIdentifier()))
+            ->merge($this->vehicles->findByDriverMobile($phone))
+            ->unique('plate_number');
+
         abort_unless($driverVehicles->isNotEmpty(), 403, 'لا يوجد مركبات لهذا الرقم');
 
         $code = (string) random_int(100000, 999999);
@@ -115,7 +119,11 @@ class SmsAuthService
 
         abort_unless($beneficiary, 403, 'رقم الجوال غير مسجل ضمن المنتفعين.');
 
-        $driverVehicles = $this->vehicles->findByDriverOracleId($beneficiary->getAuthIdentifier());
+        $driverVehicles = collect()
+            ->merge($this->vehicles->findByDriverOracleId($beneficiary->getAuthIdentifier()))
+            ->merge($this->vehicles->findByDriverMobile($phone))
+            ->unique('plate_number');
+
         abort_unless($driverVehicles->isNotEmpty(), 403, 'لا يوجد مركبات لهذا الرقم');
 
         $token = $beneficiary->createToken($deviceName ?: 'driver-android')->plainTextToken;
