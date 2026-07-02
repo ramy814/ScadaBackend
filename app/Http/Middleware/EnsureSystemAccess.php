@@ -30,7 +30,7 @@ class EnsureSystemAccess
             return $this->denyAccess('لم يتم التعرف على المستخدم.', $systemKey);
         }
 
-        if (! $this->permissions->hasAccess((int) ($user->emp_id ?? $user->getAuthIdentifier()), $systemKey)) {
+        if (! $this->permissions->hasAccess((int) $user->getAuthIdentifier(), $systemKey)) {
             return $this->denyAccess(
                 sprintf('ليس لديك صلاحية الوصول إلى نظام "%s".', $this->systemLabel($systemKey)),
                 $systemKey

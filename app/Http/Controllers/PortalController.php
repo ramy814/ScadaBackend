@@ -17,7 +17,7 @@ class PortalController extends Controller
     public function index(Request $request): Response
     {
         $user = Auth::guard('admin')->user();
-        $userId = (int) ($user->emp_id ?? $user->getAuthIdentifier());
+        $userId = (int) $user->getAuthIdentifier();
 
         $accessible = $this->permissions->accessibleSystems($userId)->all();
 

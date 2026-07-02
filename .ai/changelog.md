@@ -1,5 +1,12 @@
 # Changelog & Recent Actions
 
+## [2026-07-02] Production Portal Permission ID Fix
+
+- Fixed production portal cards showing locked for an authorized SSO user after login.
+- `PortalController` and `EnsureSystemAccess` now resolve per-system permissions using `mog_users.users_list.id` via `getAuthIdentifier()`, not `emp_id`.
+- Added `tests/Feature/SystemPermissionUserIdTest.php` to guard the `id` vs `emp_id` distinction for portal card rendering and system access middleware.
+- Keep `emp_id` scoped to the global admin allowlist flow; `CONTROL_UNIT.SYSTEM_PERMISSIONS.USER_ID` stores the SSO internal `id`.
+
 ## [2026-07-02] Production Blank Page Deployment Fix
 
 - Diagnosed the production blank page after MOG SSO login where the returned HTML body rendered without the Inertia root element.
