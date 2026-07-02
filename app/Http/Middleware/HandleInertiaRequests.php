@@ -50,6 +50,7 @@ class HandleInertiaRequests extends Middleware
                     ),
             ],
             'urls' => [
+                'portal'       => route('portal'),
                 'dashboard'    => route('admin.dashboard'),
                 'locations'    => route('admin.locations'),
                 'missionTypes' => route('admin.mission-types'),
@@ -58,6 +59,7 @@ class HandleInertiaRequests extends Middleware
                 'reportsPdf'   => route('admin.reports.pdf'),
                 'logout'       => route('logout'),
                 'trips_base'   => url('/admin/trips'),
+                'permissions'  => \Illuminate\Support\Facades\Route::has('portal.permissions') ? route('portal.permissions') : null,
                 'allowlist'    => \Illuminate\Support\Facades\Route::has('admin.allowlist') ? route('admin.allowlist') : null,
                 'logs'         => $logsUrl,
             ],

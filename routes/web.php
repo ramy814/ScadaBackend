@@ -2,47 +2,69 @@
 
 use App\Http\Controllers\AdminAuthController;
 use App\Http\Controllers\AdminAllowlistController;
+use App\Http\Controllers\PortalController;
+use App\Http\Controllers\SystemPermissionController;
 use Illuminate\Support\Facades\Route;
 
 // ─── Redirect root to admin dashboard (which will redirect to login if unauthenticated) ───
 
 if (config('app.env') === 'local') {
     Route::get('/admin/dev-login', function () {
-        $userId = request('user_id', 3); // Default to user ID 3 (سماح محمد داود الشوا)
+        $userId = request('user_id', config('mog-helpers.local_admin_user_id'));
         $guard = \Illuminate\Support\Facades\Auth::guard('admin');
         if ($guard instanceof \Illuminate\Contracts\Auth\StatefulGuard) {
             $guard->loginUsingId($userId);
         }
-        return redirect()->route('admin.dashboard')->with('ok', 'تم تسجيل الدخول كمسؤول تطوير محلي.');
+
+        $system = request('system', 'portal');
+        $redirectTo = match ($system) {
+            'fleet' => route('admin.dashboard'),
+            'wells' => route('wells.dashboard'),
+            'valves' => route('valves.dashboard'),
+            default => route('portal'),
+        };
+
+        return redirect($redirectTo)->with('ok', 'تم تسجيل الدخول كمسؤول تطوير محلي.');
     })->name('admin.dev-login');
 }
 
 // ─── Protected: require authenticated admin + allowlist check ─────────────────
 Route::middleware(['auth:admin', 'admin.allowlisted'])->group(function () {
-    Route::get('/', [AdminAuthController::class, 'dashboard']);
-    Route::get('/admin/dashboard', [AdminAuthController::class, 'dashboard'])->name('admin.dashboard');
-    Route::get('/admin/trips/{trip}', [AdminAuthController::class, 'showTrip'])->name('admin.trips.show');
-    Route::post('/admin/trips/{trip}/approve', [AdminAuthController::class, 'approve'])->name('admin.trips.approve');
-    Route::post('/admin/trips/{trip}/reject', [AdminAuthController::class, 'reject'])->name('admin.trips.reject');
-    Route::post('/admin/trips/{trip}/clarify', [AdminAuthController::class, 'clarify'])->name('admin.trips.clarify');
 
-    Route::get('/admin/locations', [AdminAuthController::class, 'locations'])->name('admin.locations');
-    Route::post('/admin/locations', [AdminAuthController::class, 'storeLocation'])->name('admin.locations.store');
-    Route::post('/admin/locations/{location}', [AdminAuthController::class, 'updateLocation'])->name('admin.locations.update');
+    // ─── Portal: landing page with system cards ───────────────────────────────
+    Route::get('/', [PortalController::class, 'index'])->name('portal');
 
-    Route::get('/admin/mission-types', [AdminAuthController::class, 'missionTypes'])->name('admin.mission-types');
-    Route::post('/admin/mission-types', [AdminAuthController::class, 'storeMissionType'])->name('admin.mission-types.store');
-    Route::post('/admin/mission-types/{missionType}', [AdminAuthController::class, 'updateMissionType'])->name('admin.mission-types.update');
+    // ─── Portal permissions: central per-system access management ─────────────
+    Route::get('/permissions', [SystemPermissionController::class, 'index'])->name('portal.permissions');
+    Route::get('/permissions/search-users', [SystemPermissionController::class, 'searchUsers'])->name('portal.permissions.search-users');
+    Route::post('/permissions', [SystemPermissionController::class, 'store'])->name('portal.permissions.store');
+    Route::delete('/permissions/{userId}/{systemKey}', [SystemPermissionController::class, 'destroy'])->name('portal.permissions.destroy');
 
-    Route::get('/admin/reports', [AdminAuthController::class, 'reports'])->name('admin.reports');
-    Route::get('/admin/reports/csv', [AdminAuthController::class, 'reportsCsv'])->name('admin.reports.csv');
-    Route::get('/admin/reports/pdf', [AdminAuthController::class, 'reportsPdf'])->name('admin.reports.pdf');
+    // ─── Fleet: vehicle tracking dashboard ───────────────────────────────────
+    Route::middleware('system.access:fleet')->group(function () {
+        Route::get('/admin/dashboard', [AdminAuthController::class, 'dashboard'])->name('admin.dashboard');
+        Route::get('/admin/trips/{trip}', [AdminAuthController::class, 'showTrip'])->name('admin.trips.show');
+        Route::post('/admin/trips/{trip}/approve', [AdminAuthController::class, 'approve'])->name('admin.trips.approve');
+        Route::post('/admin/trips/{trip}/reject', [AdminAuthController::class, 'reject'])->name('admin.trips.reject');
+        Route::post('/admin/trips/{trip}/clarify', [AdminAuthController::class, 'clarify'])->name('admin.trips.clarify');
 
-    // ─── Allowlist management (who can access this dashboard) ────────────────
+        Route::get('/admin/locations', [AdminAuthController::class, 'locations'])->name('admin.locations');
+        Route::post('/admin/locations', [AdminAuthController::class, 'storeLocation'])->name('admin.locations.store');
+        Route::post('/admin/locations/{location}', [AdminAuthController::class, 'updateLocation'])->name('admin.locations.update');
+
+        Route::get('/admin/mission-types', [AdminAuthController::class, 'missionTypes'])->name('admin.mission-types');
+        Route::post('/admin/mission-types', [AdminAuthController::class, 'storeMissionType'])->name('admin.mission-types.store');
+        Route::post('/admin/mission-types/{missionType}', [AdminAuthController::class, 'updateMissionType'])->name('admin.mission-types.update');
+
+        Route::get('/admin/reports', [AdminAuthController::class, 'reports'])->name('admin.reports');
+        Route::get('/admin/reports/csv', [AdminAuthController::class, 'reportsCsv'])->name('admin.reports.csv');
+        Route::get('/admin/reports/pdf', [AdminAuthController::class, 'reportsPdf'])->name('admin.reports.pdf');
+    });
+
+    // ─── Legacy allowlist management (global admin gate, not per-system access) ─
     if (config('app.env') === 'local') {
-        Route::get('/admin/allowlist', [AdminAllowlistController::class, 'index'])->name('admin.allowlist');
+        Route::get('/admin/allowlist', fn () => redirect()->route('portal.permissions'))->name('admin.allowlist');
         Route::post('/admin/allowlist', [AdminAllowlistController::class, 'store'])->name('admin.allowlist.store');
         Route::delete('/admin/allowlist/{id}', [AdminAllowlistController::class, 'destroy'])->name('admin.allowlist.destroy');
     }
 });
-

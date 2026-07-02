@@ -13,6 +13,14 @@ return [
     'sso_emp_column'    => env('MOG_SSO_EMP_COLUMN', 'emp_id'),
 
     // User IDs allowed to view the system logs at /mog/logs
-    'logs_allowed_user_ids' => array_filter(array_map('intval', explode(',', env('MOG_LOGS_ALLOWED_USER_IDS', '1061,3')))),
-];
+    'logs_allowed_user_ids' => array_filter(array_map('intval', explode(',', env('MOG_LOGS_ALLOWED_USER_IDS', '1061')))),
 
+    // Local development SSO user id. Override in .env; do not hard-code a real person's identity in code comments.
+    'local_admin_user_id' => (int) env('MOG_LOCAL_ADMIN_USER_ID', 1061),
+
+    // SSO user IDs allowed to manage portal system permissions.
+    'permissions_admin_user_ids' => array_filter(array_map('intval', explode(',', env(
+        'MOG_PERMISSIONS_ADMIN_USER_IDS',
+        env('MOG_LOGS_ALLOWED_USER_IDS', '1061')
+    )))),
+];

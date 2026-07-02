@@ -2,8 +2,8 @@
 
 ## Overview
 The system uses a hybrid database approach:
-1. **Oracle Database (Production)**: The external source of truth for employees, vehicles, and single sign-on users. This database is **read-only** from the perspective of this application.
-2. **SQLite (Development) / PostgreSQL/Oracle (Production Managed)**: The database managed by Laravel to store trips, GPS points, stops, and audit logs.
+1. **Oracle Database**: The source of truth for backend/dashboard data, employees, vehicles, single sign-on users, trips, GPS points, stops, audit logs, and the integrated wells module.
+2. **Mobile Local Storage**: Flutter apps may store offline records locally before syncing. The Laravel dashboard/backend must not depend on local SQLite data.
 
 ## Managed Tables (Created via Laravel Migrations)
 
@@ -74,7 +74,18 @@ Temporary table for handling SMS OTP authentication.
 - `expires_at`: Expiration timestamp.
 - `used_at`: When the code was consumed.
 
-## External Oracle Tables (CONTROL_UNIT)
+## Oracle Driver & Vehicle Source Tables (CONTROL_UNIT)
+
+### `SYSTEM_PERMISSIONS`
+Central per-system access table for the unified portal.
+- `id`: Primary key.
+- `user_id`: SSO user ID from `mog_users.users_list` (`id` column, NOT `emp_id`).
+- `system_key`: One of `fleet`, `wells`, or `valves`.
+- `granted_by`: Display name or identifier of the admin who granted access.
+- `granted_at`: Oracle-side grant timestamp.
+- Used by `SystemPermissionRepository`, `PortalController`, and `EnsureSystemAccess`.
+- This table controls access to each integrated system independently; do not use `FLEET_ADMIN_ALLOWLIST` for per-system decisions.
+- **CRITICAL NOTE**: The `mog_users.users_list` table contains both `id` (Primary Key) and `emp_id` (Employee ID). The MOG SSO system logs users in using their `id`. Therefore, `SYSTEM_PERMISSIONS.user_id` MUST store the `id` (e.g. 1061) and not the `emp_id` (e.g. 2541). When granting permissions in the UI, always search by name to ensure the correct `id` is saved.
 
 ### `FLEET_USERS`
 Read through `MunicipalityDriverRepository`, `MunicipalityVehicleRepository`, and `Beneficiary`.
@@ -96,13 +107,17 @@ Available in `CONTROL_UNIT` as a general vehicle reference table.
 - `TYPE`: Vehicle type.
 - Do not use `MOG_VEHICLES` for driver-scoped vehicle assignment unless a verified relationship to `FLEET_USERS` is added.
 
-### `g_store.BENEFICIARIES`
-Used directly to:
-1. Authenticate drivers via their phone number (`MOBILE_NUM`) and ensure they are active (`IS_ACTIVE = 1`).
-2. Query the true count of all active drivers within the municipality for the Admin Dashboard performance stats.
+## Integrated Wells Module
+The wells module has its own AI context under `.ai/modules/wells/`.
+- Read `.ai/modules/wells/project-overview.md` before changing wells workflows.
+- Read `.ai/modules/wells/database/tables.md` before changing wells tables or Oracle integrations.
+- External wells generator/quarter references may use schemas such as `G_STORE` and `GAZADATA`; keep that context scoped to the wells module unless the fleet code explicitly needs it.
 
-### `g_store.VEHICLE`
-Used directly to:
-1. Lookup a driver's assigned vehicle by matching `BENEFICIARY_OID`.
-2. Query the true count of all active vehicles within the municipality for the Admin Dashboard performance stats.
-- Filter by `IS_ACTIVE = 1`.
+## Integrated Valves Module
+The valves module manages municipality valves operations and maintenance logs.
+- Valve source data is read from external Oracle table `EME.WATER_VALVES`; do not create or repopulate a local `VALVES` table.
+- `App\Models\Valves\Valve` maps to `EME.WATER_VALVES` with primary key `W4_GENERAL_ID` and avoids selecting the Oracle Spatial `GEOMETRY` column by default.
+- Managed features in `CONTROL_UNIT`: `VALVE_LOGS`, `VALVE_MAINTENANCE_REPORTS`, `VALVE_TEAMS`, `VALVE_TEAM_VALVES`, `VALVE_INSPECTORS`, and `VALVE_INSPECTOR_TEAMS`.
+- `VALVE_OID` columns store `EME.WATER_VALVES.W4_GENERAL_ID`; they are not foreign keys to a local `VALVES` table.
+- Context is located under `.ai/modules/valves/`.
+- Valve teams and inspectors are separate from wells teams and inspectors. Do not use wells tables for valves assignments or valve app accounts.

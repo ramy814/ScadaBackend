@@ -13,13 +13,16 @@
 - `.ai/database/`: قواعد البيانات والجداول
 - `.ai/workflows/`: دورات الحياة (مثل المراجعة)
 - `.ai/prompts/`: قواعد مخصصة (مثل Flutter)
+- `.ai/modules/`: ملفات السياق الخاصة بالأنظمة الفرعية المدمجة (مثل نظام الآبار `wells`)
 
 ## الهوية والسياق
-- Laravel 11, PHP 8.2, Oracle DB (إنتاج), SQLite (تطوير)
+- Laravel 11, PHP 8.2, Oracle DB لكل بيانات الباك اند والداشبورد
 - Admin Dashboard: Vue 3 + Inertia.js (SPA) — لا Ziggy، الروابط تُمرَّر عبر Shared Props
 - Driver App: Flutter — Offline-first (لا يتطلب إنترنت أثناء الرحلة)
 - Auth إدارة: MOG SSO (خارجي) — استخدم `Inertia::location()` وليس `redirect()->away()`
 - Auth سائق: SMS OTP → Sanctum Token
+- نظام الآبار مدمج كنظام فرعي بصلاحيات محددة؛ سياقه الخاص داخل `.ai/modules/wells/`
+- تطبيق الآبار Flutter موجود خارج هذا الريبو في `/Volumes/SecondDrive/Wells/wells_app` ويجب أن يرتبط بهذا الباك اند الموحد.
 
 ## قواعد الكود الأساسية (اقرأ .ai/coding-rules.md للتفاصيل)
 - Controllers رفيعة — المنطق في Services فقط
@@ -31,13 +34,17 @@
 - `app/Services/TripSyncService.php` — منطق مزامنة الرحلات
 - `app/Repositories/MunicipalityVehicleRepository.php` — Oracle vehicles
 - `app/Models/Trip.php` — نموذج الرحلة (يحتوي driver/vehicle accessors)
+- `routes/wells.php` و `app/Http/Controllers/Wells/` — مسارات ولوحات نظام الآبار المدمج
+- `app/Repositories/Wells/` و `app/Services/Wells/` — طبقة بيانات ومنطق نظام الآبار
 
 ## الجداول الرئيسية (اقرأ .ai/database/tables.md للتفاصيل)
-- **محلي**: trips, trip_points, trip_stops, audit_logs
-- **Oracle**: VEHICLE (مركبات), BENEFICIARIES (سائقون)
+- **Oracle managed**: trips, trip_points, trip_stops, audit_logs
+- **Oracle driver/vehicle source**: CONTROL_UNIT.FLEET_USERS, CONTROL_UNIT.MOG_VEHICLES
+- **Oracle wells module**: WELLS, TEAMS, INSPECTORS, WELL_READINGS, DIESEL_INVENTORIES, NOTIFICATION_TYPES
 
 ## قبل البدء في أي ميزة جديدة
 ابحث في مجلد `.ai/` عن الملف المناسب للمهمة واقرأه.
+عند العمل على نظام الآبار تحديداً اقرأ ملفات `.ai/modules/wells/` إضافةً إلى القواعد العامة.
 
 ## Strict AI Directives
 Always read all `.ai` markdown files first.

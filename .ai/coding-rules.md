@@ -42,3 +42,9 @@ const loginUrl = page.props.urls.login;
 ## 6. Language
 - The source code (variables, functions, classes, database tables) is exclusively in **English**.
 - The User Interface (Views, Vue Components, Validation Messages, PDF generation) is exclusively in **Arabic**.
+
+## 7. Ponytail Skills
+- The local Codex install includes Ponytail skills from `DietrichGebert/ponytail`: `ponytail`, `ponytail-review`, `ponytail-audit`, `ponytail-debt`, `ponytail-gain`, and `ponytail-help`.
+- Use Ponytail as a simplicity guard during code changes: prefer existing project patterns, native platform features, and the smallest working diff.
+- For reviews, use Ponytail only to find removable complexity; do not mix it with correctness/security findings unless the user asks for a normal review too.
+- If a deliberate shortcut is added, mark it with a `ponytail:` comment that names the ceiling and the trigger for revisiting it.

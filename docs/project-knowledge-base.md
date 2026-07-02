@@ -16,7 +16,7 @@
 | طبقة | التقنية |
 |------|----------|
 | Backend | Laravel 11, PHP 8.2 |
-| Database | Oracle (إنتاج) + SQLite (تطوير) |
+| Database | Oracle لكل بيانات الباك اند والداشبورد |
 | Frontend Admin | Vue 3, Inertia.js, Vite |
 | Driver App | Flutter (Offline-first) |
 | PDF Reports | mPDF |
@@ -27,7 +27,7 @@
 
 ## 2. هيكل قاعدة البيانات
 
-### الجداول المحلية (SQLite/Oracle - managed by Laravel)
+### جداول التطبيق المدارة في Oracle
 
 #### `trips` — الرحلات
 ```

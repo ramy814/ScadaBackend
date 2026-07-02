@@ -169,25 +169,7 @@
       </div>
     </div>
 
-    <!-- Tracking Points -->
-    <div class="panel">
-      <div class="panel-header">السجل الكامل لنقاط التتبع</div>
-      <div class="table-wrap" style="max-height:400px;overflow-y:auto;">
-        <table>
-          <thead style="position:sticky;top:0;z-index:5;"><tr><th>#</th><th>الوقت</th><th>الإحداثيات</th><th>الدقة</th><th>السرعة</th></tr></thead>
-          <tbody>
-            <tr v-if="!points.length"><td colspan="5" style="text-align:center;padding:24px;color:var(--text-secondary);">السجل فارغ.</td></tr>
-            <tr v-for="pt in points" :key="pt.id">
-              <td style="font-weight:700;color:var(--text-secondary);">{{ pt.sequence_number }}</td>
-              <td class="mono">{{ formatDate(pt.captured_at) }}</td>
-              <td><a :href="`https://maps.google.com/?q=${pt.latitude},${pt.longitude}`" target="_blank" class="badge neutral mono" style="text-decoration:none;">{{ pt.latitude }}, {{ pt.longitude }}</a></td>
-              <td>{{ pt.accuracy ?? '-' }} <span style="font-size:12px;color:var(--text-secondary);">متر</span></td>
-              <td>{{ pt.speed ?? '-' }} <span style="font-size:12px;color:var(--text-secondary);">كم/س</span></td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
+
 
     <!-- Review Panel -->
     <div class="review-panel">

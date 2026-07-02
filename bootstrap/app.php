@@ -18,6 +18,8 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
         then: function (): void {
             require __DIR__.'/../routes/ai.php';
+            require __DIR__.'/../routes/wells.php';
+            require __DIR__.'/../routes/valves.php';
         },
     )
     ->withMiddleware(function (Middleware $middleware): void {
@@ -27,8 +29,10 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'admin.allowlisted' => \App\Http\Middleware\EnsureAdminIsAllowlisted::class,
+            'system.access'     => \App\Http\Middleware\EnsureSystemAccess::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
     })->create();
+

@@ -67,3 +67,30 @@ where fu.id in (
 )
 ```
 - Keep phone normalization support for local, international, and last-9-digit matching, but the result must remain beneficiary-scoped.
+
+## Valves Mobile API
+
+Valve inspector app accounts are separate from fleet drivers and wells inspectors.
+- Login endpoint: `POST /api/valves/auth/login`
+- Payload: `phone`, `password`
+- `PHONE` is the username and must match a row in `VALVE_INSPECTORS`.
+- `IS_ACTIVE` must be enabled for login.
+- Successful login returns a Sanctum token plus the inspector profile and assigned valve teams.
+- Authenticated valve inspector API access is scoped to valves assigned through the inspector's valve teams.
+- If any assigned valve team has `ASSIGN_ALL_VALVES = true`, the inspector receives and can act on all valves.
+- The legacy SCADA Flutter app in `/Volumes/SecondDrive/Scada/scada_flutter` must call `POST /api/valves/auth/login` with `phone` and `password`, then call `GET /api/valves` with the returned Sanctum token.
+- Do not authenticate valve inspectors against wells `INSPECTORS` or fleet driver tables.
+
+### Valves Mobile Map Source
+- The SCADA Flutter app must read map configuration from this backend, not directly from GeoServer or `cs.mogaza.org`.
+- Map settings endpoint: `GET /api/dashboard/map-settings`
+  - Returns an absolute `wms_url` pointing to this backend's `/wms.php` proxy.
+  - Returns the same layer list used by the web valves map.
+- Feature query endpoint: `GET /api/dashboard/map-features?layers=...&lat=...&lng=...`
+  - The backend queries GeoServer and returns feature properties as JSON.
+  - Flutter should not call GeoServer WFS/GetFeatureInfo directly.
+- Default mobile and web visible layers must stay aligned:
+  - `cite:V_BUILDING_GEOSRV`
+  - `cite:V_CENTERLINE_SEGMENTS`
+  - `cite:WATER_VALVES`
+- Keep `cite:WATER_PIPE` present but hidden by default until the upstream GeoServer/Oracle Spatial issue is fixed.

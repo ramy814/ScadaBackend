@@ -29,6 +29,10 @@ Once a trip is `confirmed` by the system, it enters the administrative review pi
 
 ## 5. Security & Authentication
 - **Admin**: Uses the Municipality's MOG SSO package. Authentication state is stored in the session.
+- **Local Dev Login**: `/admin/dev-login` is the supported local entry point. It logs into the local admin session and redirects to the unified portal card selector. Optional `system` query shortcuts are supported: `?system=wells`, `?system=fleet`, and `?system=valves`.
+- **Unified Portal**: `/` renders the system card selector after admin authentication. Card access is resolved from `SystemPermissionRepository` and `CONTROL_UNIT.SYSTEM_PERMISSIONS`.
+- **Portal Permissions**: `/permissions` is the central Inertia screen for granting per-system access. It replaces the Fleet-dashboard permission screen for system access decisions. A user may be granted `fleet`, `wells`, `valves`, or any combination. Managers of this screen are controlled by `MOG_PERMISSIONS_ADMIN_USER_IDS`.
+- **Global Admin Gate**: `FLEET_ADMIN_ALLOWLIST` is still a broad allowlist for entering protected admin routes, but it must not be treated as the per-system permission model.
 - **Driver**: Uses a custom SMS OTP flow. The driver requests a code, which is saved in `sms_login_codes`. Upon verification, Laravel Sanctum issues a persistent API token.
 
 ## 6. Naming Conventions
