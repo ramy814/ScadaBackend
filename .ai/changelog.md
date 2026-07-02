@@ -1,5 +1,13 @@
 # Changelog & Recent Actions
 
+## [2026-07-02] Production Blank Page Deployment Fix
+
+- Diagnosed the production blank page after MOG SSO login where the returned HTML body rendered without the Inertia root element.
+- Confirmed the local Inertia root Blade view renders `id="app"`, `data-page`, and Vite `/build/assets/app-*` links.
+- Added `tests/Feature/InertiaRootViewTest.php` to catch regressions where the Inertia root view renders empty.
+- Removed `/public/build` from `.gitignore` so git-based production deploys can include Vite build assets.
+- Rebuilt frontend assets locally; production deploys must either commit the complete `public/build` directory or run `npm install && npm run build` on the server, followed by Laravel cache clearing.
+
 ## [2026-07-01] Valves Map Performance, CORS Fixes & Theme Variables Cleanup
 
 - Fixed valves map freezing by introducing `AbortController` in `Map.vue` to cancel pending `GetFeatureInfo` requests when clicking or unmounting.
