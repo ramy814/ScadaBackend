@@ -2,7 +2,7 @@
 
 namespace App\Http\Middleware;
 
-use App\Repositories\AdminAllowlistRepository;
+use App\Repositories\SystemPermissionRepository;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -11,15 +11,15 @@ use Symfony\Component\HttpFoundation\Response;
 /**
  * Middleware: EnsureAdminIsAllowlisted
  *
- * Runs after auth:admin. Verifies that the currently authenticated SSO user
- * has their employee number (EMP_ID column, configured via mog-helpers.sso_emp_column)
- * listed in Oracle's FLEET_ADMIN_ALLOWLIST table.
+ * Runs after auth:admin. Verifies that the authenticated SSO user has at least
+ * one permission in SYSTEM_PERMISSIONS (fleet, wells, or valves).
+ * This replaces the old FLEET_ADMIN_ALLOWLIST gate which only covered fleet users.
  *
- * Bypass rule: skipped entirely when APP_ENV=local (configurable).
+ * Bypass rule: skipped entirely when APP_ENV=local.
  */
 class EnsureAdminIsAllowlisted
 {
-    public function __construct(private readonly AdminAllowlistRepository $allowlist) {}
+    public function __construct(private readonly SystemPermissionRepository $permissions) {}
 
     public function handle(Request $request, Closure $next): Response
     {
@@ -32,31 +32,21 @@ class EnsureAdminIsAllowlisted
         $user = Auth::guard('admin')->user();
 
         if (! $user) {
-            // Should not happen since auth:admin runs first, but be safe.
             return $this->denyAccess('لم يتم التعرف على المستخدم.');
         }
 
-        // ── Read the employee number from the SSO user object ─────────────────
-        $empColumn = config('mog-helpers.sso_emp_column', 'emp_id');
-        $empNo     = (string) ($user->{$empColumn} ?? $user->{strtolower($empColumn)} ?? $user->{strtoupper($empColumn)} ?? '');
+        $userId = (int) $user->getAuthIdentifier();
 
-        if ($empNo === '') {
+        // ── Check that the user has at least one system permission ────────────
+        // (per-system access is enforced by EnsureSystemAccess on each route group)
+        $accessibleSystems = $this->permissions->accessibleSystems($userId);
+
+        if ($accessibleSystems->isEmpty()) {
             Auth::guard('admin')->logout();
             $request->session()->invalidate();
             $request->session()->regenerateToken();
 
-            return $this->denyAccess('لا يمكن تحديد رقم الموظف الخاص بحسابك.');
-        }
-
-        // ── Check the allowlist ───────────────────────────────────────────────
-        if (! $this->allowlist->isAllowed($empNo)) {
-            Auth::guard('admin')->logout();
-            $request->session()->invalidate();
-            $request->session()->regenerateToken();
-
-            return $this->denyAccess(
-                sprintf('ليس لديك صلاحية الوصول إلى لوحة الإدارة. رقم موظفك: %s', $empNo)
-            );
+            return $this->denyAccess('ليس لديك صلاحية الوصول إلى أي من الأنظمة. تواصل مع مسؤول النظام.');
         }
 
         return $next($request);
