@@ -7,6 +7,7 @@ namespace App\Repositories\Wells;
 use App\Models\Wells\Inspector;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
 
 class InspectorRepository
 {
@@ -67,8 +68,37 @@ class InspectorRepository
 
     public function syncTeams(int $inspectorId, array $teamIds): void
     {
-        $inspector = $this->model->findOrFail($inspectorId);
-        $inspector->teams()->sync($teamIds);
+        // Verify the inspector exists
+        $this->model->findOrFail($inspectorId);
+
+        // Get current team IDs for this inspector
+        $existing = DB::connection('oracle')
+            ->table('inspector_teams')
+            ->where('INSPECTOR_OID', $inspectorId)
+            ->pluck('TEAM_OID')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        $newIds   = array_map('intval', $teamIds);
+        $toDetach = array_diff($existing, $newIds);
+        $toAttach = array_diff($newIds, $existing);
+
+        // Remove de-associated teams
+        if (!empty($toDetach)) {
+            $placeholders = implode(',', array_fill(0, count($toDetach), '?'));
+            DB::connection('oracle')->statement(
+                "DELETE FROM inspector_teams WHERE INSPECTOR_OID = ? AND TEAM_OID IN ({$placeholders})",
+                array_merge([$inspectorId], array_values($toDetach))
+            );
+        }
+
+        // Insert newly associated teams
+        foreach ($toAttach as $teamId) {
+            DB::connection('oracle')->statement(
+                'INSERT INTO inspector_teams (INSPECTOR_OID, TEAM_OID, CREATED_AT) VALUES (?, ?, ?)',
+                [$inspectorId, $teamId, now()->toDateTimeString()]
+            );
+        }
     }
 
     public function getActiveCount(): int

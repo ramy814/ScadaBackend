@@ -37,7 +37,7 @@ class InspectorService
         $inspector = $this->inspectorRepository->create($data);
 
         if (!empty($teamIds)) {
-            $this->inspectorRepository->syncTeams($inspector->OID, $teamIds);
+            $this->inspectorRepository->syncTeams((int) $inspector->getKey(), $teamIds);
         }
 
         return $inspector->fresh(['teams']);
