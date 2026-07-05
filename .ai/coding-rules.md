@@ -48,3 +48,24 @@ const loginUrl = page.props.urls.login;
 - Use Ponytail as a simplicity guard during code changes: prefer existing project patterns, native platform features, and the smallest working diff.
 - For reviews, use Ponytail only to find removable complexity; do not mix it with correctness/security findings unless the user asks for a normal review too.
 - If a deliberate shortcut is added, mark it with a `ponytail:` comment that names the ceiling and the trigger for revisiting it.
+
+## 8. Oracle-Specific Rules
+
+### Primary Key After INSERT
+After `Model::create()` on Oracle, **never** read `$model->OID` (uppercase) — Oracle PDO returns attributes in lowercase, so `->OID` is `null`. Use `$model->getKey()` instead.
+
+```php
+// WRONG ❌
+$team->OID  // null!
+
+// CORRECT ✅
+(int) $team->getKey()
+```
+
+### BelongsToMany Pivot Tables
+Do NOT use `->withPivot('created_at')` or `->withTimestamps()` on any `BelongsToMany` relation backed by Oracle. OCI8 returns column names in uppercase (`CREATED_AT`), but Eloquent pivot hydration expects lowercase (`created_at`) → 500 error on relation load.
+
+Do NOT use `->sync($ids)` on Oracle pivot tables — use raw `DB::connection('oracle')->statement()` for INSERT/DELETE instead.
+
+### Auth Middleware — Multi-System Access
+The `admin.allowlisted` middleware (mapped to `EnsureAdminIsAllowlisted`) must check `SYSTEM_PERMISSIONS` for ANY permission, not a legacy allowlist table. A user who only has `wells` or `valves` permission must still pass the gate — the per-page middleware (`system.access:wells`) handles fine-grained system access.

@@ -1,6 +1,40 @@
 # Changelog & Recent Actions
 
+## [2026-07-05] Wells Module — Oracle Pivot & Auth Fixes
+
+### 1. Auth: Multi-System Gate Fix (`EnsureAdminIsAllowlisted`)
+- **Problem**: `admin.allowlisted` middleware checked the old `FLEET_ADMIN_ALLOWLIST` table, blocking Wells/Valves-only users even when they had permissions in `SYSTEM_PERMISSIONS`.
+- **Fix**: Rewrote `EnsureAdminIsAllowlisted` to check `SYSTEM_PERMISSIONS` — any user with at least one system permission passes the gate; per-page `EnsureSystemAccess` handles fine-grained access.
+- **File**: `app/Http/Middleware/EnsureAdminIsAllowlisted.php`
+
+### 2. Wells Teams: 500 on Create (`$team->OID = null`)
+- **Problem**: After `create()` on Oracle, Eloquent stores the primary key in lowercase (`oid`), so `$team->OID` returns `null`. Passing `null` to `syncWells()` triggered a `findOrFail(null)` exception.
+- **Fix**: Use `$team->getKey()` everywhere after `create()`.
+- **Files**: `app/Services/Wells/TeamService.php`
+
+### 3. Wells Teams: 500 on sync (`Eloquent sync()` vs Oracle)
+- **Problem**: `BelongsToMany::sync()` conflicts with Oracle uppercase column names in pivot tables (`CREATED_AT` vs `created_at`), causing Eloquent errors.
+- **Fix**: Replaced `->sync()` with raw SQL (`DB::connection('oracle')->statement(...)`) for manual INSERT/DELETE on `team_wells`.
+- **Files**: `app/Repositories/Wells/TeamRepository.php`
+
+### 4. Wells Inspectors: Same two issues (#2 & #3)
+- Applied identical fix: `getKey()` in service, raw SQL in repository for `inspector_teams`.
+- **Files**: `app/Services/Wells/InspectorService.php`, `app/Repositories/Wells/InspectorRepository.php`
+
+### 5. Wells: 500 on `withPivot('created_at')` when loading relations
+- **Problem**: `->withPivot('created_at')` in `BelongsToMany` definitions caused a 500 when Eloquent tried to hydrate pivot rows — OCI8 returns `CREATED_AT` (uppercase) but Eloquent expects `created_at` (lowercase).
+- **Fix**: Removed `->withPivot('created_at')` from all four relations (`Team::wells`, `Team::inspectors`, `Inspector::teams`, `Well::teams`). The pivot timestamp is not used in the UI.
+- **Files**: `app/Models/Wells/Team.php`, `app/Models/Wells/Inspector.php`, `app/Models/Wells/Well.php`
+
+### Key Lesson Documented
+Two permanent rules added to `.ai/coding-rules.md` and `.ai/modules/wells/coding-rules.md`:
+- Always use `$model->getKey()` after Oracle `create()`, never `$model->OID`.
+- Never use `->withPivot()`, `->withTimestamps()`, or `->sync()` on Oracle-backed pivot tables; use raw SQL instead.
+
+---
+
 ## [2026-07-02] Wells Generator Assignment Filter
+
 
 - Filtered the Wells add/edit generator dropdown to active generator assets only from `G_STORE.GENERATOR` using `IS_ACTIVE = 1` and `TYPE_OID = 128`.
 - Kept the generator card data contract unchanged: `OID`, `NAME`, `GENERATOR_NUM`, latest `CURRENT_READING`, and `GALLONS`.

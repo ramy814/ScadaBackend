@@ -83,3 +83,44 @@ Source path: `/Volumes/SecondDrive/Wells/wells_app`.
 - **Notification Type Icons**: Do not store raw emoji in Oracle for notification type icons; the current Oracle charset may persist them as `??`. Store safe ASCII codes in `ICON` (and mirror to `EMOJI` only for compatibility), then map codes to symbols in Vue.
 - **Oracle Boolean Values in Vue**: Oracle may return booleans as `"1"` / `"0"`. Vue must normalize these with explicit helpers, e.g. `value === true || value === 1 || value === '1'`; never rely on JavaScript truthiness because `"0"` is truthy.
 - **Oracle-only Dashboard Data**: Dashboard repositories that must read/write production data should use the `oracle` connection explicitly when there is any risk of default connection drift, especially for notification types and notifications.
+- **Primary Key After Oracle INSERT (CRITICAL)**: After calling `Model::create()` on an Oracle table, **never** access the primary key via `$model->OID` (uppercase). Oracle PDO returns the key in lowercase, so `$model->OID` returns `null`. Always use `$model->getKey()` to retrieve the newly created record's ID, regardless of how the primary key column is named in Oracle.
+  ```php
+  // WRONG ❌
+  $team = $this->teamRepository->create($data);
+  $this->teamRepository->syncWells($team->OID, $wellIds); // OID is null!
+
+  // CORRECT ✅
+  $team = $this->teamRepository->create($data);
+  $this->teamRepository->syncWells((int) $team->getKey(), $wellIds);
+  ```
+- **BelongsToMany Pivot Timestamps on Oracle (CRITICAL)**: Do NOT use `->withPivot('created_at')` or `->withTimestamps()` on Eloquent `BelongsToMany` relations pointing to Oracle pivot tables. OCI8 returns column names in uppercase (`CREATED_AT`), but Eloquent's pivot hydration expects lowercase (`created_at`), which causes a 500 error when loading the relation. Instead, use raw SQL with `DB::connection('oracle')->statement(...)` to manually INSERT/DELETE pivot rows — this also avoids Eloquent's automatic `sync()` behavior which conflicts with Oracle uppercase columns:
+  ```php
+  // WRONG ❌
+  public function teams(): BelongsToMany {
+      return $this->belongsToMany(Team::class, 'inspector_teams', 'inspector_oid', 'team_oid')
+          ->withPivot('created_at'); // Crashes on Oracle!
+  }
+
+  // CORRECT ✅
+  public function teams(): BelongsToMany {
+      return $this->belongsToMany(Team::class, 'inspector_teams', 'inspector_oid', 'team_oid');
+  }
+  ```
+  And in the Repository, replace `->sync($ids)` with manual raw SQL:
+  ```php
+  // WRONG ❌ — sync() fails on Oracle pivot tables
+  $inspector->teams()->sync($teamIds);
+
+  // CORRECT ✅ — manual raw SQL
+  $existing = DB::connection('oracle')->table('inspector_teams')
+      ->where('INSPECTOR_OID', $inspectorId)->pluck('TEAM_OID')
+      ->map(fn ($id) => (int) $id)->all();
+  $toDetach = array_diff($existing, $newIds);
+  $toAttach  = array_diff($newIds, $existing);
+  foreach ($toAttach as $teamId) {
+      DB::connection('oracle')->statement(
+          'INSERT INTO inspector_teams (INSPECTOR_OID, TEAM_OID, CREATED_AT) VALUES (?, ?, ?)',
+          [$inspectorId, $teamId, now()->toDateTimeString()]
+      );
+  }
+  ```
