@@ -21,6 +21,11 @@ A comprehensive well management system consisting of two main applications:
 6. Readings and diesel inventories auto-sync to server when internet is available
 7. Admin monitors readings, diesel inventory, quality distribution, and inspector activity
 
+## Production Reports
+- The readings monitoring page supports `date_from` / `date_to` filters and exports a production report as PDF or Excel.
+- Report rows are calculated from well readings: previous reading, current reading, operating-hours difference, and `production = difference * WELLS.CAPACITY`.
+- The report format follows the daily wells Excel sample (`تقرير_الابار_اليومي19-06-2026.xlsx`) with well name, official number/name, coordinates, capacity, previous/current readings, operating hours, production, and notes.
+
 ## Database
 - **Production**: Oracle DB via `yajra/laravel-oci8`
 - **Development**: SQLite
@@ -33,7 +38,7 @@ A comprehensive well management system consisting of two main applications:
 - Backend API changes for the wells Flutter app should be made in this project and kept compatible with the models in `/Volumes/SecondDrive/Wells/wells_app`.
 - No authentication on dashboard (will be integrated into existing auth system later)
 - Flutter app works fully offline using SQLite
-- Generators data comes from existing Oracle tables (`G_STORE.GENERATOR`, `G_STORE.FUEL_LOG_DETAILS`)
+- Generators data comes from existing Oracle tables (`G_STORE.GENERATOR`, `G_STORE.FUEL_LOG_DETAILS`) and dashboard well assignment lists must only show active generator assets (`IS_ACTIVE = 1`, `TYPE_OID = 128`).
 - Diesel inventory is stored locally in `DIESEL_INVENTORIES` and is entered from the field inspector app through `/api/diesel-inventories/sync`.
 - Dashboard users monitor diesel inventory reports at `/diesel-inventories`, with a summary also shown on the main dashboard.
 - Notification type management lives at `/notification-types`. It stores visual icon codes in `ICON` (e.g. `danger`, `fuel`, `water`) instead of raw emoji because the current Oracle charset may persist emoji as `??`. The Vue UI maps those codes to display symbols.

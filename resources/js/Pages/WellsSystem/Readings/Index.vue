@@ -17,12 +17,21 @@ const qualityLabels = { excellent: 'ممتاز', good: 'جيد', acceptable: 'م
 const filterWell = ref(props.filters.well_oid || '')
 const filterInspector = ref(props.filters.inspector_oid || '')
 const filterQuality = ref(props.filters.quality || '')
+const filterDateFrom = ref(props.filters.date_from || '')
+const filterDateTo = ref(props.filters.date_to || '')
 
-function applyFilters() {
+function filterParams() {
     const params = {}
     if (filterWell.value) params.well_oid = filterWell.value
     if (filterInspector.value) params.inspector_oid = filterInspector.value
     if (filterQuality.value) params.quality = filterQuality.value
+    if (filterDateFrom.value) params.date_from = filterDateFrom.value
+    if (filterDateTo.value) params.date_to = filterDateTo.value
+    return params
+}
+
+function applyFilters() {
+    const params = filterParams()
     router.get('/wells/readings', params, { preserveState: true })
 }
 
@@ -30,7 +39,14 @@ function clearFilters() {
     filterWell.value = ''
     filterInspector.value = ''
     filterQuality.value = ''
+    filterDateFrom.value = ''
+    filterDateTo.value = ''
     router.get('/wells/readings')
+}
+
+function exportReport(format) {
+    const query = new URLSearchParams(filterParams()).toString()
+    window.location.href = `/wells/readings/report/${format}${query ? `?${query}` : ''}`
 }
 
 function formatDate(dateStr) {
@@ -68,10 +84,20 @@ function formatDate(dateStr) {
                                 <option v-for="insp in inspectors" :key="insp.OID" :value="insp.OID">{{ insp.NAME }}</option>
                             </select>
                         </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label class="form-label">من تاريخ</label>
+                            <input v-model="filterDateFrom" type="date" class="form-input">
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label class="form-label">إلى تاريخ</label>
+                            <input v-model="filterDateTo" type="date" class="form-input">
+                        </div>
 
                         <div class="btn-group">
                             <button class="btn btn-primary" @click="applyFilters()">🔍 بحث</button>
                             <button class="btn btn-secondary" @click="clearFilters()">مسح</button>
+                            <button class="btn btn-secondary" @click="exportReport('pdf')">PDF</button>
+                            <button class="btn btn-secondary" @click="exportReport('excel')">Excel</button>
                         </div>
                     </div>
                 </div>
@@ -105,7 +131,7 @@ function formatDate(dateStr) {
                                     </td>
                                 </tr>
                                 <tr v-if="!readingsList.length">
-                                    <td colspan="9" style="text-align: center; padding: 40px; color: var(--color-text-muted);">
+                                    <td colspan="6" style="text-align: center; padding: 40px; color: var(--color-text-muted);">
                                         لا توجد قراءات مطابقة للفلاتر المحددة
                                     </td>
                                 </tr>

@@ -85,7 +85,7 @@ Central per-system access table for the unified portal.
 - `granted_at`: Oracle-side grant timestamp.
 - Used by `SystemPermissionRepository`, `PortalController`, and `EnsureSystemAccess`.
 - This table controls access to each integrated system independently; do not use `FLEET_ADMIN_ALLOWLIST` for per-system decisions.
-- **CRITICAL NOTE**: The `mog_users.users_list` table contains both `id` (Primary Key) and `emp_id` (Employee ID). The MOG SSO system logs users in using their `id`. Therefore, `SYSTEM_PERMISSIONS.user_id` MUST store the `id` (e.g. 1061) and not the `emp_id` (e.g. 2541). When granting permissions in the UI, always search by name to ensure the correct `id` is saved.
+- **CRITICAL NOTE**: The `mog_users.users_list` table contains both `id` (Primary Key) and `emp_id` (Employee ID). The MOG SSO system logs users in using their `id`. Therefore, `SYSTEM_PERMISSIONS.user_id` MUST store the SSO `id`, not `emp_id`. Production example: `رامي عيد سليم غياضة` logs in as `id = 140`, `emp_id = 2541`; permissions must be granted to `USER_ID = 140`. Do not grant by similar display names such as the separate `id = 1061` row.
 
 ### `FLEET_USERS`
 Read through `MunicipalityDriverRepository`, `MunicipalityVehicleRepository`, and `Beneficiary`.

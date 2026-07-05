@@ -25,6 +25,55 @@ class ReadingRepository
     {
         $query = $this->model->with(['well', 'inspector'])->orderByDesc('READING_DATE');
 
+        $this->applyFilters($query, $filters);
+
+        return $query->paginate($perPage)->withQueryString();
+    }
+
+    public function getReportReadings(array $filters = [], int $limit = 5000): Collection
+    {
+        $query = $this->model
+            ->with(['well', 'inspector'])
+            ->orderBy('WELL_OID')
+            ->orderBy('READING_DATE')
+            ->orderBy('OID');
+
+        $this->applyFilters($query, $filters);
+
+        return $query->limit($limit)->get();
+    }
+
+    public function getPreviousReading(WellReading $reading): ?WellReading
+    {
+        $wellId = $reading->getAttribute('WELL_OID') ?? $reading->getAttribute('well_oid');
+        $readingDate = $reading->getAttribute('READING_DATE') ?? $reading->getAttribute('reading_date');
+        $readingId = $reading->getAttribute('OID') ?? $reading->getAttribute('oid');
+
+        if ($wellId === null || $readingDate === null || $readingId === null) {
+            return null;
+        }
+
+        return $this->model
+            ->where('WELL_OID', $wellId)
+            ->where(function ($query) use ($reading): void {
+                $readingDate = $reading->getAttribute('READING_DATE') ?? $reading->getAttribute('reading_date');
+                $readingId = $reading->getAttribute('OID') ?? $reading->getAttribute('oid');
+
+                $query
+                    ->where('READING_DATE', '<', $readingDate)
+                    ->orWhere(function ($sameTimeQuery) use ($readingDate, $readingId): void {
+                        $sameTimeQuery
+                            ->where('READING_DATE', $readingDate)
+                            ->where('OID', '<', $readingId);
+                    });
+            })
+            ->orderByDesc('READING_DATE')
+            ->orderByDesc('OID')
+            ->first();
+    }
+
+    private function applyFilters($query, array $filters): void
+    {
         if (!empty($filters['well_oid'])) {
             $query->where('WELL_OID', $filters['well_oid']);
         }
@@ -38,14 +87,12 @@ class ReadingRepository
         }
 
         if (!empty($filters['date_from'])) {
-            $query->where('READING_DATE', '>=', $filters['date_from']);
+            $query->where('READING_DATE', '>=', Carbon::parse($filters['date_from'])->startOfDay());
         }
 
         if (!empty($filters['date_to'])) {
-            $query->where('READING_DATE', '<=', $filters['date_to']);
+            $query->where('READING_DATE', '<=', Carbon::parse($filters['date_to'])->endOfDay());
         }
-
-        return $query->paginate($perPage);
     }
 
     public function find(int $id): ?WellReading
@@ -98,11 +145,6 @@ class ReadingRepository
             ->whereYear('READING_DATE', Carbon::now()->year)
             ->count();
 
-        $qualityStats = $this->model->selectRaw('QUALITY as quality, COUNT(*) as "count"')
-            ->groupBy('QUALITY')
-            ->pluck('count', 'quality')
-            ->toArray();
-
         $avgFlowRate = (float) $this->model->avg('FLOW_RATE');
         $avgSalinity = (float) $this->model->avg('SALINITY');
         $avgChlorine = (float) $this->model->avg('CHLORINE');
@@ -112,7 +154,6 @@ class ReadingRepository
             'today' => $today,
             'this_week' => $thisWeek,
             'this_month' => $thisMonth,
-            'quality_distribution' => $qualityStats,
             'avg_flow_rate' => round($avgFlowRate, 2),
             'avg_salinity' => round($avgSalinity, 2),
             'avg_chlorine' => round($avgChlorine, 2),
@@ -132,11 +173,4 @@ class ReadingRepository
         return $this->model->whereDate('READING_DATE', Carbon::today())->count();
     }
 
-    public function getPoorQualityReadings(): Collection
-    {
-        return $this->model->where('QUALITY', 'poor')
-            ->with(['well', 'inspector'])
-            ->orderByDesc('READING_DATE')
-            ->get();
-    }
 }

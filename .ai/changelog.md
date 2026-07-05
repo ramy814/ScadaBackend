@@ -1,5 +1,35 @@
 # Changelog & Recent Actions
 
+## [2026-07-02] Wells Generator Assignment Filter
+
+- Filtered the Wells add/edit generator dropdown to active generator assets only from `G_STORE.GENERATOR` using `IS_ACTIVE = 1` and `TYPE_OID = 128`.
+- Kept the generator card data contract unchanged: `OID`, `NAME`, `GENERATOR_NUM`, latest `CURRENT_READING`, and `GALLONS`.
+- Changed the latest fuel-log join to `LEFT JOIN` so valid active generators still appear even when they do not yet have a fuel-log reading.
+- Verified the Oracle-backed repository returns 37 filtered generators with card fields populated where available.
+
+## [2026-07-02] Wells Readings Production Report Export
+
+- Added `date_from` / `date_to` filters to the Wells readings monitoring page.
+- Added PDF and Excel export actions for the filtered Wells readings report.
+- Implemented production report calculations from readings: previous reading, current reading, operating-hours difference, and `production = difference * well.CAPACITY`.
+- Added `wells/readings-report` Blade template matching the daily wells report structure from the provided Excel sample.
+- Added backend report routes under `/wells/readings/report/pdf` and `/wells/readings/report/excel`.
+- Hardened Wells reading date filtering so `date_to` includes the full selected day.
+
+## [2026-07-02] Wells Dashboard Broken Panels Removed
+
+- Removed the Wells dashboard `توزيع الجودة` panel because the quality fields are no longer reliable for dashboard reporting.
+- Removed the Wells dashboard `آخر جرد السولار` and `آخر القراءات المدخلة` tables because their latest-record summaries were not working correctly.
+- Simplified `App\Services\Wells\DashboardService` so it no longer queries recent readings, recent diesel inventories, quality distribution, or poor-quality alerts for the dashboard.
+- Removed unused quality-distribution/poor-quality helper code from the Wells reading repository/service path while keeping the standalone readings and diesel inventory pages intact.
+
+## [2026-07-02] Production Permission Data Correction
+
+- Verified production SSO login for `رامي عيد سليم غياضة` resolves to `mog_users.users_list.id = 140` and `emp_id = 2541`.
+- Found old permissions on a different SSO row (`id = 1061`, display name `رامي غياضة`), which made production show all systems as locked despite development access working.
+- Granted `fleet`, `wells`, and `valves` permissions to the actual production SSO user row `SYSTEM_PERMISSIONS.USER_ID = 140`.
+- Keep future portal permissions tied to the exact `mog_users.users_list.id` returned by SSO login, not similar names and not `emp_id`.
+
 ## [2026-07-02] Production Portal Permission ID Fix
 
 - Fixed production portal cards showing locked for an authorized SSO user after login.

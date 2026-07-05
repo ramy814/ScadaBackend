@@ -20,6 +20,8 @@ Route::middleware(['web', 'auth:admin', 'system.access:wells'])->prefix('wells')
     Route::resource('inspectors', InspectorController::class)->except(['show'])->names('wells.inspectors');
 
     Route::get('/readings', [ReadingController::class, 'index'])->name('wells.readings.index');
+    Route::get('/readings/report/pdf', [ReadingController::class, 'reportPdf'])->name('wells.readings.report.pdf');
+    Route::get('/readings/report/excel', [ReadingController::class, 'reportExcel'])->name('wells.readings.report.excel');
     Route::get('/readings/{reading}', [ReadingController::class, 'show'])->name('wells.readings.show');
     Route::get('/diesel-inventories', [DieselInventoryController::class, 'index'])->name('wells.diesel-inventories.index');
 

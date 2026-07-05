@@ -70,6 +70,40 @@ class ReadingService
         return $this->readingRepository->getStats();
     }
 
+    public function getProductionReport(array $filters = []): array
+    {
+        $rows = $this->readingRepository->getReportReadings($filters)->map(function (WellReading $reading, int $index): array {
+            $previous = $this->readingRepository->getPreviousReading($reading);
+            $currentReading = (float) ($this->attribute($reading, 'FLOW_RATE') ?? 0);
+            $previousReading = $previous ? (float) ($this->attribute($previous, 'FLOW_RATE') ?? 0) : null;
+            $operatingHours = $previousReading === null ? 0.0 : $currentReading - $previousReading;
+            $capacity = (float) ($this->attribute($reading->well, 'CAPACITY') ?? 0);
+
+            return [
+                'index' => $index + 1,
+                'well_name' => $this->attribute($reading->well, 'NAME') ?? '-',
+                'well_number' => $this->attribute($reading->well, 'WELL_NUM') ?? '-',
+                'coordinates' => $this->coordinates($reading),
+                'capacity' => $capacity,
+                'previous_reading' => $previousReading,
+                'current_reading' => $currentReading,
+                'operating_hours' => $operatingHours,
+                'production' => $operatingHours * $capacity,
+                'inspector_name' => $this->attribute($reading->inspector, 'NAME') ?? '-',
+                'reading_date' => $this->attribute($reading, 'READING_DATE'),
+                'notes' => '',
+            ];
+        })->values();
+
+        return [
+            'filters' => $filters,
+            'rows' => $rows,
+            'total_operating_hours' => $rows->sum('operating_hours'),
+            'total_production' => $rows->sum('production'),
+            'generated_at' => now(),
+        ];
+    }
+
     public function getReadingsByWell(int $wellId): Collection
     {
         return $this->readingRepository->findByWell($wellId);
@@ -85,13 +119,29 @@ class ReadingService
         return $this->readingRepository->getRecentReadings($limit);
     }
 
-    public function getPoorQualityAlerts(): Collection
-    {
-        return $this->readingRepository->getPoorQualityReadings();
-    }
-
     public function getReadingsByDateRange(Carbon $from, Carbon $to): Collection
     {
         return $this->readingRepository->findByDateRange($from, $to);
+    }
+
+    private function coordinates(WellReading $reading): string
+    {
+        $latitude = $this->attribute($reading->well, 'LATITUDE');
+        $longitude = $this->attribute($reading->well, 'LONGITUDE');
+
+        if ($latitude === null || $longitude === null) {
+            return '';
+        }
+
+        return $latitude . ', ' . $longitude;
+    }
+
+    private function attribute(?object $model, string $key): mixed
+    {
+        if (! $model || ! method_exists($model, 'getAttribute')) {
+            return null;
+        }
+
+        return $model->getAttribute($key) ?? $model->getAttribute(strtolower($key));
     }
 }

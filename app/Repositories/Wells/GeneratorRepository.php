@@ -72,13 +72,14 @@ class GeneratorRepository
                         f.CURRENT_READING,
                         f.GALLONS,
                         ROW_NUMBER() OVER (
-                            PARTITION BY g.GENERATOR_NUM
+                            PARTITION BY g.OID
                             ORDER BY f.OID DESC
                         ) rn
                     FROM G_STORE.GENERATOR g
-                         JOIN G_STORE.FUEL_LOG_DETAILS f
+                         LEFT JOIN G_STORE.FUEL_LOG_DETAILS f
                            ON g.OID = f.ASSET_OID
                     WHERE g.IS_ACTIVE = 1
+                      AND g.TYPE_OID = 128
                 )
                 WHERE rn = 1
                 ORDER BY GENERATOR_NUM
