@@ -268,7 +268,7 @@ img {
 .sidebar-title {
     font-size: var(--font-size-lg);
     font-weight: 700;
-    color: var(--color-text-white);
+    color: var(--color-text-primary);
     white-space: nowrap;
 }
 
@@ -393,7 +393,7 @@ img {
 .topnav-title {
     font-size: var(--font-size-xl);
     font-weight: 700;
-    color: var(--color-text-white);
+    color: var(--color-text-primary);
 }
 
 .topnav-actions {
@@ -431,7 +431,7 @@ img {
 .card-title {
     font-size: var(--font-size-lg);
     font-weight: 700;
-    color: var(--color-text-white);
+    color: var(--color-text-primary);
 }
 
 .card-body {
@@ -519,7 +519,7 @@ img {
 .stat-value {
     font-size: var(--font-size-3xl);
     font-weight: 800;
-    color: var(--color-text-white);
+    color: var(--color-text-primary);
     line-height: 1.2;
 }
 
@@ -866,7 +866,7 @@ img {
 .modal-title {
     font-size: var(--font-size-lg);
     font-weight: 700;
-    color: var(--color-text-white);
+    color: var(--color-text-primary);
 }
 
 .modal-close {
@@ -945,7 +945,7 @@ img {
 .pagination-btn:hover {
     background: var(--color-border);
     border-color: var(--color-border-hover);
-    color: var(--color-text-white);
+    color: var(--color-text-primary);
 }
 
 .pagination-btn.active {
@@ -1024,7 +1024,7 @@ img {
 .page-title {
     font-size: var(--font-size-2xl);
     font-weight: 800;
-    color: var(--color-text-white);
+    color: var(--color-text-primary);
 }
 
 .page-subtitle {
@@ -1096,7 +1096,7 @@ img {
 
 .dropdown-item:hover {
     background: var(--color-border);
-    color: var(--color-text-white);
+    color: var(--color-text-primary);
 }
 
 .dropdown-item.danger {
@@ -1325,7 +1325,7 @@ img {
 .page-title {
     font-size: var(--font-size-2xl);
     font-weight: 800;
-    color: var(--color-text-white);
+    color: var(--color-text-primary);
     margin-bottom: 4px;
 }
 
@@ -1364,7 +1364,7 @@ img {
 .quality-count {
     font-size: var(--font-size-lg);
     font-weight: 800;
-    color: var(--color-text-white);
+    color: var(--color-text-primary);
 }
 
 .progress-bar {
@@ -1484,7 +1484,7 @@ img {
 
 .generator-card-title {
     display: block;
-    color: var(--color-text-white);
+    color: var(--color-text-primary);
     font-size: var(--font-size-lg);
     font-weight: 800;
     line-height: 1.4;
