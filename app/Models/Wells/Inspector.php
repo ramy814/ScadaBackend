@@ -39,8 +39,7 @@ class Inspector extends Model
 
     public function teams(): BelongsToMany
     {
-        return $this->belongsToMany(Team::class, 'inspector_teams', 'inspector_oid', 'team_oid')
-            ->withPivot('created_at');
+        return $this->belongsToMany(Team::class, 'inspector_teams', 'inspector_oid', 'team_oid');
     }
 
     public function readings(): HasMany

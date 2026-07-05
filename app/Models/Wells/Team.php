@@ -29,14 +29,12 @@ class Team extends Model
 
     public function wells(): BelongsToMany
     {
-        return $this->belongsToMany(Well::class, 'team_wells', 'team_oid', 'well_oid')
-            ->withPivot('created_at');
+        return $this->belongsToMany(Well::class, 'team_wells', 'team_oid', 'well_oid');
     }
 
     public function inspectors(): BelongsToMany
     {
-        return $this->belongsToMany(Inspector::class, 'inspector_teams', 'team_oid', 'inspector_oid')
-            ->withPivot('created_at');
+        return $this->belongsToMany(Inspector::class, 'inspector_teams', 'team_oid', 'inspector_oid');
     }
 
     public function scopeActive($query)

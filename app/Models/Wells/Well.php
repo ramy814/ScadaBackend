@@ -88,8 +88,7 @@ class Well extends Model
 
     public function teams(): BelongsToMany
     {
-        return $this->belongsToMany(Team::class, 'team_wells', 'well_oid', 'team_oid')
-            ->withPivot('created_at');
+        return $this->belongsToMany(Team::class, 'team_wells', 'well_oid', 'team_oid');
     }
 
     protected $appends = ['has_transactions'];
