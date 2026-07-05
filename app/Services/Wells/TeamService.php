@@ -41,7 +41,7 @@ class TeamService
         $team = $this->teamRepository->create($data);
 
         if (!empty($wellIds)) {
-            $this->teamRepository->syncWells($team->OID, $wellIds);
+            $this->teamRepository->syncWells((int) $team->getKey(), $wellIds);
         }
 
         return $team->fresh(['wells', 'inspectors']);

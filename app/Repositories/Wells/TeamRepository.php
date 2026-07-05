@@ -7,6 +7,7 @@ namespace App\Repositories\Wells;
 use App\Models\Wells\Team;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
 
 class TeamRepository
 {
@@ -70,8 +71,37 @@ class TeamRepository
 
     public function syncWells(int $teamId, array $wellIds): void
     {
-        $team = $this->model->findOrFail($teamId);
-        $team->wells()->sync($wellIds);
+        // Verify the team exists
+        $this->model->findOrFail($teamId);
+
+        // Get current well IDs for this team
+        $existing = DB::connection('oracle')
+            ->table('team_wells')
+            ->where('TEAM_OID', $teamId)
+            ->pluck('WELL_OID')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        $newIds     = array_map('intval', $wellIds);
+        $toDetach   = array_diff($existing, $newIds);
+        $toAttach   = array_diff($newIds, $existing);
+
+        // Remove de-associated wells
+        if (!empty($toDetach)) {
+            $placeholders = implode(',', array_fill(0, count($toDetach), '?'));
+            DB::connection('oracle')->statement(
+                "DELETE FROM team_wells WHERE TEAM_OID = ? AND WELL_OID IN ({$placeholders})",
+                array_merge([$teamId], array_values($toDetach))
+            );
+        }
+
+        // Insert newly associated wells
+        foreach ($toAttach as $wellId) {
+            DB::connection('oracle')->statement(
+                'INSERT INTO team_wells (TEAM_OID, WELL_OID, CREATED_AT) VALUES (?, ?, ?)',
+                [$teamId, $wellId, now()->toDateTimeString()]
+            );
+        }
     }
 
     public function getActiveTeams(): Collection
