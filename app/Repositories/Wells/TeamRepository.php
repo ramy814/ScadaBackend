@@ -78,7 +78,7 @@ class TeamRepository
         $existing = DB::connection('oracle')
             ->table('team_wells')
             ->where('TEAM_OID', $teamId)
-            ->pluck('WELL_OID')
+            ->pluck('well_oid')
             ->map(fn ($id) => (int) $id)
             ->all();
 

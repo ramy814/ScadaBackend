@@ -75,7 +75,7 @@ class InspectorRepository
         $existing = DB::connection('oracle')
             ->table('inspector_teams')
             ->where('INSPECTOR_OID', $inspectorId)
-            ->pluck('TEAM_OID')
+            ->pluck('team_oid')
             ->map(fn ($id) => (int) $id)
             ->all();
 
