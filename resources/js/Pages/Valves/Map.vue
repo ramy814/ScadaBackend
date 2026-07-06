@@ -10,9 +10,8 @@ const props = defineProps({
     },
 })
 
-// GeoServer direct URL (browser has network access to GeoServer directly)
-const GEOSERVER_BASE = 'http://appdev-01.mog.org:8080/geoserver'
-const GEOSERVER_WMS_URL = GEOSERVER_BASE + '/cite/wms'
+// GeoServer URL goes through the PHP proxy to avoid Mixed Content / TLS errors over HTTPS
+const GEOSERVER_WMS_URL = '/wms.php'
 
 let map = null
 let L = null
