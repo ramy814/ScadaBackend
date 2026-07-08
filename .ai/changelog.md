@@ -1,5 +1,14 @@
 # Changelog & Recent Actions
 
+## [2026-07-08] Wells Teams/Inspectors — Oracle PDO Lowercase Pluck Fix
+
+- **Problem**: `TeamRepository::syncWells()` and `InspectorRepository::syncTeams()` used `pluck('WELL_OID')` / `pluck('TEAM_OID')` with uppercase column names on raw `DB::table(...)` queries. Oracle's PDO driver always returns column names in **lowercase**, so the pluck returned empty collections — making every sync think it was starting from scratch and causing duplicate INSERT errors.
+- **Fix**: Changed `pluck('WELL_OID')` → `pluck('well_oid')` and `pluck('TEAM_OID')` → `pluck('team_oid')`.
+- **Files**: `app/Repositories/Wells/TeamRepository.php`, `app/Repositories/Wells/InspectorRepository.php`
+- **Rule added**: When using `DB::table()` raw queries on Oracle, always use **lowercase** column names in `pluck()`, `value()`, and `where()` calls — PDO normalizes Oracle column names to lowercase on fetch.
+
+---
+
 ## [2026-07-08] Valves Map Building WMS 500 Noise Suppressed
 
 - Hid the `cite:V_BUILDING_GEOSRV` buildings layer by default on the Valves map and mobile map settings because the upstream WMS currently returns HTTP 500 for building `GetMap` tiles.

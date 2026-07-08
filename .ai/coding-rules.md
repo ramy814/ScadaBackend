@@ -69,3 +69,17 @@ Do NOT use `->sync($ids)` on Oracle pivot tables — use raw `DB::connection('or
 
 ### Auth Middleware — Multi-System Access
 The `admin.allowlisted` middleware (mapped to `EnsureAdminIsAllowlisted`) must check `SYSTEM_PERMISSIONS` for ANY permission, not a legacy allowlist table. A user who only has `wells` or `valves` permission must still pass the gate — the per-page middleware (`system.access:wells`) handles fine-grained system access.
+
+### Raw DB Queries — Column Name Casing
+When using `DB::table()` or `DB::connection('oracle')` for raw queries (not Eloquent), always use **lowercase** column names in `pluck()`, `value()`, `where()`, and `get()` calls. Oracle's PDO driver normalizes fetched column names to lowercase. Uppercase names only work in Eloquent because it handles the case mapping.
+
+```php
+// WRONG ❌ — DB::table raw query returns lowercase keys
+DB::connection('oracle')->table('team_wells')->pluck('WELL_OID');  // empty!
+
+// CORRECT ✅
+DB::connection('oracle')->table('team_wells')->pluck('well_oid');
+```
+
+> This applies ONLY to raw `DB::table()` / `DB::statement()` results.
+> Eloquent models with `UppercaseKeys` trait handle the mapping internally.
