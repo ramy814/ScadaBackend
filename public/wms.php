@@ -21,6 +21,22 @@ const CONNECT_TIMEOUT_SECONDS = 5;
 const REQUEST_TIMEOUT_SECONDS = 90;
 const MAX_GETMAP_DIMENSION = 256;
 
+register_shutdown_function(function (): void {
+    $error = error_get_last();
+    $request = strtolower((string)($_GET['request'] ?? $_GET['REQUEST'] ?? ''));
+    $fatalTypes = [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR];
+
+    if ($error === null || !in_array($error['type'] ?? 0, $fatalTypes, true) || $request !== 'getmap' || headers_sent()) {
+        return;
+    }
+
+    http_response_code(200);
+    header('X-WMS-Proxy-Fallback: transparent');
+    header('X-WMS-Proxy-Reason: fatal-error');
+    header('Content-Type: image/png');
+    echo base64_decode(TRANSPARENT_PNG);
+});
+
 const ALLOWED_LAYERS = [
     'cite:WATER_VALVES',
     'cite:WATER_PIPE',
@@ -149,6 +165,16 @@ function fetchGeoServer(
     int $requestTimeout = REQUEST_TIMEOUT_SECONDS
 ): array
 {
+    if (!function_exists('curl_init')) {
+        return [
+            'ok' => false,
+            'status' => 0,
+            'content_type' => 'text/plain; charset=UTF-8',
+            'body' => '',
+            'error' => 'PHP cURL extension is unavailable.',
+        ];
+    }
+
     $curl = curl_init($url);
     if ($curl === false) {
         return [

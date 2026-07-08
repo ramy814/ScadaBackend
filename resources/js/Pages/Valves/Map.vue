@@ -29,7 +29,7 @@ const geoServerHealth = ref({
 })
 
 const geoServerLayers = [
-    { layerName: 'cite:V_BUILDING_GEOSRV', name: 'المباني', version: '1.1.0', pane: 'municipalContextPane', zIndex: 330, opacity: 0.9 },
+    { layerName: 'cite:V_BUILDING_GEOSRV', name: 'المباني', version: '1.1.0', pane: 'municipalContextPane', zIndex: 330, opacity: 0.9, visible: false },
     { layerName: 'cite:V_CENTERLINE_SEGMENTS', name: 'محاور الشوارع', version: '1.1.0', pane: 'municipalContextPane', zIndex: 360, opacity: 0.9 },
     // { layerName: 'cite:V_LANDMARKS_V', name: 'المعالم', version: '1.1.0', pane: 'municipalContextPane', zIndex: 390, opacity: 0.9 },
     { layerName: 'cite:WATER_PIPE', name: 'شبكة الأنابيب', version: '1.1.0', pane: 'networkPane', zIndex: 650, opacity: 0.95 },
@@ -330,9 +330,7 @@ const initMap = async () => {
             geoServerHealth.value = { ...geoServerHealth.value, checking: false, ok: true }
         })
 
-        layer.on('tileerror', (e) => {
-            console.warn('[WMS] Tile error for', layerConfig.layerName, e)
-        })
+        layer.on('tileerror', () => {})
 
         if (layerConfig.visible !== false) {
             layer.addTo(map)

@@ -22,7 +22,7 @@ class ValvesMapService
         return [
             'wms_url' => rtrim($baseUrl, '/') . '/wms.php',
             'layers' => [
-                ['layer_name' => 'cite:V_BUILDING_GEOSRV', 'name' => 'المباني', 'version' => '1.1.0'],
+                ['layer_name' => 'cite:V_BUILDING_GEOSRV', 'name' => 'المباني', 'version' => '1.1.0', 'visible' => false],
                 ['layer_name' => 'cite:V_CENTERLINE_SEGMENTS', 'name' => 'محاور الشوارع', 'version' => '1.1.0', 'visible' => false],
                 ['layer_name' => 'cite:WATER_PIPE', 'name' => 'شبكة الأنابيب', 'version' => '1.1.0', 'visible' => false],
                 ['layer_name' => 'cite:WATER_VALVES', 'name' => 'محابس المياه', 'version' => '1.1.1'],

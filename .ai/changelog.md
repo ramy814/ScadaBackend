@@ -1,5 +1,13 @@
 # Changelog & Recent Actions
 
+## [2026-07-08] Valves Map Building WMS 500 Noise Suppressed
+
+- Hid the `cite:V_BUILDING_GEOSRV` buildings layer by default on the Valves map and mobile map settings because the upstream WMS currently returns HTTP 500 for building `GetMap` tiles.
+- Kept the buildings layer available in the map layer control for manual testing after the upstream WMS is fixed.
+- Hardened `public/wms.php` so missing PHP cURL support returns a controlled fallback instead of a fatal 500.
+- Added a shutdown fallback for `GetMap` requests so fatal proxy errors return a transparent PNG where possible instead of filling the browser console with tile 500 errors.
+- Removed custom `console.warn` logging for WMS tile failures in `Map.vue`; the UI health banner remains the user-facing outage signal.
+
 ## [2026-07-08] Fleet Dashboard Search, Pagination, and Report Filtering
 
 - Added vehicle/driver search to the Fleet dashboard using trip snapshot fields (`vehicle_plate`, `driver_name`) so admins can find trips without querying live Oracle asset tables.

@@ -30,11 +30,11 @@ The Valves module handles the municipality's water valves, tracking their geogra
   - WMS operational overlays are loaded directly and exposed in the Leaflet layer control:
     - `cite:WATER_VALVES` — Water Valves — WMS `1.1.1`
     - `cite:WATER_PIPE` — Water Pipe — WMS `1.1.0` — enabled by default.
-    - `cite:V_BUILDING_GEOSRV` — Buildings — WMS `1.1.0` — enabled by default.
+    - `cite:V_BUILDING_GEOSRV` — Buildings — WMS `1.1.0` — present in the layer control but hidden by default while the upstream WMS returns 500 for tiles.
     - `cite:V_CENTERLINE_SEGMENTS` — Centerline Segments — WMS `1.1.0` — enabled by default.
 
   - Layer drawing order is intentional:
-    - Context layers (`Buildings`, `Centerline Segments`, `Landmarks`) stay in `municipalContextPane` with high opacity (near natural colors) but lower z-index than the water network.
+    - Context layers (`Buildings`, `Centerline Segments`, `Landmarks`) stay in `municipalContextPane` with high opacity (near natural colors) but lower z-index than the water network. Buildings are currently hidden by default because their WMS tiles fail upstream.
     - `cite:WATER_PIPE` is drawn above context layers in `networkPane` when manually enabled.
     - `cite:WATER_VALVES` is drawn above pipes in `valvesPane`.
     - Database valve circle markers are above all WMS layers in `dbMarkersPane`.
