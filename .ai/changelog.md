@@ -1,5 +1,17 @@
 # Changelog & Recent Actions
 
+## [2026-07-08] Fleet Dashboard Search, Pagination, and Report Filtering
+
+- Added vehicle/driver search to the Fleet dashboard using trip snapshot fields (`vehicle_plate`, `driver_name`) so admins can find trips without querying live Oracle asset tables.
+- Changed the Fleet dashboard trip list from a fixed latest-30 view to paginated results (`30` per page) while preserving period, clarification-response, and search filters across page navigation and review actions.
+- Updated the dashboard table title to clarify that rows belong to the selected period.
+- Reworked Fleet reports filters from driver/vehicle dropdowns to direct text inputs:
+  - `driver_search` filters by `driver_name`, `driver_phone`, `driver_employee_number`, or `oracle_driver_id`.
+  - `vehicle_search` filters by `vehicle_plate`, `vehicle_name`, or `oracle_vehicle_id`.
+- Reports now filter reactively after typing, preserve filters for pagination and CSV/PDF exports, and include a row-level "عرض" link to open the trip detail page.
+- Rebuilt Vite assets under `public/build` because production deploys may use committed frontend assets.
+- Verified with `php -l app/Http/Controllers/AdminAuthController.php`, `npm run build`, and `php artisan test`.
+
 ## [2026-07-05] Wells Module — Oracle Pivot & Auth Fixes
 
 ### 1. Auth: Multi-System Gate Fix (`EnsureAdminIsAllowlisted`)

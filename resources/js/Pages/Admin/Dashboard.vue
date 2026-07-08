@@ -6,16 +6,43 @@
         <Link
           v-for="p in periods"
           :key="p.value"
-          :href="$page.props.urls.dashboard + '?period=' + p.value + '&response_status=' + responseStatus"
+          :href="dashboardUrl({ period: p.value })"
           :class="{ active: period === p.value }"
         >{{ p.label }}</Link>
       </div>
       <div style="display: flex; gap: 12px; align-items: center;">
+        <form @submit.prevent="submitSearch" style="display:flex; gap:8px; align-items:center;">
+          <input
+            v-model="searchTerm"
+            type="search"
+            placeholder="ابحث برقم المركبة أو اسم السائق"
+            style="min-width:260px; height:38px; border:1px solid var(--stroke); border-radius:8px; padding:0 12px; color:var(--text-primary); background:var(--card-bg);"
+          />
+          <button type="submit" class="btn-icon view" title="بحث" style="width:38px; height:38px;">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+          </button>
+          <Link
+            v-if="search"
+            :href="dashboardUrl({ search: '' })"
+            class="btn-icon reject"
+            title="مسح البحث"
+            style="width:38px; height:38px;"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </Link>
+        </form>
+
         <div class="filters-group">
           <Link
             v-for="f in responseFilters"
             :key="f.value"
-            :href="$page.props.urls.dashboard + '?period=' + period + '&response_status=' + f.value"
+            :href="dashboardUrl({ response_status: f.value })"
             :class="{ active: responseStatus === f.value }"
           >{{ f.label }}</Link>
         </div>
@@ -94,7 +121,10 @@
     <!-- Trips Table -->
     <div class="table-card">
       <div class="table-header">
-        <div class="table-title">آخر الرحلات المرفوعة</div>
+        <div class="table-title">رحلات الفترة المحددة</div>
+        <div v-if="recentTrips.total" style="color:var(--text-secondary); font-size:13px; font-weight:600;">
+          عرض {{ recentTrips.from }} - {{ recentTrips.to }} من {{ recentTrips.total }}
+        </div>
       </div>
       <div class="table-wrap">
         <table>
@@ -110,12 +140,12 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-if="recentTrips.length === 0">
+            <tr v-if="recentTrips.data.length === 0">
               <td colspan="7" style="text-align:center; padding:48px; color:var(--text-secondary);">
                 لا توجد رحلات ضمن الفترة المحددة.
               </td>
             </tr>
-            <tr v-for="trip in recentTrips" :key="trip.id">
+            <tr v-for="trip in recentTrips.data" :key="trip.id">
               <td>
                 <div style="font-weight:700;">{{ trip.vehicle?.plate_number ?? '-' }}</div>
                 <div style="font-size:12px; color:var(--text-secondary); margin-top:2px;">{{ trip.driver?.name ?? '-' }}</div>
@@ -181,6 +211,16 @@
           </tbody>
         </table>
       </div>
+
+      <div v-if="recentTrips.last_page > 1" style="padding:16px 24px; display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
+        <Link
+          v-for="link in recentTrips.links"
+          :key="link.label"
+          :href="link.url ?? '#'"
+          :class="['page-link', { active: link.active, disabled: !link.url }]"
+          v-html="link.label"
+        />
+      </div>
     </div>
 
     <div class="footer-note">
@@ -208,11 +248,13 @@ const props = defineProps({
   clarificationResponded: Number,
   period: String,
   responseStatus: String,
-  recentTrips: Array,
+  search: String,
+  recentTrips: Object,
 });
 
 const now = new Date().toLocaleString('ar-EG', { hour12: false });
 const clarifyNotes = ref({});
+const searchTerm = ref(props.search ?? '');
 
 const periods = [
   { value: 'daily', label: 'يومي' },
@@ -243,10 +285,43 @@ function reviewLabel(s) {
   return s === 'approved' ? 'مُعتمدة' : s === 'rejected' ? 'مرفوضة' : s === 'needs_clarification' ? 'توضيح' : 'قيد المراجعة';
 }
 
+function dashboardUrl(overrides = {}) {
+  const params = new URLSearchParams({
+    period: props.period ?? 'daily',
+    response_status: props.responseStatus ?? 'all',
+  });
+  const nextSearch = Object.prototype.hasOwnProperty.call(overrides, 'search')
+    ? overrides.search
+    : props.search;
+
+  Object.entries(overrides).forEach(([key, value]) => {
+    if (key !== 'search') params.set(key, value);
+  });
+
+  if (nextSearch) {
+    params.set('search', nextSearch);
+  }
+
+  return `${page.props.urls.dashboard}?${params.toString()}`;
+}
+
+function submitSearch() {
+  router.get(page.props.urls.dashboard, {
+    period: props.period,
+    response_status: props.responseStatus,
+    search: searchTerm.value,
+  }, {
+    preserveState: true,
+    preserveScroll: true,
+  });
+}
+
 function submitReview(action, tripId) {
   router.post(`${page.props.urls.trips_base}/${tripId}/${action}`, {
     period: props.period,
     response_status: props.responseStatus,
+    search: props.search,
+    page: props.recentTrips.current_page,
   });
 }
 
@@ -255,6 +330,8 @@ function confirmReject(tripId) {
   router.post(`${page.props.urls.trips_base}/${tripId}/reject`, {
     period: props.period,
     response_status: props.responseStatus,
+    search: props.search,
+    page: props.recentTrips.current_page,
   });
 }
 
@@ -262,8 +339,43 @@ function submitClarify(tripId, note) {
   if (!note) return;
   router.post(
     `${page.props.urls.trips_base}/${tripId}/clarify`,
-    { note, period: props.period, response_status: props.responseStatus },
+    { note, period: props.period, response_status: props.responseStatus, search: props.search, page: props.recentTrips.current_page },
     { onSuccess: () => { clarifyNotes.value[tripId] = ''; } }
   );
 }
 </script>
+
+<style scoped>
+.page-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 8px;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--surface);
+  border: 1px solid var(--stroke);
+  transition: var(--transition);
+}
+
+.page-link.active {
+  background: var(--brand);
+  color: #fff;
+  border-color: var(--brand);
+}
+
+.page-link.disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.page-link:not(.active):not(.disabled):hover {
+  border-color: var(--brand);
+  color: var(--brand);
+}
+</style>

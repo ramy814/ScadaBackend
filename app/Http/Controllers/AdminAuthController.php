@@ -47,6 +47,7 @@ class AdminAuthController extends Controller
     ): InertiaResponse {
         $period = request()->query('period', 'daily');
         $responseStatus = request()->query('response_status', 'all');
+        $search = trim((string) request()->query('search', ''));
         [$from, $to] = $this->periodRange($period);
 
         $todayTrips          = Trip::query()->whereDate('started_at', now()->toDateString())->count();
@@ -67,8 +68,16 @@ class AdminAuthController extends Controller
             $recentTripsQuery->whereNotNull('clarification_response');
         }
 
-        $recentTrips = $recentTripsQuery->limit(30)->get();
-        $this->hydrateTripDrivers($recentTrips, $driverRepository);
+        if ($search !== '') {
+            $likeSearch = "%{$search}%";
+            $recentTripsQuery->where(function ($query) use ($likeSearch): void {
+                $query->where('vehicle_plate', 'like', $likeSearch)
+                    ->orWhere('driver_name', 'like', $likeSearch);
+            });
+        }
+
+        $recentTrips = $recentTripsQuery->paginate(30)->withQueryString();
+        $this->hydrateTripDrivers($recentTrips->getCollection(), $driverRepository);
 
         $clarificationPendingResponse = Trip::query()
             ->where('review_status', 'needs_clarification')
@@ -91,6 +100,7 @@ class AdminAuthController extends Controller
             'clarificationResponded'       => $clarificationResponded,
             'period'                       => $period,
             'responseStatus'               => $responseStatus,
+            'search'                       => $search,
             'recentTrips'                  => $recentTrips,
         ]);
     }
@@ -423,6 +433,8 @@ class AdminAuthController extends Controller
                     : [
                         'period' => $request->input('period', $request->query('period', 'daily')),
                         'response_status' => $request->input('response_status', $request->query('response_status', 'all')),
+                        'search' => $request->input('search', $request->query('search', '')),
+                        'page' => $request->input('page', $request->query('page', 1)),
                     ]
             )
             ->with('ok', $message);
@@ -451,36 +463,40 @@ class AdminAuthController extends Controller
 
     private function buildReportData(Request $request): array
     {
-        $period   = $request->query('period', 'daily');
-        $driverId = $request->query('driver_id');
-        $vehicleId = $request->query('vehicle_id');
+        $period = $request->query('period', 'daily');
+        $driverSearch = trim((string) $request->query('driver_search', $request->query('driver_id', '')));
+        $vehicleSearch = trim((string) $request->query('vehicle_search', $request->query('vehicle_id', '')));
         [$from, $to] = $this->periodRange($period);
 
         $trips = Trip::query()
             ->whereBetween('started_at', [$from, $to])
             ->latest('started_at');
 
-        if (! empty($driverId)) {
-            $trips->where('oracle_driver_id', $driverId);
-        }
-        if (! empty($vehicleId)) {
-            $trips->where(function ($query) use ($vehicleId): void {
-                $query->where('oracle_vehicle_id', $vehicleId)
-                    ->orWhere('vehicle_plate', $vehicleId);
+        if ($driverSearch !== '') {
+            $driverLikeSearch = "%{$driverSearch}%";
+            $trips->where(function ($query) use ($driverLikeSearch, $driverSearch): void {
+                $query->where('driver_name', 'like', $driverLikeSearch)
+                    ->orWhere('driver_phone', 'like', $driverLikeSearch)
+                    ->orWhere('driver_employee_number', 'like', $driverLikeSearch)
+                    ->orWhere('oracle_driver_id', $driverSearch);
             });
         }
 
-        $vehicleRepository = app(MunicipalityVehicleRepository::class);
-        $driverRepository  = app(MunicipalityDriverRepository::class);
+        if ($vehicleSearch !== '') {
+            $vehicleLikeSearch = "%{$vehicleSearch}%";
+            $trips->where(function ($query) use ($vehicleLikeSearch, $vehicleSearch): void {
+                $query->where('vehicle_plate', 'like', $vehicleLikeSearch)
+                    ->orWhere('vehicle_name', 'like', $vehicleLikeSearch)
+                    ->orWhere('oracle_vehicle_id', $vehicleSearch);
+            });
+        }
 
         return [[
-            'period'    => $period,
-            'driverId'  => $driverId,
-            'vehicleId' => $vehicleId,
-            'from'      => $from,
-            'to'        => $to,
-            'drivers'   => $this->oracleDriverRows($driverRepository, limit: 200),
-            'vehicles'  => $this->oracleVehicleRows($vehicleRepository, limit: 200),
+            'period'        => $period,
+            'driverSearch'  => $driverSearch,
+            'vehicleSearch' => $vehicleSearch,
+            'from'          => $from,
+            'to'            => $to,
         ], $trips];
     }
 

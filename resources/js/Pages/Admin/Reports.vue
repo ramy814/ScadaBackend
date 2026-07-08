@@ -14,24 +14,34 @@
             <Link
               v-for="p in periods"
               :key="p.value"
-              :href="`${$page.props.urls.reports}?period=${p.value}&driver_id=${driverId || ''}&vehicle_id=${vehicleId || ''}`"
+              :href="reportUrl({ period: p.value })"
               :class="{ active: period === p.value }"
             >{{ p.label }}</Link>
           </div>
 
           <!-- Driver Filter -->
-          <select class="form-select" v-model="selectedDriver" @change="applyFilters">
-            <option value="">كل السائقين</option>
-            <option v-for="d in drivers" :key="d.id" :value="d.id">{{ d.name }}</option>
-          </select>
+          <input
+            class="form-input"
+            v-model="selectedDriver"
+            type="search"
+            placeholder="اكتب اسم السائق"
+            @input="scheduleFilter"
+          />
 
           <!-- Vehicle Filter -->
-          <select class="form-select" v-model="selectedVehicle" @change="applyFilters">
-            <option value="">كل المركبات</option>
-            <option v-for="v in vehicles" :key="v.id" :value="v.id">{{ v.plate_number }} - {{ v.name }}</option>
-          </select>
+          <input
+            class="form-input"
+            v-model="selectedVehicle"
+            type="search"
+            placeholder="اكتب رقم المركبة"
+            @input="scheduleFilter"
+          />
 
-          <button class="btn-primary" @click="applyFilters">تحديث</button>
+          <button
+            v-if="selectedDriver || selectedVehicle"
+            class="btn-primary secondary"
+            @click="clearFilters"
+          >مسح</button>
 
           <!-- Export Links -->
           <button @click="downloadCsv" class="btn-export csv">
@@ -78,11 +88,12 @@
               <th>المراجعة</th>
               <th>وقود افتراضي</th>
               <th>النقاط</th>
+              <th>إجراءات</th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="trips.data.length === 0">
-              <td colspan="10" style="text-align:center; padding:32px; color:var(--text-secondary);">
+              <td colspan="11" style="text-align:center; padding:32px; color:var(--text-secondary);">
                 لا توجد بيانات ضمن الفلاتر المحددة.
               </td>
             </tr>
@@ -97,6 +108,11 @@
               <td><span :class="['badge', reviewBadge(trip.review_status)]">{{ reviewLabel(trip.review_status) }}</span></td>
               <td>{{ trip.virtual_fuel_liters ?? '-' }}</td>
               <td><span class="badge neutral">{{ trip.points_received }} / {{ trip.points_expected }}</span></td>
+              <td>
+                <Link :href="`${page.props.urls.trips_base}/${trip.id}`" class="btn-view-trip" title="عرض الرحلة">
+                  عرض
+                </Link>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -117,18 +133,18 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
-import { Link, router } from '@inertiajs/vue3';
+import { ref } from 'vue';
+import { Link, router, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+
+const page = usePage();
 
 const props = defineProps({
   period: String,
-  driverId: String,
-  vehicleId: String,
+  driverSearch: String,
+  vehicleSearch: String,
   from: String,
   to: String,
-  drivers: Array,
-  vehicles: Array,
   trips: Object,
   summary: Object,
 });
@@ -139,30 +155,60 @@ const periods = [
   { value: 'monthly', label: 'شهري' },
 ];
 
-const selectedDriver = ref(props.driverId ?? '');
-const selectedVehicle = ref(props.vehicleId ?? '');
+const selectedDriver = ref(props.driverSearch ?? '');
+const selectedVehicle = ref(props.vehicleSearch ?? '');
+let filterTimer = null;
+
+function reportUrl(overrides = {}) {
+  const params = new URLSearchParams({
+    period: props.period ?? 'daily',
+    driver_search: selectedDriver.value,
+    vehicle_search: selectedVehicle.value,
+  });
+
+  Object.entries(overrides).forEach(([key, value]) => {
+    params.set(key, value ?? '');
+  });
+
+  [...params.entries()].forEach(([key, value]) => {
+    if (!value) params.delete(key);
+  });
+
+  return `${page.props.urls.reports}?${params.toString()}`;
+}
 
 function applyFilters() {
   router.get(page.props.urls.reports, {
     period: props.period,
-    driver_id: selectedDriver.value,
-    vehicle_id: selectedVehicle.value,
-  }, { preserveState: true });
+    driver_search: selectedDriver.value,
+    vehicle_search: selectedVehicle.value,
+  }, { preserveState: true, preserveScroll: true, replace: true });
+}
+
+function scheduleFilter() {
+  clearTimeout(filterTimer);
+  filterTimer = setTimeout(applyFilters, 350);
+}
+
+function clearFilters() {
+  selectedDriver.value = '';
+  selectedVehicle.value = '';
+  applyFilters();
 }
 
 function downloadCsv() {
-  const url = new URL(page.props.urls.reportsCsv);
+  const url = new URL(page.props.urls.reportsCsv, window.location.origin);
   url.searchParams.set('period', props.period);
-  if (props.driverId) url.searchParams.set('driver_id', props.driverId);
-  if (props.vehicleId) url.searchParams.set('vehicle_id', props.vehicleId);
+  if (selectedDriver.value) url.searchParams.set('driver_search', selectedDriver.value);
+  if (selectedVehicle.value) url.searchParams.set('vehicle_search', selectedVehicle.value);
   window.open(url.toString(), '_blank');
 }
 
 function downloadPdf() {
-  const url = new URL(page.props.urls.reportsPdf);
+  const url = new URL(page.props.urls.reportsPdf, window.location.origin);
   url.searchParams.set('period', props.period);
-  if (props.driverId) url.searchParams.set('driver_id', props.driverId);
-  if (props.vehicleId) url.searchParams.set('vehicle_id', props.vehicleId);
+  if (selectedDriver.value) url.searchParams.set('driver_search', selectedDriver.value);
+  if (selectedVehicle.value) url.searchParams.set('vehicle_search', selectedVehicle.value);
   window.open(url.toString(), '_blank');
 }
 
@@ -182,7 +228,7 @@ function reviewLabel(s) {
 </script>
 
 <style scoped>
-.form-select {
+.form-input {
   border: 1px solid var(--stroke);
   border-radius: 8px;
   padding: 9px 12px;
@@ -191,8 +237,9 @@ function reviewLabel(s) {
   background: #f8fafc;
   color: var(--text-primary);
   transition: var(--transition);
+  min-width: 210px;
 }
-.form-select:focus { outline: none; border-color: var(--brand); }
+.form-input:focus { outline: none; border-color: var(--brand); }
 
 .btn-primary {
   border: none; border-radius: var(--radius-md);
@@ -201,6 +248,8 @@ function reviewLabel(s) {
   cursor: pointer; transition: var(--transition);
 }
 .btn-primary:hover { background: var(--brand-hover); }
+.btn-primary.secondary { background: #e2e8f0; color: #334155; }
+.btn-primary.secondary:hover { background: #cbd5e1; color: #0f172a; }
 
 .btn-export {
   display: inline-flex; align-items: center; gap: 6px;
@@ -212,6 +261,23 @@ function reviewLabel(s) {
 .btn-export.csv:hover { background: #10b981; color: #fff; }
 .btn-export.pdf { background: #fef3c7; color: #92400e; }
 .btn-export.pdf:hover { background: #b45309; color: #fff; }
+
+.btn-view-trip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 58px;
+  height: 32px;
+  border-radius: 8px;
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 800;
+  color: #1d4ed8;
+  background: #dbeafe;
+  border: 1px solid rgba(37, 99, 235, 0.18);
+  transition: var(--transition);
+}
+.btn-view-trip:hover { background: var(--brand); color: #fff; }
 
 .page-link {
   display: inline-flex; align-items: center; justify-content: center;
