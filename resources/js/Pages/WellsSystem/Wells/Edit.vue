@@ -59,6 +59,8 @@ function initialGeneratorIds() {
         .filter(Number.isFinite)
 }
 
+const displayWellNumber = computed(() => props.well.SOURCE_WELL_CODE || props.well.WELL_NUM || '')
+
 const form = reactive({
     // البيانات العامة
     WELL_NUM: props.well.WELL_NUM || '',
@@ -202,7 +204,7 @@ function initMap() {
                         <div class="form-row">
                             <div class="form-group">
                                 <label class="form-label">رقم البئر</label>
-                                <input v-model="form.WELL_NUM" type="text" class="form-input" :readonly="readonly" :disabled="hasTransactions" placeholder="أدخل رقم البئر">
+                                <input :value="displayWellNumber" type="text" class="form-input" readonly disabled placeholder="أدخل رقم البئر">
                             </div>
                             <div class="form-group">
                                 <label class="form-label">اسم البئر *</label>

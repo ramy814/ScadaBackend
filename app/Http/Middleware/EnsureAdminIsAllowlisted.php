@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Repositories\SystemPermissionRepository;
 use Closure;
+use Illuminate\Contracts\Auth\StatefulGuard;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Symfony\Component\HttpFoundation\Response;
@@ -15,7 +16,7 @@ use Symfony\Component\HttpFoundation\Response;
  * one permission in SYSTEM_PERMISSIONS (fleet, wells, or valves).
  * This replaces the old FLEET_ADMIN_ALLOWLIST gate which only covered fleet users.
  *
- * Bypass rule: skipped entirely when APP_ENV=local.
+ * Local rule: normalize the configured development identity, then skip the gate.
  */
 class EnsureAdminIsAllowlisted
 {
@@ -23,8 +24,17 @@ class EnsureAdminIsAllowlisted
 
     public function handle(Request $request, Closure $next): Response
     {
-        // ── Bypass in local development ──────────────────────────────────────
+        // ── Normalize and bypass in local development ────────────────────────
         if (app()->environment('local')) {
+            $guard = Auth::guard('admin');
+            $localUserId = (int) config('mog-helpers.local_admin_user_id');
+
+            if ($localUserId > 0
+                && $guard instanceof StatefulGuard
+                && (int) $guard->id() !== $localUserId) {
+                $guard->loginUsingId($localUserId);
+            }
+
             return $next($request);
         }
 

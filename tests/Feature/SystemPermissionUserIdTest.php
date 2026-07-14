@@ -3,10 +3,12 @@
 namespace Tests\Feature;
 
 use App\Http\Controllers\PortalController;
+use App\Http\Middleware\EnsureAdminIsAllowlisted;
 use App\Http\Middleware\EnsureSystemAccess;
 use App\Models\MogSsoUser;
 use App\Models\SystemPermission;
 use App\Repositories\SystemPermissionRepository;
+use Illuminate\Contracts\Auth\StatefulGuard;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
@@ -15,6 +17,29 @@ use Tests\TestCase;
 
 class SystemPermissionUserIdTest extends TestCase
 {
+    public function test_local_middleware_replaces_a_stale_admin_session_with_the_configured_user(): void
+    {
+        $this->app['env'] = 'local';
+        config(['mog-helpers.local_admin_user_id' => 140]);
+
+        $guard = \Mockery::mock(StatefulGuard::class);
+        $guard->shouldReceive('id')->once()->andReturn(1061);
+        $guard->shouldReceive('loginUsingId')->once()->with(140);
+
+        Auth::shouldReceive('guard')
+            ->with('admin')
+            ->andReturn($guard);
+
+        $response = (new EnsureAdminIsAllowlisted(
+            \Mockery::mock(SystemPermissionRepository::class)
+        ))->handle(
+            Request::create('/'),
+            fn (): Response => new Response('ok')
+        );
+
+        $this->assertSame('ok', $response->getContent());
+    }
+
     public function test_portal_uses_sso_id_not_employee_id_for_system_permissions(): void
     {
         $permissions = new class extends SystemPermissionRepository {

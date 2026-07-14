@@ -102,13 +102,13 @@ class GeneratorRepository
             ->select("
                 SELECT
                     g.OID,
-                    g.GENERATOR_NAME,
-                    g.GENERATOR_MODEL,
+                    g.NAME,
+                    g.GENERATOR_NUM,
                     g.CAPACITY,
                     g.STATUS
                 FROM G_STORE.GENERATOR g
                 WHERE g.OID IN ({$placeholders})
-                ORDER BY g.GENERATOR_NAME
+                ORDER BY g.GENERATOR_NUM
             ", $ids);
 
         return array_map(function ($row) {

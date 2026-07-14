@@ -18,7 +18,9 @@ class StoreReadingRequest extends FormRequest
         return [
             'WELL_OID' => ['required', 'integer', 'exists:wells,OID'],
             'INSPECTOR_OID' => ['required', 'integer', 'exists:inspectors,OID'],
-            'FLOW_RATE' => ['required', 'numeric', 'min:0'],
+            'FLOW_RATE' => ['nullable', 'numeric', 'min:0'],
+            'GENERATOR_HOURS_READING' => ['required', 'numeric', 'min:0'],
+            'PUMP_HOURS_READING' => ['required', 'numeric', 'min:0'],
             'CHLORINE' => ['required', 'numeric', 'min:0'],
             'SALINITY' => ['required', 'numeric', 'min:0'],
             'QUALITY' => ['required', 'string', 'in:excellent,good,acceptable,poor'],
@@ -37,7 +39,8 @@ class StoreReadingRequest extends FormRequest
         return [
             'WELL_OID.required' => 'البئر مطلوب',
             'WELL_OID.exists' => 'البئر المحدد غير موجود',
-            'FLOW_RATE.required' => 'معدل التدفق مطلوب',
+            'GENERATOR_HOURS_READING.required' => 'قراءة عداد المولد مطلوبة',
+            'PUMP_HOURS_READING.required' => 'قراءة عداد مضخة البئر مطلوبة',
             'CHLORINE.required' => 'نسبة الكلور مطلوبة',
             'SALINITY.required' => 'نسبة الملوحة مطلوبة',
             'QUALITY.required' => 'جودة المياه مطلوبة',

@@ -93,6 +93,13 @@ class Well extends Model
 
     protected $appends = ['has_transactions'];
 
+    public function getWellNumAttribute($value): ?string
+    {
+        return $this->attributes['source_well_code']
+            ?? $this->attributes['SOURCE_WELL_CODE']
+            ?? $value;
+    }
+
     public function getHasTransactionsAttribute(): bool
     {
         // Check if the counts were eager loaded to avoid N+1

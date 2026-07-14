@@ -125,44 +125,45 @@ class MunicipalityVehicleRepository
         $vehicleTypeColumn = $vehicleColumns['type'] ?? null;
         $vehicleBeneficiaryColumn = $vehicleColumns['beneficiary_id'] ?? 'BENEFICIARY_OID';
         $driverPhoneColumn = $driverColumns['phone'] ?? 'MOBILE_NUM';
+        $driverIdColumn = $driverColumns['id'] ?? 'OID';
 
         $digits = preg_replace('/\D+/', '', $mobileNum) ?? '';
+        $last9 = strlen($digits) >= 9 ? substr($digits, -9) : $digits;
+
+        // توليد الاحتمالات الشائعة لتسريع البحث باستخدام (IN) المدعوم بالفهارس (Indexes)
         $variants = collect([
             $mobileNum,
             $digits,
             ltrim($digits, '0'),
             str_starts_with($digits, '970') ? substr($digits, 3) : null,
+            str_starts_with($digits, '972') ? substr($digits, 3) : null,
             str_starts_with($digits, '0') ? '970'.substr($digits, 1) : null,
+            str_starts_with($digits, '0') ? '972'.substr($digits, 1) : null,
+            $last9,
+            '0'.$last9,
+            '970'.$last9,
+            '972'.$last9,
+            '+970'.$last9,
+            '+972'.$last9,
         ])
             ->filter()
             ->unique()
             ->values();
 
-        $last9 = strlen($digits) >= 9 ? substr($digits, -9) : null;
-
         try {
             return DB::connection('oracle')
                 ->table($table.' as t')
+                // استخدام INNER JOIN بدلاً من IN (subquery) يعطي خطة تنفيذ (Execution Plan) أفضل بكثير
+                ->join($driversTable.' as d', 't.'.$vehicleBeneficiaryColumn, '=', 'd.'.$driverIdColumn)
                 ->whereNotNull('t.'.$vehiclePlateColumn)
-                ->whereIn('t.'.$vehicleBeneficiaryColumn, function ($query) use (
-                    $driversTable,
-                    $driverColumns,
-                    $driverPhoneColumn,
-                    $variants,
-                    $last9,
-                ): void {
-                    $query
-                        ->select($driverColumns['id'] ?? 'OID')
-                        ->from($driversTable)
-                        ->where(function ($nested) use ($variants, $last9, $driverPhoneColumn): void {
-                            $nested->whereIn($driverPhoneColumn, $variants->all());
-                            if ($last9) {
-                                $nested->orWhereRaw(
-                                    "SUBSTR(REGEXP_REPLACE($driverPhoneColumn, '[^0-9]', ''), -9) = ?",
-                                    [$last9]
-                                );
-                            }
-                        });
+                ->where(function ($query) use ($driverPhoneColumn, $variants, $last9): void {
+                    // البحث الدقيق الذي يستخدم الفهارس بشكل مباشر
+                    $query->whereIn('d.'.$driverPhoneColumn, $variants->all());
+                    
+                    if ($last9) {
+                        // استبدال REGEXP_REPLACE و SUBSTR المكلفة جداً بـ LIKE الذي يعد أسرع بكثير 
+                        $query->orWhere('d.'.$driverPhoneColumn, 'LIKE', '%'.$last9.'%');
+                    }
                 })
                 ->selectRaw(sprintf(
                     't.%s as oracle_id, t.%s as plate_number, t.%s as name%s',

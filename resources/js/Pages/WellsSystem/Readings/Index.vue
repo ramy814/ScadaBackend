@@ -113,7 +113,8 @@ function formatDate(dateStr) {
                                     <th>#</th>
                                     <th>البئر</th>
                                     <th>المفتش</th>
-                                    <th>التدفق (م³)</th>
+                                    <th>عداد المولد (ساعات)</th>
+                                    <th>عداد مضخة البئر (ساعات)</th>
                                     <th>التاريخ</th>
                                     <th>المزامنة</th>
                                 </tr>
@@ -123,7 +124,8 @@ function formatDate(dateStr) {
                                     <td>{{ index + 1 }}</td>
                                     <td class="font-bold">{{ reading.WELL?.NAME || '-' }}</td>
                                     <td>{{ reading.INSPECTOR?.NAME || '-' }}</td>
-                                    <td>{{ reading.FLOW_RATE }}</td>
+                                    <td>{{ reading.GENERATOR_HOURS_READING ?? reading.FLOW_RATE ?? '-' }}</td>
+                                    <td>{{ reading.PUMP_HOURS_READING ?? '-' }}</td>
                                     <td>{{ formatDate(reading.READING_DATE) }}</td>
                                     <td>
                                         <span v-if="reading.SYNCED_AT" class="badge badge-active">✓ تم</span>
@@ -131,7 +133,7 @@ function formatDate(dateStr) {
                                     </td>
                                 </tr>
                                 <tr v-if="!readingsList.length">
-                                    <td colspan="6" style="text-align: center; padding: 40px; color: var(--color-text-muted);">
+                                    <td colspan="7" style="text-align: center; padding: 40px; color: var(--color-text-muted);">
                                         لا توجد قراءات مطابقة للفلاتر المحددة
                                     </td>
                                 </tr>

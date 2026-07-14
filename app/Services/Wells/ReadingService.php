@@ -74,15 +74,25 @@ class ReadingService
     {
         $rows = $this->readingRepository->getReportReadings($filters)->map(function (WellReading $reading, int $index): array {
             $previous = $this->readingRepository->getPreviousReading($reading);
-            $currentReading = (float) ($this->attribute($reading, 'FLOW_RATE') ?? 0);
-            $previousReading = $previous ? (float) ($this->attribute($previous, 'FLOW_RATE') ?? 0) : null;
+            $currentReading = (float) (
+                $this->attribute($reading, 'PUMP_HOURS_READING')
+                ?? $this->attribute($reading, 'FLOW_RATE')
+                ?? 0
+            );
+            $previousReading = $previous ? (float) (
+                $this->attribute($previous, 'PUMP_HOURS_READING')
+                ?? $this->attribute($previous, 'FLOW_RATE')
+                ?? 0
+            ) : null;
             $operatingHours = $previousReading === null ? 0.0 : $currentReading - $previousReading;
             $capacity = (float) ($this->attribute($reading->well, 'CAPACITY') ?? 0);
 
             return [
                 'index' => $index + 1,
                 'well_name' => $this->attribute($reading->well, 'NAME') ?? '-',
-                'well_number' => $this->attribute($reading->well, 'WELL_NUM') ?? '-',
+                'well_number' => $this->attribute($reading->well, 'SOURCE_WELL_CODE')
+                    ?? $this->attribute($reading->well, 'WELL_NUM')
+                    ?? '-',
                 'coordinates' => $this->coordinates($reading),
                 'capacity' => $capacity,
                 'previous_reading' => $previousReading,

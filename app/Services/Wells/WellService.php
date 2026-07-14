@@ -55,8 +55,10 @@ class WellService
             $hasTransactions = $well->readings()->exists() || $well->dieselInventories()->exists();
 
             if ($hasTransactions) {
-                unset($data['WELL_NUM'], $data['NAME'], $data['QUARTER_OID']);
+                unset($data['NAME'], $data['QUARTER_OID']);
             }
+
+            unset($data['WELL_NUM']);
 
             $generatorIds = $this->extractGeneratorIds($data);
             $updatedWell = $this->wellRepository->update($id, $data);

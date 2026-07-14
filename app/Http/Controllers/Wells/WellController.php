@@ -27,10 +27,25 @@ class WellController extends Controller
     {
         $filters = $request->only(['search', 'quarter_oid', 'is_active']);
 
+        $paginatedWells = $this->wellService->getPaginatedWells(15, $filters);
+        $generatorOids = collect($paginatedWells->items())
+            ->flatMap(fn($well) => $well->generators->pluck('GENERATOR_OID'))
+            ->unique()
+            ->filter()
+            ->values()
+            ->toArray();
+
+        $generators = [];
+        if (!empty($generatorOids)) {
+            $generatorData = $this->generatorService->getGeneratorsByIds($generatorOids);
+            $generators = collect($generatorData)->keyBy('OID')->toArray();
+        }
+
         return Inertia::render('WellsSystem/Wells/Index', [
-            'wells' => $this->wellService->getPaginatedWells(15, $filters),
+            'wells' => $paginatedWells,
             'filters' => $filters,
             'quarters' => $this->wellService->getQuarters(),
+            'generators' => $generators,
         ]);
     }
 

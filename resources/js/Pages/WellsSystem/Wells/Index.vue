@@ -10,6 +10,7 @@ const props = defineProps({
     wells: { type: Object, default: () => ({ data: [], links: [] }) },
     quarters: { type: Array, default: () => [] },
     filters: { type: Object, default: () => ({}) },
+    generators: { type: Object, default: () => ({}) },
 })
 
 const search = ref(props.filters?.search || '')
@@ -23,6 +24,18 @@ const pumpTypeLabels = { centrifugal: 'طرد مركزي', submersible: 'غاط�
 const powerSourceLabels = { electricity: 'كهرباء', solar: 'سولار' }
 
 let searchTimeout = null
+
+function wellNumber(well) {
+    return well.SOURCE_WELL_CODE || well.WELL_NUM || '-'
+}
+
+function wellGeneratorsNumber(well) {
+    if (!well.generators || well.generators.length === 0) return '-';
+    const nums = well.generators
+        .map(g => props.generators[g.GENERATOR_OID]?.GENERATOR_NUM || '-')
+        .filter(n => n !== '-');
+    return nums.length > 0 ? nums.join('، ') : '-';
+}
 
 function applyFilters() {
     router.get('/wells/wells', {
@@ -126,11 +139,11 @@ function deleteWell() {
                             <thead>
                                 <tr>
                                     <th>#</th>
+                                    <th>رقم البئر</th>
                                     <th>اسم البئر</th>
                                     <th>المنطقة</th>
                                     <th>نوع المضخة</th>
                                     <th>السعة</th>
-                                    <th>مصدر الطاقة</th>
                                     <th>الحالة</th>
                                     <th>إجراءات</th>
                                 </tr>
@@ -138,7 +151,13 @@ function deleteWell() {
                             <tbody>
                                 <tr v-for="(well, index) in wells.data" :key="well.OID">
                                     <td>{{ (wells.current_page - 1) * wells.per_page + index + 1 || index + 1 }}</td>
-                                    <td class="font-bold">{{ well.NAME }}</td>
+                                    <td class="font-bold">{{ wellNumber(well) }}</td>
+                                    <td class="font-bold">
+                                        {{ well.NAME }}
+                                        <span class="badge badge-good" v-if="wellGeneratorsNumber(well) !== '-'" style="margin-right: 8px; font-size: 0.8em; vertical-align: middle;">
+                                            {{ wellGeneratorsNumber(well) }}
+                                        </span>
+                                    </td>
                                     <td>{{ well.quarter_name || '-' }}</td>
                                     <td>
                                         <span class="badge badge-active">
@@ -146,11 +165,6 @@ function deleteWell() {
                                         </span>
                                     </td>
                                     <td>{{ well.CAPACITY }} م³</td>
-                                    <td>
-                                        <span :class="'badge ' + (well.POWER_SOURCE === 'solar' ? 'badge-acceptable' : 'badge-good')">
-                                            {{ powerSourceLabels[well.POWER_SOURCE] || well.POWER_SOURCE }}
-                                        </span>
-                                    </td>
                                     <td>
                                         <span :class="[
                                             'badge',
@@ -172,7 +186,7 @@ function deleteWell() {
                                     </td>
                                 </tr>
                                 <tr v-if="!wells.data || !wells.data.length">
-                                    <td colspan="8" style="text-align: center; padding: 40px; color: var(--color-text-muted);">
+                                    <td colspan="9" style="text-align: center; padding: 40px; color: var(--color-text-muted);">
                                         لا توجد آبار مطابقة لخيارات البحث المحددة.
                                     </td>
                                 </tr>

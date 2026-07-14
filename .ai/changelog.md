@@ -1,5 +1,19 @@
 # Changelog & Recent Actions
 
+## [2026-07-14] Active SSO Users Only In Permission Search
+
+- Added `MOG_USERS.USERS_LIST.IS_ACTIVE = 1` to the central permission-screen user search.
+- Grouped the name, SSO ID, and employee ID alternatives so numeric `OR` conditions cannot bypass the active-user filter.
+- Existing permission assignments remain visible even if an SSO user later becomes inactive, allowing administrators to revoke stale access.
+
+## [2026-07-14] Unified Local And Production SSO User
+
+- Set local development login through `MOG_LOCAL_ADMIN_USER_ID=140`, matching the SSO user ID used in production.
+- Removed the stale hard-coded fallback user ID from `config/mog-helpers.php`; local environments must configure the ID explicitly.
+- Moved `fleet`, `wells`, and `valves` permissions from the duplicate legacy SSO row `1061` to the canonical user `140`.
+- Removed the `user_id` request override from `/admin/dev-login`, preventing old development URLs from logging back into the inactive duplicate SSO row.
+- Normalized stale authenticated local sessions in `EnsureAdminIsAllowlisted`, so existing browser cookies are switched to the configured development SSO user before system permissions are checked.
+
 ## [2026-07-08] Wells Teams/Inspectors — Oracle PDO Lowercase Pluck Fix
 
 - **Problem**: `TeamRepository::syncWells()` and `InspectorRepository::syncTeams()` used `pluck('WELL_OID')` / `pluck('TEAM_OID')` with uppercase column names on raw `DB::table(...)` queries. Oracle's PDO driver always returns column names in **lowercase**, so the pluck returned empty collections — making every sync think it was starting from scratch and causing duplicate INSERT errors.

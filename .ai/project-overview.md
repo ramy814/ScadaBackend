@@ -47,6 +47,7 @@ The Fleet Management System is an enterprise application designed for Gaza Munic
 ## Local Development Login
 - Use `http://127.0.0.1:8000/admin/dev-login` to log in locally and open the unified portal card selector.
 - The dev-login route logs in the configured `MOG_LOCAL_ADMIN_USER_ID` and redirects to the portal by default. Do not document or hard-code a real person's identity for this helper.
+- The local user ID cannot be overridden through a `user_id` query parameter; change `MOG_LOCAL_ADMIN_USER_ID` explicitly when a different development identity is required.
 - Direct card shortcuts are supported:
   - `http://127.0.0.1:8000/admin/dev-login?system=wells` opens the wells dashboard directly.
   - `http://127.0.0.1:8000/admin/dev-login?system=fleet` opens the fleet dashboard directly.

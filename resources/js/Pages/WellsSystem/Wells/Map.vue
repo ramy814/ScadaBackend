@@ -31,10 +31,12 @@ function initMap() {
 
     props.wells.forEach(well => {
         if (well.LATITUDE && well.LONGITUDE) {
+            const wellNumber = well.SOURCE_WELL_CODE || well.WELL_NUM || '-'
             const marker = L.marker([well.LATITUDE, well.LONGITUDE]).addTo(map)
             marker.bindPopup(`
                 <div style="direction: rtl; font-family: Cairo, sans-serif; min-width: 200px;">
                     <h3 style="margin: 0 0 8px; color: #00d4aa; font-size: 16px;">${well.NAME}</h3>
+                    <p style="margin: 4px 0; font-size: 13px;"># ${wellNumber}</p>
                     <p style="margin: 4px 0; font-size: 13px;">📍 ${well.quarter_name || '-'}</p>
                     <p style="margin: 4px 0; font-size: 13px;">⚙️ ${pumpTypeLabels[well.PUMP_TYPE] || well.PUMP_TYPE}</p>
                     <p style="margin: 4px 0; font-size: 13px;">⚡ ${powerSourceLabels[well.POWER_SOURCE] || well.POWER_SOURCE}</p>

@@ -8,6 +8,7 @@ use App\Models\Wells\WellReading;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class ReadingRepository
 {
@@ -18,12 +19,12 @@ class ReadingRepository
 
     public function all(): Collection
     {
-        return $this->model->with(['well', 'inspector'])->orderByDesc('READING_DATE')->get();
+        return $this->model->with($this->relationsWithWellSourceCode())->orderByDesc('READING_DATE')->get();
     }
 
     public function paginate(int $perPage = 15, array $filters = []): LengthAwarePaginator
     {
-        $query = $this->model->with(['well', 'inspector'])->orderByDesc('READING_DATE');
+        $query = $this->model->with($this->relationsWithWellSourceCode())->orderByDesc('READING_DATE');
 
         $this->applyFilters($query, $filters);
 
@@ -33,7 +34,7 @@ class ReadingRepository
     public function getReportReadings(array $filters = [], int $limit = 5000): Collection
     {
         $query = $this->model
-            ->with(['well', 'inspector'])
+            ->with($this->relationsWithWellSourceCode())
             ->orderBy('WELL_OID')
             ->orderBy('READING_DATE')
             ->orderBy('OID');
@@ -97,12 +98,12 @@ class ReadingRepository
 
     public function find(int $id): ?WellReading
     {
-        return $this->model->with(['well', 'inspector', 'generatorLogs'])->find($id);
+        return $this->model->with($this->relationsWithWellSourceCode(['generatorLogs']))->find($id);
     }
 
     public function findOrFail(int $id): WellReading
     {
-        return $this->model->with(['well', 'inspector', 'generatorLogs'])->findOrFail($id);
+        return $this->model->with($this->relationsWithWellSourceCode(['generatorLogs']))->findOrFail($id);
     }
 
     public function create(array $data): WellReading
@@ -120,7 +121,7 @@ class ReadingRepository
     public function findByInspector(int $inspectorId): Collection
     {
         return $this->model->where('INSPECTOR_OID', $inspectorId)
-            ->with('well')
+            ->with($this->relationsWithWellSourceCode())
             ->orderByDesc('READING_DATE')
             ->get();
     }
@@ -128,7 +129,7 @@ class ReadingRepository
     public function findByDateRange(Carbon $from, Carbon $to): Collection
     {
         return $this->model->whereBetween('READING_DATE', [$from, $to])
-            ->with(['well', 'inspector'])
+            ->with($this->relationsWithWellSourceCode())
             ->orderByDesc('READING_DATE')
             ->get();
     }
@@ -162,7 +163,7 @@ class ReadingRepository
 
     public function getRecentReadings(int $limit = 10): Collection
     {
-        return $this->model->with(['well', 'inspector'])
+        return $this->model->with($this->relationsWithWellSourceCode())
             ->orderByDesc('READING_DATE')
             ->limit($limit)
             ->get();
@@ -173,4 +174,20 @@ class ReadingRepository
         return $this->model->whereDate('READING_DATE', Carbon::today())->count();
     }
 
+    private function relationsWithWellSourceCode(array $extra = []): array
+    {
+        return array_merge([
+            'well' => function ($query): void {
+                $query
+                    ->select('wells.*', 'source_wells.SOURCE_WELL_CODE')
+                    ->leftJoin(
+                        DB::raw('DSS_CORE.WTR_WELLS source_wells'),
+                        'source_wells.WELL_ID',
+                        '=',
+                        'wells.WELL_NUM'
+                    );
+            },
+            'inspector',
+        ], $extra);
+    }
 }

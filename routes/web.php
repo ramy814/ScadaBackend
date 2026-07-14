@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Route;
 
 if (config('app.env') === 'local') {
     Route::get('/admin/dev-login', function () {
-        $userId = request('user_id', config('mog-helpers.local_admin_user_id'));
+        $userId = config('mog-helpers.local_admin_user_id');
         $guard = \Illuminate\Support\Facades\Auth::guard('admin');
         if ($guard instanceof \Illuminate\Contracts\Auth\StatefulGuard) {
             $guard->loginUsingId($userId);

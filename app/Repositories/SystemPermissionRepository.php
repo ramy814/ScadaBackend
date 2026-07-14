@@ -204,11 +204,15 @@ class SystemPermissionRepository
 
         try {
             return MogSsoUser::query()
-                ->where('full_name', 'like', '%' . $query . '%')
-                ->when(is_numeric($query), function ($builder) use ($query): void {
+                ->where('is_active', 1)
+                ->where(function ($builder) use ($query): void {
                     $builder
-                        ->orWhere('id', (int) $query)
-                        ->orWhere('emp_id', (int) $query);
+                        ->where('full_name', 'like', '%' . $query . '%')
+                        ->when(is_numeric($query), function ($builder) use ($query): void {
+                            $builder
+                                ->orWhere('id', (int) $query)
+                                ->orWhere('emp_id', (int) $query);
+                        });
                 })
                 ->select('id', 'emp_id', 'full_name', 'user_mobile')
                 ->limit(15)

@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Repositories\Wells;
 
 use App\Models\Wells\Well;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
 
 class WellRepository
 {
@@ -17,27 +19,33 @@ class WellRepository
 
     public function all(): Collection
     {
-        return $this->model->orderBy('NAME')->get();
+        return $this->withSourceWellCode($this->model->newQuery())
+            ->orderBy('wells.NAME')
+            ->get();
     }
 
     public function paginate(int $perPage = 15, array $filters = []): LengthAwarePaginator
     {
-        $query = $this->model->with('teams')->withCount(['readings', 'dieselInventories'])->orderBy('NAME');
+        $query = $this->withSourceWellCode($this->model->newQuery())
+            ->with(['teams', 'generators'])
+            ->withCount(['readings', 'dieselInventories'])
+            ->orderBy('wells.NAME');
 
         if (!empty($filters['search'])) {
             $search = $filters['search'];
             $query->where(function ($q) use ($search) {
-                $q->where('NAME', 'like', '%' . $search . '%')
-                  ->orWhere('WELL_NUM', 'like', '%' . $search . '%');
+                $q->where('wells.NAME', 'like', '%' . $search . '%')
+                  ->orWhere('wells.WELL_NUM', 'like', '%' . $search . '%')
+                  ->orWhere('source_wells.SOURCE_WELL_CODE', 'like', '%' . $search . '%');
             });
         }
 
         if (!empty($filters['quarter_oid'])) {
-            $query->where('QUARTER_OID', $filters['quarter_oid']);
+            $query->where('wells.QUARTER_OID', $filters['quarter_oid']);
         }
 
         if (isset($filters['is_active']) && $filters['is_active'] !== '') {
-            $query->where('IS_ACTIVE', filter_var($filters['is_active'], FILTER_VALIDATE_BOOLEAN));
+            $query->where('wells.IS_ACTIVE', filter_var($filters['is_active'], FILTER_VALIDATE_BOOLEAN));
         }
 
         return $query->paginate($perPage)->withQueryString();
@@ -45,12 +53,16 @@ class WellRepository
 
     public function find(int $id): ?Well
     {
-        return $this->model->with(['teams', 'generators'])->find($id);
+        return $this->withSourceWellCode($this->model->newQuery())
+            ->with(['teams', 'generators'])
+            ->find($id);
     }
 
     public function findOrFail(int $id): Well
     {
-        return $this->model->with(['teams', 'generators'])->findOrFail($id);
+        return $this->withSourceWellCode($this->model->newQuery())
+            ->with(['teams', 'generators'])
+            ->findOrFail($id);
     }
 
     public function create(array $data): Well
@@ -73,19 +85,26 @@ class WellRepository
 
     public function findByTeam(int $teamId): Collection
     {
-        return $this->model->whereHas('teams', function ($query) use ($teamId) {
-            $query->where('teams.OID', $teamId);
-        })->get();
+        return $this->withSourceWellCode($this->model->newQuery())
+            ->whereHas('teams', function ($query) use ($teamId) {
+                $query->where('teams.OID', $teamId);
+            })
+            ->get();
     }
 
     public function findWithGenerators(int $id): Well
     {
-        return $this->model->with('generators')->findOrFail($id);
+        return $this->withSourceWellCode($this->model->newQuery())
+            ->with('generators')
+            ->findOrFail($id);
     }
 
     public function getActiveWells(): Collection
     {
-        return $this->model->active()->orderBy('NAME')->get();
+        return $this->withSourceWellCode($this->model->newQuery())
+            ->active()
+            ->orderBy('wells.NAME')
+            ->get();
     }
 
     public function getActiveCount(): int
@@ -100,6 +119,20 @@ class WellRepository
 
     public function getByPowerSource(string $source): Collection
     {
-        return $this->model->where('POWER_SOURCE', $source)->get();
+        return $this->withSourceWellCode($this->model->newQuery())
+            ->where('wells.POWER_SOURCE', $source)
+            ->get();
+    }
+
+    public function withSourceWellCode(Builder $query): Builder
+    {
+        return $query
+            ->select('wells.*', 'source_wells.SOURCE_WELL_CODE')
+            ->leftJoin(
+                DB::raw('DSS_CORE.WTR_WELLS source_wells'),
+                'source_wells.WELL_ID',
+                '=',
+                'wells.WELL_NUM'
+            );
     }
 }
