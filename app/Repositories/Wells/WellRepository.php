@@ -106,6 +106,21 @@ class WellRepository
             ->get();
     }
 
+    public function getActiveForInspector(int $inspectorId): Collection
+    {
+        return $this->model->newQuery()
+            ->active()
+            ->whereHas('teams', function ($query) use ($inspectorId): void {
+                $query->whereIn('teams.OID', function ($query) use ($inspectorId): void {
+                    $query->select('TEAM_OID')
+                        ->from('INSPECTOR_TEAMS')
+                        ->where('INSPECTOR_OID', $inspectorId);
+                });
+            })
+            ->orderBy('wells.NAME')
+            ->get();
+    }
+
     public function getActiveCount(): int
     {
         return $this->model->active()->count();

@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace App\Services\Wells;
 
 use App\Models\Wells\Well;
+use App\Repositories\Wells\DieselInventoryRepository;
 use App\Repositories\Wells\GeneratorRepository;
 use App\Repositories\Wells\WellRepository;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class WellService
@@ -17,6 +19,7 @@ class WellService
         private readonly WellRepository $wellRepository,
         private readonly GeneratorRepository $generatorRepository,
         private readonly WellMediaService $wellMediaService,
+        private readonly DieselInventoryRepository $dieselInventoryRepository,
     ) {}
 
     public function getAllWells(): Collection
@@ -94,6 +97,40 @@ class WellService
         return $this->wellRepository->getActiveWells();
     }
 
+    public function getSyncWellsForInspector(int $inspectorId): array
+    {
+        $wells = $this->wellRepository->getActiveForInspector($inspectorId);
+        $latestInventories = $this->dieselInventoryRepository->getLatestForWells(
+            $wells->modelKeys(),
+        );
+
+        return $wells->map(function (Well $well) use ($latestInventories): array {
+            $previousDiesel = $latestInventories->get((int) $well->getKey());
+            $tankDiameter = $well->getAttribute('TANK_DIAMETER') ?? $well->getAttribute('tank_diameter');
+            $tankHeight = $well->getAttribute('TANK_HEIGHT') ?? $well->getAttribute('tank_height');
+
+            return [
+                'oid' => (int) $well->oid,
+                'name' => $well->name,
+                'quarter_oid' => $well->quarter_oid === null ? null : (int) $well->quarter_oid,
+                'quarter_name' => null,
+                'pump_type' => $well->pump_type ?? 'Unknown',
+                'capacity' => (float) $well->capacity,
+                'power_source' => $well->power_source ?? 'Unknown',
+                'tank_shape' => $well->getAttribute('TANK_SHAPE') ?? $well->getAttribute('tank_shape'),
+                'tank_material' => $well->getAttribute('TANK_MATERIAL') ?? $well->getAttribute('tank_material'),
+                'tank_diameter' => $tankDiameter === null ? null : (float) $tankDiameter,
+                'tank_height' => $tankHeight === null ? null : (float) $tankHeight,
+                'previous_generator_hours_reading' => $this->nullableFloat($previousDiesel['generator_hours_reading'] ?? null),
+                'previous_diesel_height_cm' => $this->nullableFloat($previousDiesel['diesel_height_cm'] ?? null),
+                'previous_available_fuel_liters' => $this->nullableFloat($previousDiesel['available_fuel_liters'] ?? null),
+                'previous_inventory_date' => $this->isoDate($previousDiesel['inventory_date'] ?? null),
+                'latitude' => (float) $well->latitude,
+                'longitude' => (float) $well->longitude,
+            ];
+        })->all();
+    }
+
     public function getWellsByTeam(int $teamId): Collection
     {
         return $this->wellRepository->findByTeam($teamId);
@@ -157,5 +194,15 @@ class WellService
     public function getQuarters(): array
     {
         return $this->wellRepository->getQuarters();
+    }
+
+    private function nullableFloat(mixed $value): ?float
+    {
+        return $value === null ? null : (float) $value;
+    }
+
+    private function isoDate(mixed $value): ?string
+    {
+        return $value === null ? null : Carbon::parse($value)->toIso8601String();
     }
 }

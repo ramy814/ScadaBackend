@@ -14,6 +14,8 @@ Request → Controller → Service → Repository → Model → Database
 - This backend project is the unified server for that app after merging wells into the fleet/tracking system.
 - Keep mobile-facing wells JSON contracts compatible with `/Volumes/SecondDrive/Wells/wells_app/lib/**`.
 - Do not create or look for a second Flutter app under this backend repository.
+- `GET /api/wells/sync/wells` delegates to `WellService`; inspector/team filtering belongs in `WellRepository`, and previous diesel inventory lookup belongs in `DieselInventoryRepository`.
+- Oracle date values in mobile JSON must be normalized explicitly (for example through Carbon) because OCI8 may return them as strings even when the Eloquent model declares a datetime cast.
 
 ## Rules
 1. **Controllers** are thin — only delegate to services

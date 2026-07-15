@@ -135,6 +135,44 @@ class DieselInventoryRepository
             ->values();
     }
 
+    /**
+     * @param  array<int, int>  $wellIds
+     */
+    public function getLatestForWells(array $wellIds): SupportCollection
+    {
+        if ($wellIds === []) {
+            return collect();
+        }
+
+        $placeholders = implode(', ', array_fill(0, count($wellIds), '?'));
+        $rows = $this->model->getConnection()->select(<<<SQL
+            SELECT WELL_OID,
+                   INVENTORY_DATE,
+                   GENERATOR_HOURS_READING,
+                   DIESEL_HEIGHT_CM,
+                   AVAILABLE_FUEL_LITERS
+            FROM (
+                SELECT WELL_OID,
+                       INVENTORY_DATE,
+                       GENERATOR_HOURS_READING,
+                       DIESEL_HEIGHT_CM,
+                       AVAILABLE_FUEL_LITERS,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY WELL_OID ORDER BY INVENTORY_DATE DESC, OID DESC
+                       ) AS ROW_NUM
+                FROM DIESEL_INVENTORIES
+                WHERE WELL_OID IN ($placeholders)
+            )
+            WHERE ROW_NUM = 1
+        SQL, $wellIds);
+
+        return collect($rows)->mapWithKeys(function (object $row): array {
+            $values = array_change_key_case((array) $row, CASE_LOWER);
+
+            return [(int) $values['well_oid'] => $values];
+        });
+    }
+
     public function getStats(): array
     {
         $total = $this->model->count();

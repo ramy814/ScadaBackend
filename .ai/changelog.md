@@ -1,5 +1,13 @@
 # Changelog & Recent Actions
 
+## [2026-07-15] Inspector Wells Mobile Sync Regression Fix
+
+- Fixed `GET /api/wells/sync/wells` returning HTTP 500 when an assigned well had a previous diesel inventory. Oracle returned `INVENTORY_DATE` as a string, so the endpoint now normalizes it through Carbon before emitting ISO 8601 JSON.
+- Moved inspector-well filtering and latest-inventory queries out of `SyncController` into `WellRepository`, `DieselInventoryRepository`, and `WellService`.
+- Replaced the per-well latest-inventory query with one Oracle `ROW_NUMBER()` query for all assigned wells.
+- Verified live Oracle responses for every active inspector: Rami Ghayada receives 12 active assigned wells, and all inspector responses return HTTP 200.
+- Added `WellSyncServiceTest` to guard Oracle string-date formatting in the Flutter sync contract.
+
 ## [2026-07-14] Wells Diesel Inventory Report
 
 - Added PDF and Excel exports to the Wells diesel inventory screen using the active well, inspector, generator, and date filters.
