@@ -8,13 +8,31 @@ use App\Models\Wells\Well;
 
 class DieselFuelCalculator
 {
+    public function tankCapacityLiters(Well $well): ?float
+    {
+        $shape = strtolower((string) ($well->getAttribute('TANK_SHAPE') ?? $well->getAttribute('tank_shape') ?? ''));
+        $diameter = (float) ($well->getAttribute('TANK_DIAMETER') ?? $well->getAttribute('tank_diameter') ?? 0);
+        $tankHeight = (float) ($well->getAttribute('TANK_HEIGHT') ?? $well->getAttribute('tank_height') ?? 0);
+        $maximumFuelHeight = str_contains($shape, 'أفقي') || str_contains($shape, 'افقي') || str_contains($shape, 'horizontal')
+            ? $diameter
+            : $tankHeight;
+
+        return $maximumFuelHeight <= 0
+            ? null
+            : $this->litersForWell($well, $maximumFuelHeight * 100);
+    }
+
     public function litersForWell(Well $well, mixed $dieselHeightCm): ?float
     {
-        $heightMeters = ((float) ($dieselHeightCm ?? 0)) / 100;
+        if ($dieselHeightCm === null || $dieselHeightCm === '' || ! is_numeric($dieselHeightCm)) {
+            return null;
+        }
+
+        $heightMeters = max(0.0, (float) $dieselHeightCm / 100);
         $diameter = (float) ($well->getAttribute('TANK_DIAMETER') ?? $well->getAttribute('tank_diameter') ?? 0);
         $tankHeight = (float) ($well->getAttribute('TANK_HEIGHT') ?? $well->getAttribute('tank_height') ?? 0);
 
-        if ($heightMeters <= 0 || $diameter <= 0 || $tankHeight <= 0) {
+        if ($diameter <= 0 || $tankHeight <= 0) {
             return null;
         }
 
@@ -22,10 +40,11 @@ class DieselFuelCalculator
         $cubicMeters = match (true) {
             str_contains($shape, 'أفقي') || str_contains($shape, 'افقي') || str_contains($shape, 'horizontal') => $this->horizontalCylinder($diameter, $tankHeight, $heightMeters),
             str_contains($shape, 'مكعب') || str_contains($shape, 'cube') => $diameter * $diameter * min($heightMeters, $tankHeight),
-            default => pi() * ($diameter / 2) ** 2 * min($heightMeters, $tankHeight),
+            str_contains($shape, 'عمودي') || str_contains($shape, 'vertical') => pi() * ($diameter / 2) ** 2 * min($heightMeters, $tankHeight),
+            default => null,
         };
 
-        return round($cubicMeters * 1000, 2);
+        return $cubicMeters === null ? null : round($cubicMeters * 1000, 2);
     }
 
     private function horizontalCylinder(float $diameter, float $length, float $height): float

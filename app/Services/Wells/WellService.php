@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Services\Wells;
 
 use App\Models\Wells\Well;
-use App\Repositories\Wells\WellRepository;
 use App\Repositories\Wells\GeneratorRepository;
-use Illuminate\Database\Eloquent\Collection;
+use App\Repositories\Wells\WellRepository;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 
 class WellService
@@ -16,8 +16,8 @@ class WellService
     public function __construct(
         private readonly WellRepository $wellRepository,
         private readonly GeneratorRepository $generatorRepository,
-    ) {
-    }
+        private readonly WellMediaService $wellMediaService,
+    ) {}
 
     public function getAllWells(): Collection
     {
@@ -38,13 +38,16 @@ class WellService
     {
         return DB::transaction(function () use ($data): Well {
             $generatorIds = $this->extractGeneratorIds($data);
+            $media = $this->extractMedia($data);
             $well = $this->wellRepository->create($data);
 
             if ($generatorIds !== null) {
                 $this->generatorRepository->syncWellGenerators((int) $well->getKey(), $generatorIds);
             }
 
-            return $well->fresh(['teams', 'generators']);
+            $this->wellMediaService->storeMany((int) $well->getKey(), $media);
+
+            return $well->fresh(['teams', 'generators', 'media']);
         });
     }
 
@@ -61,13 +64,16 @@ class WellService
             unset($data['WELL_NUM']);
 
             $generatorIds = $this->extractGeneratorIds($data);
+            $media = $this->extractMedia($data);
             $updatedWell = $this->wellRepository->update($id, $data);
 
             if ($generatorIds !== null) {
                 $this->generatorRepository->syncWellGenerators($id, $generatorIds);
             }
 
-            return $updatedWell->fresh(['teams', 'generators']);
+            $this->wellMediaService->storeMany($id, $media);
+
+            return $updatedWell->fresh(['teams', 'generators', 'media']);
         });
     }
 
@@ -130,6 +136,14 @@ class WellService
             ->all();
     }
 
+    private function extractMedia(array &$data): array
+    {
+        $media = $data['media'] ?? [];
+        unset($data['media']);
+
+        return $media;
+    }
+
     public function getWellWithGenerators(int $wellId): Well
     {
         return $this->wellRepository->findWithGenerators($wellId);
@@ -140,19 +154,8 @@ class WellService
         return $this->wellRepository->getActiveWells();
     }
 
-    /**
-     * Get quarters list - in production queries GAZADATA.QUARTERS via Oracle.
-     * In development (SQLite) returns an empty array; populate via seeder if needed.
-     */
     public function getQuarters(): array
     {
-        $quarters = \Illuminate\Support\Facades\DB::connection('oracle')->select("
-            SELECT q.OId, q.NAME 
-            FROM GAZADATA.QUARTERS q
-        ");
-
-        return array_map(function ($row) {
-            return (object) array_change_key_case((array) $row, CASE_UPPER);
-        }, $quarters);
+        return $this->wellRepository->getQuarters();
     }
 }

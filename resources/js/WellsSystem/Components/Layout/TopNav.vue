@@ -1,13 +1,11 @@
 <script setup>
-import { usePage } from '@inertiajs/vue3';
+import { router, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
-import { router } from '@inertiajs/vue3';
 import Icon from '@/WellsSystem/Components/Shared/Icon.vue';
 
 defineEmits(['toggle-sidebar']);
 
 const page = usePage();
-const appName = computed(() => page.props.app?.name || 'نظام إدارة الآبار');
 const unreadCount = computed(() => page.props.unread_notifications_count || 0);
 </script>
 
@@ -17,7 +15,7 @@ const unreadCount = computed(() => page.props.unread_notifications_count || 0);
             <button class="btn btn-icon btn-secondary" @click="$emit('toggle-sidebar')" style="display: none;">
                 ☰
             </button>
-            <h1 class="topnav-title">{{ appName }}</h1>
+            <h1 class="topnav-title">نظام ادارة آبار بلدية غزة</h1>
         </div>
 
         <div class="topnav-actions">

@@ -26,8 +26,8 @@ function initMap() {
         attribution: '© OpenStreetMap'
     }).addTo(map)
 
-    const pumpTypeLabels = { centrifugal: 'طرد مركزي', submersible: 'غاطس' }
-    const powerSourceLabels = { electricity: 'كهرباء', solar: 'سولار' }
+    const pumpTypeLabels = { centrifugal: 'رأسي (قديم)', submersible: 'غاطس', vertical: 'رأسي' }
+    const powerSourceLabels = { electricity: 'كهرباء', solar: 'سولار', generator: 'مولد' }
 
     props.wells.forEach(well => {
         if (well.LATITUDE && well.LONGITUDE) {

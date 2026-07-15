@@ -1,6 +1,6 @@
 /* ============================================
    Gaza Municipality Well Management System
-   نظام إدارة آبار بلدية غزة
+   نظام ادارة آبار بلدية غزة
    Premium Dark Theme - RTL Arabic
    ============================================ */
 
@@ -904,6 +904,76 @@ img {
     border: 1px solid var(--glass-border);
 }
 
+/* ---------- Well Media ---------- */
+.well-media-sections {
+    display: grid;
+    gap: 16px;
+}
+
+.well-media-section {
+    padding: 16px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+    background: var(--glass-bg);
+}
+
+.well-media-title {
+    margin: 0 0 12px;
+    color: var(--color-text-primary);
+}
+
+.well-media-upload {
+    display: grid;
+    grid-template-columns: minmax(180px, 1fr) minmax(220px, 1fr) auto;
+    gap: 10px;
+    align-items: start;
+    margin-bottom: 12px;
+}
+
+.well-media-upload .form-error {
+    grid-column: 1 / -1;
+}
+
+.well-media-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 12px;
+}
+
+.well-media-card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+    margin: 0;
+    padding: 10px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius-sm);
+    background: var(--color-bg-input);
+}
+
+.well-media-card img {
+    width: 100%;
+    height: 130px;
+    object-fit: cover;
+    border-radius: 8px;
+}
+
+.well-media-card figcaption,
+.well-media-card strong,
+.well-media-card small {
+    overflow-wrap: anywhere;
+}
+
+.well-media-card small {
+    color: var(--color-text-muted);
+}
+
+.well-media-pending {
+    justify-content: center;
+    min-height: 130px;
+}
+
 .map-container-full {
     height: calc(100vh - var(--topnav-height) - 48px);
 }
@@ -1569,6 +1639,10 @@ img {
     }
 
     .generator-card-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .well-media-upload {
         grid-template-columns: 1fr;
     }
 }

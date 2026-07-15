@@ -14,25 +14,53 @@
 | INSTALLATION_DATE | DATE | |
 | LAST_MAINTENANCE_DATE | DATE | |
 | WELL_DEPTH | DECIMAL | Depth in meters |
-| PUMP_TYPE | VARCHAR | 'centrifugal' or 'submersible' |
+| PUMP_TYPE | VARCHAR | `submersible` or `vertical` |
+| PUMP_POWER_HP | DECIMAL | Pump power in horsepower |
 | CAPACITY | DECIMAL | Capacity in m³ |
 | SALINITY | DECIMAL | Salinity level |
-| POWER_SOURCE | VARCHAR | 'electricity' or 'solar' |
+| POWER_SOURCE | VARCHAR | `electricity`, `solar`, or `generator` |
 | LATITUDE | DECIMAL(10,8) | GPS latitude |
 | LONGITUDE | DECIMAL(11,8) | GPS longitude |
 | IS_ACTIVE | BOOLEAN | Default 1 |
-| TANK_SHAPE | VARCHAR | Fuel tank shape |
-| TANK_MATERIAL | VARCHAR | Fuel tank material |
+| TANK_SHAPE | VARCHAR | اسطواني عمودي, اسطواني أفقي, مكعب, or `Daily Tank` |
+| TANK_MATERIAL | VARCHAR | `HDPE`, معدن, or فيبرجلاس |
 | TANK_DIAMETER | DECIMAL | Fuel tank diameter (m) |
-| TANK_HEIGHT | DECIMAL | Fuel tank height (m) |
-| CHLORINATION_SYSTEM | VARCHAR | Chlorination system type |
+| TANK_HEIGHT | DECIMAL | Fuel tank height (m); used as cylinder length for horizontal tanks |
+| CHLORINATION_SYSTEM | VARCHAR | يوجد or لا يوجد |
+| CHLORINATION_STATUS | VARCHAR | يعمل or لا يعمل |
 | CHLORINE_TANK_CAPACITY| DECIMAL | Chlorine tank capacity (liters) |
-| CHLORINE_TANK_TYPE | VARCHAR | Chlorine tank type |
-| CHLORINE_TANK_MATERIAL| VARCHAR | Chlorine tank material |
-| CHLORINE_PUMP_MODEL | VARCHAR | Chlorine pump model |
+| CHLORINE_TANK_TYPE | VARCHAR | اسطواني عمودي or مكعب |
+| CHLORINE_TANK_MATERIAL| VARCHAR | HDPE أزرق or بلاستيك شفاف |
 | CHLORINE_PUMP_TYPE | VARCHAR | Chlorine pump type |
-| COOLING_TANK_CAPACITY | DECIMAL | Cooling tank capacity (liters) |
-| COOLING_TANK_TYPE | VARCHAR | Cooling tank type |
+| COOLING_TANK_CAPACITY | DECIMAL | 220 or 500 liters |
+| COOLING_TANK_TYPE | VARCHAR | HDPE أزرق or HDPE أسود |
+| COOLING_SYSTEM | VARCHAR | اوتوماتيك, يدوي, غير متوفر, غاطس, or اوتوماتيك يحتاج صيانة |
+| COOLING_LINE_TYPE | VARCHAR | حديد سكب or HDPE |
+| CREATED_AT | TIMESTAMP | |
+| UPDATED_AT | TIMESTAMP | |
+
+Fuel balance calculation (`h = DIESEL_HEIGHT_CM / 100`, dimensions in meters):
+
+- Vertical cylinder: `liters = π × (TANK_DIAMETER / 2)² × min(h, TANK_HEIGHT) × 1000`.
+- Horizontal cylinder: `TANK_HEIGHT` is the cylinder length. With `r = TANK_DIAMETER / 2` and `h` clamped to `0..TANK_DIAMETER`, segment area is `r² × acos((r-h)/r) - (r-h) × sqrt(2rh-h²)`; multiply by `TANK_HEIGHT × 1000`.
+- Cube/square-base tank: `liters = TANK_DIAMETER² × min(h, TANK_HEIGHT) × 1000`.
+- The previous reading is selected per well using `INVENTORY_DATE`, then `OID` as the tie-breaker. Dashboard date filters must not remove the historical row used as the previous reading.
+- Diesel report operating hours: `current GENERATOR_HOURS_READING - previous GENERATOR_HOURS_READING`. If the current counter is lower, the result is left blank and a reset/inconsistent-reading note is shown.
+- Approved fuel supplied between inventories: sum `G_STORE.FUEL_LOG_DETAILS.APPROVED_GALLONS` where the linked `G_STORE.FUEL_LOG.FILL_UP_DATE` is after the previous inventory and through the current inventory.
+- Actual fuel consumed: `previous calculated balance + approved supply - current calculated balance`; actual rate is this value divided by operating hours. Negative results are treated as inconsistent data and left blank with a note.
+- Water production: `operating hours × WELLS.CAPACITY`.
+- Calculated diesel consumption: `operating hours × G_STORE.GENERATOR.FUEL_CONSUMPTION`.
+
+### WELL_MEDIA
+| Column | Type | Notes |
+|--------|------|-------|
+| OID | INTEGER PK AUTO | Primary key |
+| WELL_OID | INTEGER FK | References WELLS; cascade delete |
+| CATEGORY | VARCHAR(50) | `pump`, `fuel_tank`, `cooling`, `valves_parts`, or `well_room` |
+| LABEL | VARCHAR NULL | User-provided image name/description |
+| FILE_PATH | VARCHAR(500) | Private `local` disk path; never expose directly |
+| ORIGINAL_NAME | VARCHAR | Original uploaded filename |
+| MIME_TYPE | VARCHAR(100) NULL | Validated image MIME type |
 | CREATED_AT | TIMESTAMP | |
 | UPDATED_AT | TIMESTAMP | |
 
@@ -168,6 +196,12 @@ FROM (
 ORDER BY GENERATOR_NUM;
 ```
 
+Diesel reports additionally read:
+- `ENGINE_CAPACITY`: generator capacity in KVA.
+- `FUEL_CONSUMPTION`: nominal diesel consumption in liters/hour.
+- `FUEL_LOG_DETAILS.APPROVED_GALLONS`: approved supplied fuel quantity; despite the legacy column name, the operational report treats this source value as liters.
+- `FUEL_LOG.FILL_UP_DATE`: delivery date used to place approved supply between consecutive inventory readings.
+
 ### GAZADATA.QUARTERS
 ```sql
 SELECT q.OId, q.NAME FROM GAZADATA.QUARTERS q
@@ -179,6 +213,7 @@ SELECT q.OId, q.NAME FROM GAZADATA.QUARTERS q
 - Inspector ↔ Team: Many-to-Many (via INSPECTOR_TEAMS)
 - Well → Readings: One-to-Many
 - Well → DieselInventories: One-to-Many
+- Well → WellMedia: One-to-Many
 - Inspector → Readings: One-to-Many
 - Inspector → DieselInventories: One-to-Many
 - Reading → GeneratorLogs: One-to-Many

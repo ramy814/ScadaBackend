@@ -5,17 +5,16 @@ declare(strict_types=1);
 namespace App\Repositories\Wells;
 
 use App\Models\Wells\Well;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 
 class WellRepository
 {
     public function __construct(
         private readonly Well $model
-    ) {
-    }
+    ) {}
 
     public function all(): Collection
     {
@@ -31,16 +30,16 @@ class WellRepository
             ->withCount(['readings', 'dieselInventories'])
             ->orderBy('wells.NAME');
 
-        if (!empty($filters['search'])) {
+        if (! empty($filters['search'])) {
             $search = $filters['search'];
             $query->where(function ($q) use ($search) {
-                $q->where('wells.NAME', 'like', '%' . $search . '%')
-                  ->orWhere('wells.WELL_NUM', 'like', '%' . $search . '%')
-                  ->orWhere('source_wells.SOURCE_WELL_CODE', 'like', '%' . $search . '%');
+                $q->where('wells.NAME', 'like', '%'.$search.'%')
+                    ->orWhere('wells.WELL_NUM', 'like', '%'.$search.'%')
+                    ->orWhere('source_wells.SOURCE_WELL_CODE', 'like', '%'.$search.'%');
             });
         }
 
-        if (!empty($filters['quarter_oid'])) {
+        if (! empty($filters['quarter_oid'])) {
             $query->where('wells.QUARTER_OID', $filters['quarter_oid']);
         }
 
@@ -54,14 +53,14 @@ class WellRepository
     public function find(int $id): ?Well
     {
         return $this->withSourceWellCode($this->model->newQuery())
-            ->with(['teams', 'generators'])
+            ->with(['teams', 'generators', 'media'])
             ->find($id);
     }
 
     public function findOrFail(int $id): Well
     {
         return $this->withSourceWellCode($this->model->newQuery())
-            ->with(['teams', 'generators'])
+            ->with(['teams', 'generators', 'media'])
             ->findOrFail($id);
     }
 
@@ -122,6 +121,19 @@ class WellRepository
         return $this->withSourceWellCode($this->model->newQuery())
             ->where('wells.POWER_SOURCE', $source)
             ->get();
+    }
+
+    public function getQuarters(): array
+    {
+        $quarters = DB::connection('oracle')->select('
+            SELECT q.OId, q.NAME
+            FROM GAZADATA.QUARTERS q
+        ');
+
+        return array_map(
+            fn (object $row): object => (object) array_change_key_case((array) $row, CASE_UPPER),
+            $quarters,
+        );
     }
 
     public function withSourceWellCode(Builder $query): Builder

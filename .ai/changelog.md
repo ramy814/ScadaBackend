@@ -1,5 +1,31 @@
 # Changelog & Recent Actions
 
+## [2026-07-14] Wells Diesel Inventory Report
+
+- Added PDF and Excel exports to the Wells diesel inventory screen using the active well, inspector, generator, and date filters.
+- Matched the supplied `تقرير الابار اليومي28-06-2026.xlsx` structure with well/generator data, previous/current meter readings, operating hours, previous/current diesel heights, approved fuel deliveries, actual consumption rate, tank capacity, water production, and calculated diesel consumption.
+- Generator capacity and nominal fuel consumption come from `G_STORE.GENERATOR.ENGINE_CAPACITY` and `FUEL_CONSUMPTION`; approved deliveries come from `G_STORE.FUEL_LOG` and `FUEL_LOG_DETAILS.APPROVED_GALLONS` between consecutive inventories.
+- Inventory rows without `GENERATOR_OID` use the well's assigned generator only when exactly one generator is assigned; ambiguous assignments remain explicit in report notes.
+- Added unit coverage for the report calculations and visually verified the Oracle-backed PDF as a single A3 landscape page.
+
+## [2026-07-14] Wells Equipment Fields, Media, And Project Name
+
+- Renamed the application UI to `نظام ادارة آبار بلدية غزة`.
+- Updated pump types to `submersible` and `vertical`, added pump horsepower, and added `generator` as a power source.
+- Updated fuel tank choices with `HDPE` material and `Daily Tank`, and removed concrete/reinforced-plastic choices from new edits.
+- Changed chlorination availability to `يوجد`/`لا يوجد`, added `يعمل`/`لا يعمل` status, constrained chlorine tank types/materials, and removed the chlorine pump model from the form.
+- Added cooling tank capacity/type, cooling-system status, and cooling-line type choices.
+- Added named, removable private images for pumps, fuel tanks, cooling systems, valves/parts, and well rooms through `WELL_MEDIA`.
+- Normalized safe legacy values (`centrifugal` to `vertical`, reinforced plastic to `HDPE`, and legacy chlorination types to binary availability) without deleting historical concrete-tank data.
+- Ran migrations `2026_07_14_000011_extend_wells_equipment_data` and `2026_07_14_000012_normalize_well_equipment_values`, the PHP test suite, and the Vite production build successfully.
+
+## [2026-07-14] Wells Diesel Inventory Calculated Balance
+
+- Calculated the dashboard's actual diesel balance and latest-balance summary from the tank shape, tank dimensions, and measured diesel height instead of trusting the submitted liters value alone.
+- Supported vertical cylinders, horizontal cylinders (circular-segment volume), and cube/square-base tanks.
+- Added the previous chronological fuel reading for each well to the diesel inventory table using one Oracle `LAG` query, independent of the active dashboard filters.
+- Added unit coverage for all three tank shapes and verified the result against current Oracle inventory data.
+
 ## [2026-07-14] Active SSO Users Only In Permission Search
 
 - Added `MOG_USERS.USERS_LIST.IS_ACTIVE = 1` to the central permission-screen user search.

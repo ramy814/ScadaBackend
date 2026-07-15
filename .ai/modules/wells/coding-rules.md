@@ -106,6 +106,12 @@ Source path: `/Volumes/SecondDrive/Wells/wells_app`.
       return $this->belongsToMany(Team::class, 'inspector_teams', 'inspector_oid', 'team_oid');
   }
   ```
+
+## Well Images
+- Store well images only on Laravel's private `local` disk through `WellMediaService`.
+- Database access belongs in `WellMediaRepository`; controllers only delegate.
+- Serve images through the authenticated `wells.media.show` route. Never serialize or expose `WELL_MEDIA.FILE_PATH` as a public URL.
+- Validate uploads as JPG, PNG, or WebP with a maximum size of 2 MB per image.
   And in the Repository, replace `->sync($ids)` with manual raw SQL:
   ```php
   // WRONG ❌ — sync() fails on Oracle pivot tables

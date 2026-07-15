@@ -32,6 +32,7 @@ app/
 │   │   ├── Dashboard Controllers (Inertia responses)
 │   │   │   ├── DashboardController.php
 │   │   │   ├── WellController.php
+│   │   │   ├── WellMediaController.php
 │   │   │   ├── TeamController.php
 │   │   │   ├── InspectorController.php
 │   │   │   ├── ReadingController.php
@@ -54,6 +55,7 @@ app/
 │       └── StoreReadingRequest.php
 ├── Models/
 │   ├── Well.php
+│   ├── WellMedia.php
 │   ├── Team.php
 │   ├── Inspector.php
 │   ├── WellReading.php
@@ -66,6 +68,7 @@ app/
 │   └── InspectorTeam.php (pivot)
 ├── Repositories/
 │   ├── WellRepository.php
+│   ├── WellMediaRepository.php
 │   ├── TeamRepository.php
 │   ├── InspectorRepository.php
 │   ├── ReadingRepository.php
@@ -75,6 +78,7 @@ app/
 │   └── GeneratorRepository.php
 └── Services/
     ├── WellService.php
+    ├── WellMediaService.php
     ├── TeamService.php
     ├── InspectorService.php
     ├── ReadingService.php
@@ -104,6 +108,16 @@ These endpoints are served by this unified backend and consumed by `/Volumes/Sec
 | GET | `/api/sync/quarters` | Yes | Get area lookup |
 | POST | `/api/readings/sync` | Yes | Batch upload readings |
 | POST | `/api/diesel-inventories/sync` | Yes | Batch upload diesel inventory reports |
+
+## Diesel Inventory Report
+- Dashboard routes:
+  - `GET /wells/diesel-inventories/report/pdf`
+  - `GET /wells/diesel-inventories/report/excel`
+- `DieselInventoryController` only validates filters and renders the export response.
+- `DieselInventoryService::getInventoryReport()` owns calculations and report row assembly.
+- `DieselInventoryRepository` loads filtered/current and preceding inventory data.
+- `GeneratorRepository` resolves assigned generator metadata and approved deliveries from `G_STORE`.
+- `resources/views/wells/diesel-inventory-report.blade.php` is shared by PDF and Excel exports.
 
 ## Frontend Structure
 ```

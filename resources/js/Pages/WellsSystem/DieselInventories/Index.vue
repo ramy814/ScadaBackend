@@ -28,14 +28,18 @@ const filterGenerator = ref(props.filters.generator_oid || '')
 const filterDateFrom = ref(props.filters.date_from || '')
 const filterDateTo = ref(props.filters.date_to || '')
 
-function applyFilters() {
+function filterParams() {
     const params = {}
     if (filterWell.value) params.well_oid = filterWell.value
     if (filterInspector.value) params.inspector_oid = filterInspector.value
     if (filterGenerator.value) params.generator_oid = filterGenerator.value
     if (filterDateFrom.value) params.date_from = filterDateFrom.value
     if (filterDateTo.value) params.date_to = filterDateTo.value
-    router.get('/wells/diesel-inventories', params, { preserveState: true })
+    return params
+}
+
+function applyFilters() {
+    router.get('/wells/diesel-inventories', filterParams(), { preserveState: true })
 }
 
 function clearFilters() {
@@ -47,6 +51,11 @@ function clearFilters() {
     router.get('/wells/diesel-inventories')
 }
 
+function exportReport(format) {
+    const query = new URLSearchParams(filterParams()).toString()
+    window.location.href = `/wells/diesel-inventories/report/${format}${query ? `?${query}` : ''}`
+}
+
 function formatDate(dateStr) {
     if (!dateStr) return ''
     const d = new Date(dateStr)
@@ -55,6 +64,10 @@ function formatDate(dateStr) {
 
 function formatNumber(value) {
     return Number(value || 0).toLocaleString('en-US', { maximumFractionDigits: 2 })
+}
+
+function formatOptionalNumber(value) {
+    return value === null || value === undefined || value === '' ? '-' : formatNumber(value)
 }
 </script>
 
@@ -112,6 +125,8 @@ function formatNumber(value) {
                         <div class="btn-group">
                             <button class="btn btn-primary" @click="applyFilters()">بحث</button>
                             <button class="btn btn-secondary" @click="clearFilters()">مسح</button>
+                            <button class="btn btn-secondary" @click="exportReport('pdf')">PDF</button>
+                            <button class="btn btn-secondary" @click="exportReport('excel')">Excel</button>
                         </div>
                     </div>
                 </div>
@@ -130,6 +145,7 @@ function formatNumber(value) {
                                     <th>عداد المولد (ساعات)</th>
                                     <th>ارتفاع السولار (سم)</th>
                                     <th>الرصيد الفعلي (لتر)</th>
+                                    <th>القراءة السابقة (لتر)</th>
                                     <th>تاريخ الجرد</th>
                                     <th>المزامنة</th>
                                 </tr>
@@ -142,7 +158,10 @@ function formatNumber(value) {
                                     <td>{{ inventory.GENERATOR_OID || '-' }}</td>
                                     <td>{{ inventory.GENERATOR_HOURS_READING || '-' }}</td>
                                     <td>{{ inventory.DIESEL_HEIGHT_CM || '-' }}</td>
-                                    <td class="font-bold">{{ formatNumber(inventory.AVAILABLE_FUEL_LITERS) }}</td>
+                                    <td class="font-bold">
+                                        {{ formatOptionalNumber(inventory.CALCULATED_AVAILABLE_FUEL_LITERS ?? inventory.AVAILABLE_FUEL_LITERS) }}
+                                    </td>
+                                    <td>{{ formatOptionalNumber(inventory.PREVIOUS_AVAILABLE_FUEL_LITERS) }}</td>
                                     <td>{{ formatDate(inventory.INVENTORY_DATE) }}</td>
                                     <td>
                                         <span v-if="inventory.SYNCED_AT" class="badge badge-active">تم</span>
@@ -150,7 +169,7 @@ function formatNumber(value) {
                                     </td>
                                 </tr>
                                 <tr v-if="!inventoriesList.length">
-                                    <td colspan="9" style="text-align: center; padding: 40px; color: var(--color-text-muted);">
+                                    <td colspan="10" style="text-align: center; padding: 40px; color: var(--color-text-muted);">
                                         لا توجد سجلات جرد سولار مطابقة للفلاتر المحددة
                                     </td>
                                 </tr>

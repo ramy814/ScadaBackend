@@ -3,14 +3,15 @@
 declare(strict_types=1);
 
 namespace App\Http\Controllers\Wells;
-use App\Http\Controllers\Controller;
 
+use App\Http\Controllers\Controller;
 use App\Http\Requests\Wells\StoreWellRequest;
 use App\Http\Requests\Wells\UpdateWellRequest;
-use App\Services\Wells\WellService;
-use App\Services\Wells\TeamService;
 use App\Services\Wells\GeneratorService;
+use App\Services\Wells\TeamService;
+use App\Services\Wells\WellService;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -20,23 +21,22 @@ class WellController extends Controller
         private readonly WellService $wellService,
         private readonly TeamService $teamService,
         private readonly GeneratorService $generatorService,
-    ) {
-    }
+    ) {}
 
-    public function index(\Illuminate\Http\Request $request): Response
+    public function index(Request $request): Response
     {
         $filters = $request->only(['search', 'quarter_oid', 'is_active']);
 
         $paginatedWells = $this->wellService->getPaginatedWells(15, $filters);
         $generatorOids = collect($paginatedWells->items())
-            ->flatMap(fn($well) => $well->generators->pluck('GENERATOR_OID'))
+            ->flatMap(fn ($well) => $well->generators->pluck('GENERATOR_OID'))
             ->unique()
             ->filter()
             ->values()
             ->toArray();
 
         $generators = [];
-        if (!empty($generatorOids)) {
+        if (! empty($generatorOids)) {
             $generatorData = $this->generatorService->getGeneratorsByIds($generatorOids);
             $generators = collect($generatorData)->keyBy('OID')->toArray();
         }
@@ -100,6 +100,7 @@ class WellController extends Controller
     {
         try {
             $this->wellService->deleteWell($well);
+
             return redirect()->route('wells.wells.index')
                 ->with('success', 'تم حذف البئر بنجاح');
         } catch (\Exception $e) {

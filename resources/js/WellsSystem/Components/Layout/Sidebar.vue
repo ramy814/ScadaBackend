@@ -63,7 +63,7 @@ const notificationNavItems = [
                 <Icon name="water-drop" size="24" style="color: var(--color-text-primary)" />
             </div>
             <div>
-                <div class="sidebar-title">إدارة الآبار</div>
+                <div class="sidebar-title">نظام ادارة الآبار</div>
                 <div class="sidebar-subtitle">بلدية غزة</div>
             </div>
         </div>

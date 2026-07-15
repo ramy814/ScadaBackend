@@ -4,14 +4,15 @@ declare(strict_types=1);
 
 namespace App\Models\Wells;
 
+use App\Traits\Wells\UppercaseKeys;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use App\Traits\Wells\UppercaseKeys;
 
 class Well extends Model
 {
     use UppercaseKeys;
+
     protected $table = 'wells';
 
     protected $primaryKey = 'oid';
@@ -28,6 +29,7 @@ class Well extends Model
         // بيانات البئر والمضخة
         'WELL_DEPTH',
         'PUMP_TYPE',
+        'PUMP_POWER_HP',
         'CAPACITY',
         'SALINITY',
         // الطاقة والموقع
@@ -42,32 +44,35 @@ class Well extends Model
         'TANK_HEIGHT',
         // نظام الكلورة
         'CHLORINATION_SYSTEM',
+        'CHLORINATION_STATUS',
         'CHLORINE_TANK_CAPACITY',
         'CHLORINE_TANK_TYPE',
         'CHLORINE_TANK_MATERIAL',
-        'CHLORINE_PUMP_MODEL',
         'CHLORINE_PUMP_TYPE',
         // خزان التبريد
         'COOLING_TANK_CAPACITY',
         'COOLING_TANK_TYPE',
+        'COOLING_SYSTEM',
+        'COOLING_LINE_TYPE',
     ];
 
     protected function casts(): array
     {
         return [
-            'QUARTER_OID'            => 'integer',
-            'INSTALLATION_DATE'      => 'date',
-            'LAST_MAINTENANCE_DATE'  => 'date',
-            'WELL_DEPTH'             => 'decimal:2',
-            'CAPACITY'               => 'decimal:2',
-            'SALINITY'               => 'decimal:2',
-            'TANK_DIAMETER'          => 'decimal:2',
-            'TANK_HEIGHT'            => 'decimal:2',
+            'QUARTER_OID' => 'integer',
+            'INSTALLATION_DATE' => 'date',
+            'LAST_MAINTENANCE_DATE' => 'date',
+            'WELL_DEPTH' => 'decimal:2',
+            'PUMP_POWER_HP' => 'decimal:2',
+            'CAPACITY' => 'decimal:2',
+            'SALINITY' => 'decimal:2',
+            'TANK_DIAMETER' => 'decimal:2',
+            'TANK_HEIGHT' => 'decimal:2',
             'CHLORINE_TANK_CAPACITY' => 'decimal:2',
-            'COOLING_TANK_CAPACITY'  => 'decimal:2',
-            'LATITUDE'               => 'decimal:8',
-            'LONGITUDE'              => 'decimal:8',
-            'IS_ACTIVE'              => 'boolean',
+            'COOLING_TANK_CAPACITY' => 'decimal:2',
+            'LATITUDE' => 'decimal:8',
+            'LONGITUDE' => 'decimal:8',
+            'IS_ACTIVE' => 'boolean',
         ];
     }
 
@@ -84,6 +89,11 @@ class Well extends Model
     public function generators(): HasMany
     {
         return $this->hasMany(WellGenerator::class, 'well_oid', 'oid');
+    }
+
+    public function media(): HasMany
+    {
+        return $this->hasMany(WellMedia::class, 'well_oid', 'oid')->orderBy('created_at');
     }
 
     public function teams(): BelongsToMany

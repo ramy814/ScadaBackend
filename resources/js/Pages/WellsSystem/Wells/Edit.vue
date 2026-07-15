@@ -3,6 +3,7 @@ import { ref, reactive, onMounted, computed } from 'vue'
 import { router } from '@inertiajs/vue3'
 import AppLayout from '../../../WellsSystem/Layouts/AppLayout.vue'
 import DropdownSelect from '../../../WellsSystem/Components/Shared/DropdownSelect.vue'
+import WellMediaFields from '../../../WellsSystem/Components/WellMediaFields.vue'
 
 const props = defineProps({
     well: { type: Object, required: true },
@@ -61,6 +62,15 @@ function initialGeneratorIds() {
 
 const displayWellNumber = computed(() => props.well.SOURCE_WELL_CODE || props.well.WELL_NUM || '')
 
+function selectedOrEmpty(value, options) {
+    return options.includes(value) ? value : ''
+}
+
+function chlorinationSystem(value) {
+    if (value === 'يوجد' || value === 'لا يوجد') return value
+    return value && !String(value).includes('لا يوجد') ? 'يوجد' : 'لا يوجد'
+}
+
 const form = reactive({
     // البيانات العامة
     WELL_NUM: props.well.WELL_NUM || '',
@@ -72,7 +82,8 @@ const form = reactive({
     LAST_MAINTENANCE_DATE: props.well.LAST_MAINTENANCE_DATE || '',
     // بيانات البئر والمضخة
     WELL_DEPTH: props.well.WELL_DEPTH || '',
-    PUMP_TYPE: props.well.PUMP_TYPE || 'submersible',
+    PUMP_TYPE: props.well.PUMP_TYPE === 'centrifugal' ? 'vertical' : (props.well.PUMP_TYPE || 'submersible'),
+    PUMP_POWER_HP: props.well.PUMP_POWER_HP || '',
     CAPACITY: props.well.CAPACITY || '',
     SALINITY: props.well.SALINITY || '',
     // الطاقة والموقع
@@ -83,22 +94,31 @@ const form = reactive({
     generators: initialGeneratorIds(),
     // بيانات خزان الوقود
     TANK_SHAPE: props.well.TANK_SHAPE || '',
-    TANK_MATERIAL: props.well.TANK_MATERIAL || '',
+    TANK_MATERIAL: props.well.TANK_MATERIAL === 'بلاستيك مقوى'
+        ? 'HDPE'
+        : selectedOrEmpty(props.well.TANK_MATERIAL, ['HDPE', 'معدن', 'فيبرجلاس']),
     TANK_DIAMETER: props.well.TANK_DIAMETER || '',
     TANK_HEIGHT: props.well.TANK_HEIGHT || '',
     // نظام الكلورة
-    CHLORINATION_SYSTEM: props.well.CHLORINATION_SYSTEM || 'لا يوجد نظام كلورة',
+    CHLORINATION_SYSTEM: chlorinationSystem(props.well.CHLORINATION_SYSTEM),
+    CHLORINATION_STATUS: selectedOrEmpty(props.well.CHLORINATION_STATUS, ['يعمل', 'لا يعمل']),
     CHLORINE_TANK_CAPACITY: props.well.CHLORINE_TANK_CAPACITY || 0,
-    CHLORINE_TANK_TYPE: props.well.CHLORINE_TANK_TYPE || '',
-    CHLORINE_TANK_MATERIAL: props.well.CHLORINE_TANK_MATERIAL || '',
-    CHLORINE_PUMP_MODEL: props.well.CHLORINE_PUMP_MODEL || '',
+    CHLORINE_TANK_TYPE: selectedOrEmpty(props.well.CHLORINE_TANK_TYPE, ['اسطواني عمودي', 'مكعب']),
+    CHLORINE_TANK_MATERIAL: selectedOrEmpty(props.well.CHLORINE_TANK_MATERIAL, ['HDPE أزرق', 'بلاستيك شفاف']),
     CHLORINE_PUMP_TYPE: props.well.CHLORINE_PUMP_TYPE || '',
     // خزان التبريد
-    COOLING_TANK_CAPACITY: props.well.COOLING_TANK_CAPACITY || 0,
-    COOLING_TANK_TYPE: props.well.COOLING_TANK_TYPE || '',
+    COOLING_TANK_CAPACITY: [220, 500].includes(Number(props.well.COOLING_TANK_CAPACITY))
+        ? Number(props.well.COOLING_TANK_CAPACITY)
+        : '',
+    COOLING_TANK_TYPE: selectedOrEmpty(props.well.COOLING_TANK_TYPE, ['HDPE أزرق', 'HDPE أسود']),
+    COOLING_SYSTEM: selectedOrEmpty(props.well.COOLING_SYSTEM, ['اوتوماتيك', 'يدوي', 'غير متوفر', 'غاطس', 'اوتوماتيك يحتاج صيانة']),
+    COOLING_LINE_TYPE: selectedOrEmpty(props.well.COOLING_LINE_TYPE, ['حديد سكب', 'HDPE']),
 })
 
 const errors = ref({})
+const newMedia = ref([])
+const mediaError = computed(() => Object.entries(errors.value)
+    .find(([key]) => key === 'media' || key.startsWith('media.'))?.[1] || '')
 let map = null
 let marker = null
 
@@ -130,11 +150,20 @@ function getGeneratorName(oid) {
 }
 
 function submit() {
-    router.put(`/wells/wells/${props.well.OID}`, {
+    router.post(`/wells/wells/${props.well.OID}`, {
         ...form,
+        _method: 'put',
         generators: [...form.generators],
+        media: newMedia.value,
     }, {
+        forceFormData: true,
         onError: (err) => { errors.value = err },
+    })
+}
+
+function deleteMedia(mediaOid) {
+    router.delete(`/wells/wells/${props.well.OID}/media/${mediaOid}`, {
+        preserveScroll: true,
     })
 }
 
@@ -282,14 +311,20 @@ function initMap() {
                             <div class="form-group">
                                 <label class="form-label">نوع المضخة *</label>
                                 <select v-model="form.PUMP_TYPE" class="form-select" :disabled="readonly" required>
-                                    <option value="centrifugal">طرد مركزي</option>
-                                    <option value="submersible">غاطس</option>
+                                    <option value="submersible">غاطس (Submersible)</option>
+                                    <option value="vertical">رأسي (Vertical)</option>
                                 </select>
                             </div>
                             <div class="form-group">
                                 <label class="form-label">الإنتاجية (م³/س) *</label>
                                 <input v-model="form.CAPACITY" type="number" step="0.01" class="form-input" :readonly="readonly" required>
                                 <span v-if="errors.CAPACITY" class="form-error">{{ errors.CAPACITY }}</span>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">قدرة المضخة (حصان)</label>
+                                <input v-model="form.PUMP_POWER_HP" type="number" step="0.01" min="0" class="form-input" :readonly="readonly" placeholder="0">
                             </div>
                         </div>
                         <div class="form-row">
@@ -302,6 +337,7 @@ function initMap() {
                                 <select v-model="form.POWER_SOURCE" class="form-select" :disabled="readonly" required>
                                     <option value="electricity">كهرباء</option>
                                     <option value="solar">سولار</option>
+                                    <option value="generator">مولد</option>
                                 </select>
                             </div>
                         </div>
@@ -374,15 +410,15 @@ function initMap() {
                                     <option value="اسطواني عمودي">اسطواني عمودي</option>
                                     <option value="اسطواني أفقي">اسطواني أفقي</option>
                                     <option value="مكعب">مكعب</option>
+                                    <option value="Daily Tank">Daily Tank</option>
                                 </select>
                             </div>
                             <div class="form-group">
                                 <label class="form-label">مادة الخزان</label>
                                 <select v-model="form.TANK_MATERIAL" class="form-select" :disabled="readonly">
                                     <option value="">اختر مادة الخزان</option>
-                                    <option value="بلاستيك مقوى">بلاستيك مقوى</option>
+                                    <option value="HDPE">HDPE</option>
                                     <option value="معدن">معدن</option>
-                                    <option value="خرسانة">خرسانة</option>
                                     <option value="فيبرجلاس">فيبرجلاس</option>
                                 </select>
                             </div>
@@ -410,10 +446,16 @@ function initMap() {
                             <div class="form-group">
                                 <label class="form-label">نظام الكلورة</label>
                                 <select v-model="form.CHLORINATION_SYSTEM" class="form-select" :disabled="readonly">
-                                    <option value="لا يوجد نظام كلورة">لا يوجد نظام كلورة</option>
-                                    <option value="كلور غاز">كلور غاز</option>
-                                    <option value="كلور سائل">كلور سائل</option>
-                                    <option value="كلور صلب">كلور صلب</option>
+                                    <option value="لا يوجد">لا يوجد</option>
+                                    <option value="يوجد">يوجد</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">حالة نظام الكلورة</label>
+                                <select v-model="form.CHLORINATION_STATUS" class="form-select" :disabled="readonly || form.CHLORINATION_SYSTEM !== 'يوجد'">
+                                    <option value="">اختر الحالة</option>
+                                    <option value="يعمل">يعمل</option>
+                                    <option value="لا يعمل">لا يعمل</option>
                                 </select>
                             </div>
                             <div class="form-group">
@@ -422,17 +464,21 @@ function initMap() {
                             </div>
                             <div class="form-group">
                                 <label class="form-label">نوع خزان الكلور</label>
-                                <input v-model="form.CHLORINE_TANK_TYPE" type="text" class="form-input" :readonly="readonly">
+                                <select v-model="form.CHLORINE_TANK_TYPE" class="form-select" :disabled="readonly">
+                                    <option value="">اختر النوع</option>
+                                    <option value="اسطواني عمودي">اسطواني عمودي</option>
+                                    <option value="مكعب">مكعب</option>
+                                </select>
                             </div>
                         </div>
                         <div class="form-row">
                             <div class="form-group">
                                 <label class="form-label">مادة خزان الكلور</label>
-                                <input v-model="form.CHLORINE_TANK_MATERIAL" type="text" class="form-input" :readonly="readonly">
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">موديل مضخة الكلور</label>
-                                <input v-model="form.CHLORINE_PUMP_MODEL" type="text" class="form-input" :readonly="readonly">
+                                <select v-model="form.CHLORINE_TANK_MATERIAL" class="form-select" :disabled="readonly">
+                                    <option value="">اختر المادة</option>
+                                    <option value="HDPE أزرق">HDPE أزرق</option>
+                                    <option value="بلاستيك شفاف">بلاستيك شفاف</option>
+                                </select>
                             </div>
                             <div class="form-group">
                                 <label class="form-label">نوع مضخة الكلور</label>
@@ -451,13 +497,57 @@ function initMap() {
                         <div class="form-row">
                             <div class="form-group">
                                 <label class="form-label">سعة خزان التبريد (لتر)</label>
-                                <input v-model="form.COOLING_TANK_CAPACITY" type="number" step="0.01" class="form-input" :readonly="readonly" placeholder="0">
+                                <select v-model="form.COOLING_TANK_CAPACITY" class="form-select" :disabled="readonly">
+                                    <option value="">اختر السعة</option>
+                                    <option :value="220">220 لتر</option>
+                                    <option :value="500">500 لتر</option>
+                                </select>
                             </div>
                             <div class="form-group">
                                 <label class="form-label">نوع خزان التبريد</label>
-                                <input v-model="form.COOLING_TANK_TYPE" type="text" class="form-input" :readonly="readonly">
+                                <select v-model="form.COOLING_TANK_TYPE" class="form-select" :disabled="readonly">
+                                    <option value="">اختر النوع</option>
+                                    <option value="HDPE أزرق">HDPE أزرق</option>
+                                    <option value="HDPE أسود">HDPE أسود</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">نظام التبريد</label>
+                                <select v-model="form.COOLING_SYSTEM" class="form-select" :disabled="readonly">
+                                    <option value="">اختر النظام</option>
+                                    <option value="اوتوماتيك">اوتوماتيك</option>
+                                    <option value="يدوي">يدوي</option>
+                                    <option value="غير متوفر">غير متوفر</option>
+                                    <option value="غاطس">غاطس</option>
+                                    <option value="اوتوماتيك يحتاج صيانة">اوتوماتيك يحتاج صيانة</option>
+                                </select>
                             </div>
                         </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">خط التبريد</label>
+                                <select v-model="form.COOLING_LINE_TYPE" class="form-select" :disabled="readonly">
+                                    <option value="">اختر النوع</option>
+                                    <option value="حديد سكب">حديد سكب</option>
+                                    <option value="HDPE">HDPE</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card" style="position: relative; z-index: 12; margin-bottom: 20px;">
+                    <div class="card-header">
+                        <h3 class="card-title">📷 صور ومرفقات البئر</h3>
+                    </div>
+                    <div class="card-body">
+                        <WellMediaFields
+                            v-model="newMedia"
+                            :media="well.MEDIA || []"
+                            :readonly="readonly"
+                            @delete="deleteMedia"
+                        />
+                        <span v-if="mediaError" class="form-error">{{ mediaError }}</span>
                     </div>
                 </div>
 

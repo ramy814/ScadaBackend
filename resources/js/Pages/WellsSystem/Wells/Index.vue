@@ -20,8 +20,7 @@ const isActive = ref(props.filters?.is_active || '')
 const showDeleteModal = ref(false)
 const wellToDelete = ref(null)
 
-const pumpTypeLabels = { centrifugal: 'طرد مركزي', submersible: 'غاطس' }
-const powerSourceLabels = { electricity: 'كهرباء', solar: 'سولار' }
+const pumpTypeLabels = { centrifugal: 'رأسي (قديم)', submersible: 'غاطس', vertical: 'رأسي' }
 
 let searchTimeout = null
 
