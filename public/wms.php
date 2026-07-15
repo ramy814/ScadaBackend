@@ -42,7 +42,7 @@ const ALLOWED_LAYERS = [
     'cite:WATER_PIPE',
     'cite:V_BUILDING_GEOSRV',
     'cite:V_CENTERLINE_SEGMENTS',
-    // 'cite:V_LANDMARKS_V3',
+    'cite:V_LANDMARKS_V2',
 ];
 
 function noStoreHeaders(): void

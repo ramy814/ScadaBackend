@@ -31,7 +31,7 @@ const geoServerHealth = ref({
 const geoServerLayers = [
     { layerName: 'cite:V_BUILDING_GEOSRV', name: 'المباني', version: '1.1.0', pane: 'municipalContextPane', zIndex: 330, opacity: 0.9, visible: false },
     { layerName: 'cite:V_CENTERLINE_SEGMENTS', name: 'محاور الشوارع', version: '1.1.0', pane: 'municipalContextPane', zIndex: 360, opacity: 0.9 },
-    // { layerName: 'cite:V_LANDMARKS_V', name: 'المعالم', version: '1.1.0', pane: 'municipalContextPane', zIndex: 390, opacity: 0.9 },
+    { layerName: 'cite:V_LANDMARKS_V2', name: 'المعالم', version: '1.1.0', pane: 'municipalContextPane', zIndex: 390, opacity: 0.9 },
     { layerName: 'cite:WATER_PIPE', name: 'شبكة الأنابيب', version: '1.1.0', pane: 'networkPane', zIndex: 650, opacity: 0.95 },
     { layerName: 'cite:WATER_VALVES', name: 'محابس المياه', version: '1.1.1', pane: 'valvesPane', zIndex: 720, opacity: 1 },
 ]
@@ -39,7 +39,7 @@ const geoServerLayers = [
 const identifyPriority = [
     'cite:WATER_VALVES',
     'cite:WATER_PIPE',
-    'cite:V_LANDMARKS_V',
+    'cite:V_LANDMARKS_V2',
     'cite:V_CENTERLINE_SEGMENTS',
     'cite:V_BUILDING_GEOSRV',
 ]
@@ -269,6 +269,17 @@ const checkGeoServerHealth = async () => {
     }
 }
 
+const registerMapTileCache = async () => {
+    if (!('serviceWorker' in navigator) || !window.isSecureContext) return
+
+    try {
+        await navigator.serviceWorker.register('/valves-map-sw.js', { scope: '/', updateViaCache: 'none' })
+        await navigator.serviceWorker.ready
+    } catch (error) {
+        // The live WMS map remains available when local browser caching is unsupported.
+    }
+}
+
 const initMap = async () => {
     if (map) return
     await nextTick()
@@ -403,7 +414,10 @@ const initMap = async () => {
     geoServerHealthTimer = window.setInterval(checkGeoServerHealth, 30000)
 }
 
-onMounted(initMap)
+onMounted(async () => {
+    await registerMapTileCache()
+    await initMap()
+})
 
 onBeforeUnmount(() => {
     window.removeEventListener('resize', scheduleMapResize)

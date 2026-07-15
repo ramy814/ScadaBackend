@@ -3,6 +3,7 @@ import { computed, reactive, ref } from 'vue';
 import { router } from '@inertiajs/vue3';
 import AppLayout from '@/ValvesSystem/Layouts/AppLayout.vue';
 import Modal from '@/ValvesSystem/Components/Shared/Modal.vue';
+import ValveMapSelector from './ValveMapSelector.vue';
 
 const props = defineProps({
     teams: { type: Array, default: () => [] },
@@ -12,7 +13,9 @@ const props = defineProps({
 const showCreateModal = ref(false);
 const showEditModal = ref(false);
 const showDeleteModal = ref(false);
+const showValveMap = ref(false);
 const selectedTeam = ref(null);
+const mapForm = ref(null);
 
 const createForm = reactive({ NAME: '', IS_ACTIVE: true, ASSIGN_ALL_VALVES: false, valves: [] });
 const editForm = reactive({ NAME: '', IS_ACTIVE: true, ASSIGN_ALL_VALVES: false, valves: [] });
@@ -21,15 +24,15 @@ const editValveSearch = ref('');
 
 const normalizeSearch = (value) => String(value ?? '').toLowerCase().trim();
 
-const filterValves = (search) => {
+const filterValves = (search, selectedValveIds) => {
     const term = normalizeSearch(search);
-    if (!term) return props.valves;
-
-    return props.valves.filter((valve) => normalizeSearch(`${valve.CODE} ${valve.NAME} ${valve.AREA}`).includes(term));
+    return props.valves
+        .filter((valve) => !term || normalizeSearch(`${valve.CODE} ${valve.NAME} ${valve.AREA}`).includes(term))
+        .sort((a, b) => Number(selectedValveIds.includes(b.OID)) - Number(selectedValveIds.includes(a.OID)));
 };
 
-const filteredCreateValves = computed(() => filterValves(createValveSearch.value));
-const filteredEditValves = computed(() => filterValves(editValveSearch.value));
+const filteredCreateValves = computed(() => filterValves(createValveSearch.value, createForm.valves));
+const filteredEditValves = computed(() => filterValves(editValveSearch.value, editForm.valves));
 
 function openCreate() {
     createForm.NAME = '';
@@ -111,6 +114,21 @@ function clearSelectedValves(form) {
     if (form.ASSIGN_ALL_VALVES) return;
     form.valves = [];
 }
+
+function openValveMap(form) {
+    if (form.ASSIGN_ALL_VALVES) return;
+    mapForm.value = form;
+    showValveMap.value = true;
+}
+
+function closeValveMap() {
+    showValveMap.value = false;
+    mapForm.value = null;
+}
+
+function toggleMapValve(valveOid) {
+    if (mapForm.value) toggleValve(valveOid, mapForm.value);
+}
 </script>
 
 <template>
@@ -173,6 +191,7 @@ function clearSelectedValves(form) {
                 <div class="v-form-row-header">
                     <label class="v-form-label">المحابس</label>
                     <div class="v-inline-actions">
+                        <button class="v-link-btn" type="button" :disabled="createForm.ASSIGN_ALL_VALVES" @click="openValveMap(createForm)">اختيار من الخريطة</button>
                         <button class="v-link-btn" type="button" :disabled="createForm.ASSIGN_ALL_VALVES" @click="selectVisibleValves(createForm, filteredCreateValves)">تحديد المعروض</button>
                         <button class="v-link-btn" type="button" :disabled="createForm.ASSIGN_ALL_VALVES" @click="clearSelectedValves(createForm)">إلغاء التحديد</button>
                     </div>
@@ -210,6 +229,7 @@ function clearSelectedValves(form) {
                 <div class="v-form-row-header">
                     <label class="v-form-label">المحابس</label>
                     <div class="v-inline-actions">
+                        <button class="v-link-btn" type="button" :disabled="editForm.ASSIGN_ALL_VALVES" @click="openValveMap(editForm)">اختيار من الخريطة</button>
                         <button class="v-link-btn" type="button" :disabled="editForm.ASSIGN_ALL_VALVES" @click="selectVisibleValves(editForm, filteredEditValves)">تحديد المعروض</button>
                         <button class="v-link-btn" type="button" :disabled="editForm.ASSIGN_ALL_VALVES" @click="clearSelectedValves(editForm)">إلغاء التحديد</button>
                     </div>
@@ -237,5 +257,13 @@ function clearSelectedValves(form) {
                 <button class="v-btn v-btn-danger" type="button" @click="deleteTeam">حذف</button>
             </template>
         </Modal>
+
+        <ValveMapSelector
+            :show="showValveMap"
+            :valves="valves"
+            :selected-valve-ids="mapForm?.valves || []"
+            @toggle="toggleMapValve"
+            @close="closeValveMap"
+        />
     </AppLayout>
 </template>

@@ -90,7 +90,9 @@ Valve inspector app accounts are separate from fleet drivers and wells inspector
   - The backend queries GeoServer and returns feature properties as JSON.
   - Flutter should not call GeoServer WFS/GetFeatureInfo directly.
 - Default mobile and web visible layers must stay aligned:
-  - `cite:V_CENTERLINE_SEGMENTS`
   - `cite:WATER_VALVES`
-- Keep `cite:V_BUILDING_GEOSRV` present but hidden by default while the upstream WMS returns 500 for building tiles.
-- Keep `cite:WATER_PIPE` present but hidden by default until the upstream GeoServer/Oracle Spatial issue is fixed.
+  - `cite:WATER_PIPE`
+  - `cite:V_CENTERLINE_SEGMENTS`
+  - `cite:V_LANDMARKS_V2`
+- `cite:V_BUILDING_GEOSRV` remains available in the layer selector but is disabled by default.
+- The web valves map caches successful WMS `GetMap` tiles locally for 30 days through `/valves-map-sw.js`; this does not change `public/wms.php`.

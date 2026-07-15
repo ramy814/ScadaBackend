@@ -937,6 +937,51 @@ html[data-theme="dark"] .v-nav-item.active {
     background: rgba(15,23,42,0.35);
 }
 
+.v-team-valve-map {
+    height: min(62vh, 620px);
+    min-height: 420px;
+    cursor: crosshair;
+}
+
+.v-map-selection-status {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+    color: var(--color-text-muted);
+    font-size: 0.85rem;
+}
+
+.v-map-selection-status strong {
+    color: var(--valves-primary-light);
+    white-space: nowrap;
+}
+
+.v-map-valve-candidates {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+}
+
+.v-map-candidate-btn {
+    flex: 0 0 auto;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: rgba(15,23,42,0.5);
+    color: var(--color-text);
+    padding: 8px 10px;
+    font-family: inherit;
+    cursor: pointer;
+}
+
+.v-map-candidate-btn.selected {
+    border-color: var(--valves-primary);
+    background: rgba(249,115,22,0.18);
+}
+
 .v-check {
     display: flex;
     align-items: center;

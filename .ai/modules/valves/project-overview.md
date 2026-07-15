@@ -30,20 +30,22 @@ The Valves module handles the municipality's water valves, tracking their geogra
   - WMS operational overlays are loaded directly and exposed in the Leaflet layer control:
     - `cite:WATER_VALVES` — Water Valves — WMS `1.1.1`
     - `cite:WATER_PIPE` — Water Pipe — WMS `1.1.0` — enabled by default.
-    - `cite:V_BUILDING_GEOSRV` — Buildings — WMS `1.1.0` — present in the layer control but hidden by default while the upstream WMS returns 500 for tiles.
+    - `cite:V_BUILDING_GEOSRV` — Buildings — WMS `1.1.0` — available but disabled by default.
     - `cite:V_CENTERLINE_SEGMENTS` — Centerline Segments — WMS `1.1.0` — enabled by default.
+    - `cite:V_LANDMARKS_V2` — Landmarks — WMS `1.1.0` — enabled by default.
 
   - Layer drawing order is intentional:
-    - Context layers (`Buildings`, `Centerline Segments`, `Landmarks`) stay in `municipalContextPane` with high opacity (near natural colors) but lower z-index than the water network. Buildings are currently hidden by default because their WMS tiles fail upstream.
-    - `cite:WATER_PIPE` is drawn above context layers in `networkPane` when manually enabled.
+    - Context layers (`Buildings`, `Centerline Segments`, `Landmarks`) stay in `municipalContextPane` with high opacity (near natural colors) but lower z-index than the water network. Buildings are disabled by default.
+    - `cite:WATER_PIPE` is drawn above context layers in `networkPane` and is enabled by default.
     - `cite:WATER_VALVES` is drawn above pipes in `valvesPane`.
     - Database valve circle markers are above all WMS layers in `dbMarkersPane`.
   - Keep pipes and valves visually dominant; do not raise buildings, landmarks, or centerlines above the water network.
-  - Map page clicks use WMS `GetFeatureInfo` through `public/wms.php` (CORS proxy), querying visible layers in priority order: valves, pipes, landmarks, centerlines, buildings. The popup uses the shared `.v-map-popup` styling in `resources/css/valves.css`, is forced RTL, must use a solid readable background, and must float above WMS layers and the layer control.
+  - Map page clicks use WMS `GetFeatureInfo` through `public/wms.php` (CORS proxy), querying visible layers in priority order: valves, pipes, `cite:V_LANDMARKS_V2`, centerlines, buildings. The popup uses the shared `.v-map-popup` styling in `resources/css/valves.css`, is forced RTL, must use a solid readable background, and must float above WMS layers and the layer control.
   - `GetFeatureInfo` uses an `AbortController` in `Map.vue` to cancel previous pending requests on subsequent clicks or component unmounting to avoid map freezing.
   - `GetFeatureInfo` should request JSON first and fall back to `text/html`/text parsing because some GeoServer layers may not consistently support JSON responses.
   - Do not pass `propertyName` in valves WMS `GetFeatureInfo` requests; `cite:WATER_VALVES` can return `PropertyDescriptor is null` when requested fields do not exactly match the GeoServer feature type.
   - `public/wms.php` retries WMS `GetMap` requests, then always returns a transparent PNG for failed map tiles, including `TileOutOfRange`, unreachable upstream, 5xx responses, and GeoServer exception bodies. Do not return HTTP `502` for `GetMap`; browser tile failures create noisy console errors and make the map feel broken.
+  - `public/valves-map-sw.js` keeps up to 800 successful WMS tiles in browser Cache Storage for 30 days. It never caches responses marked with `X-WMS-Proxy-Fallback`, and it must not require changes to `public/wms.php`.
   - The map uses a transparent `errorTileUrl` to prevent broken image icons if the GeoServer times out (502 Bad Gateway).
   - Do not show a persistent GeoServer outage banner based on individual Leaflet `tileerror` events; some out-of-range or empty tiles can fail while the configured layers are still displaying correctly. Use the `/wms.php?health=1` check for user-facing GeoServer outage state.
   - Backend valve records are read from `EME.WATER_VALVES`. Because its geometry is Oracle Spatial (`GEOMETRY`), do not select it with normal Eloquent queries; map display should rely on WMS layers unless a repository explicitly extracts coordinates safely.
@@ -67,6 +69,9 @@ The Valves module handles the municipality's water valves, tracking their geogra
 - Valve teams support `ASSIGN_ALL_VALVES`. When true, the team grants all current and future valves to assigned inspectors and the individual `VALVE_TEAM_VALVES` pivot list is cleared/ignored for access.
 - The teams dashboard supports either selecting a specific group of valves or enabling “إسناد كل المحابس لهذا الفريق”.
 - The teams dashboard valve selector reads from `EME.WATER_VALVES` through `ValveRepository`.
+- Team create/edit forms support both list selection and `ValveMapSelector.vue`. Map clicks query `cite:WATER_VALVES` through `public/wms.php`, derive `W4_GENERAL_ID` from the GeoServer feature ID, and update the same `valve_ids` form array used by list selection.
+- Team valve lists always show currently assigned/selected valves first so administrators can revoke assignments without searching through the full list.
+- If a map click returns overlapping valves, the selector must show all matching valves and let the administrator toggle each one explicitly rather than silently choosing the first feature.
 - `VALVE_TEAM_VALVES.VALVE_OID`, `VALVE_LOGS.VALVE_OID`, and `VALVE_MAINTENANCE_REPORTS.VALVE_OID` store `EME.WATER_VALVES.W4_GENERAL_ID`.
 - The inspector mobile username is `PHONE`; `PASSWORD` is hashed by Eloquent casts; `IS_ACTIVE` controls login eligibility.
 - Dashboard routes:
@@ -81,4 +86,4 @@ The Valves module handles the municipality's water valves, tracking their geogra
   - `GET /api/dashboard/map-settings` for WMS URL and layer definitions.
   - `GET /api/dashboard/map-features` for map click feature lookup.
   - WMS tiles must be loaded through the returned backend `/wms.php` URL, never direct GeoServer, `geo.mogaza`, or `cs.mogaza` URLs.
-  - Mobile map layer defaults must match the web valves map; keep `cite:WATER_PIPE` hidden by default.
+  - Mobile map layer defaults must match the web valves map: valves, pipes, landmarks (`cite:V_LANDMARKS_V2`), and centerlines are visible by default; buildings are disabled.

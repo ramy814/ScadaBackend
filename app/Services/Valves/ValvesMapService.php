@@ -15,6 +15,7 @@ class ValvesMapService
         'cite:WATER_PIPE',
         'cite:V_BUILDING_GEOSRV',
         'cite:V_CENTERLINE_SEGMENTS',
+        'cite:V_LANDMARKS_V2',
     ];
 
     public function settings(string $baseUrl): array
@@ -23,9 +24,10 @@ class ValvesMapService
             'wms_url' => rtrim($baseUrl, '/') . '/wms.php',
             'layers' => [
                 ['layer_name' => 'cite:V_BUILDING_GEOSRV', 'name' => 'المباني', 'version' => '1.1.0', 'visible' => false],
-                ['layer_name' => 'cite:V_CENTERLINE_SEGMENTS', 'name' => 'محاور الشوارع', 'version' => '1.1.0', 'visible' => false],
-                ['layer_name' => 'cite:WATER_PIPE', 'name' => 'شبكة الأنابيب', 'version' => '1.1.0', 'visible' => false],
-                ['layer_name' => 'cite:WATER_VALVES', 'name' => 'محابس المياه', 'version' => '1.1.1'],
+                ['layer_name' => 'cite:V_CENTERLINE_SEGMENTS', 'name' => 'محاور الشوارع', 'version' => '1.1.0', 'visible' => true],
+                ['layer_name' => 'cite:V_LANDMARKS_V2', 'name' => 'المعالم', 'version' => '1.1.0', 'visible' => true],
+                ['layer_name' => 'cite:WATER_PIPE', 'name' => 'شبكة الأنابيب', 'version' => '1.1.0', 'visible' => true],
+                ['layer_name' => 'cite:WATER_VALVES', 'name' => 'محابس المياه', 'version' => '1.1.1', 'visible' => true],
             ],
         ];
     }

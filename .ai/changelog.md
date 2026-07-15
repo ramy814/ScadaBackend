@@ -1,5 +1,39 @@
 # Changelog & Recent Actions
 
+## [2026-07-15] Assigned Team Valves First
+
+- Updated valve-team create/edit selectors to keep assigned valves at the beginning of the filtered list for quick revocation.
+
+## [2026-07-15] Valve Team Assignment From Map
+
+- Added an “اختيار من الخريطة” action to valve-team create and edit forms while preserving the existing searchable checkbox list.
+- Added `ValveMapSelector.vue`, which uses WMS `GetFeatureInfo` on `cite:WATER_VALVES` and maps the GeoServer feature ID to `EME.WATER_VALVES.W4_GENERAL_ID`.
+- Map selections update the existing `valve_ids` payload, so no new assignment endpoint or database path was introduced.
+- Added an explicit chooser for multiple valves occupying the same or nearby map location.
+
+## [2026-07-15] Valves Tile Cache Retention Extended
+
+- Extended the browser-local WMS tile cache lifetime from 24 hours to 30 days while retaining the 800-tile limit and fallback-response exclusions.
+
+## [2026-07-15] Valves Landmarks Layer And Tile Cache Response Fix
+
+- Added `cite:V_LANDMARKS_V2` to the WMS allowlist, web valves map, feature-identification priority, and mobile map settings.
+- Fixed the browser tile cache returning a consumed response by caching a cloned response body, resolving `FetchEvent.respondWith: Response is disturbed or locked`.
+- Kept the buildings layer disabled by default.
+
+## [2026-07-15] Valves Browser Tile Cache And Building Default
+
+- Added a browser-local Cache Storage service worker for successful valves WMS `GetMap` tiles, with a 24-hour lifetime and an 800-tile limit.
+- Excluded transparent WMS fallback responses from the local cache and retained stale cached tiles as an offline fallback.
+- Disabled `cite:V_BUILDING_GEOSRV` by default in both the web map and mobile map settings while keeping it available in the layer selector.
+- Left `public/wms.php` unchanged.
+
+## [2026-07-15] Valves Map Operational Layers Enabled
+
+- Enabled `cite:WATER_VALVES`, `cite:WATER_PIPE`, `cite:V_BUILDING_GEOSRV`, and `cite:V_CENTERLINE_SEGMENTS` by default on the web valves map.
+- Aligned `GET /api/dashboard/map-settings` so the same four layers are visible by default in the valve inspector mobile map.
+- Preserved the existing WMS proxy implementation in `public/wms.php` without modification.
+
 ## [2026-07-15] Inspector Wells Mobile Sync Regression Fix
 
 - Fixed `GET /api/wells/sync/wells` returning HTTP 500 when an assigned well had a previous diesel inventory. Oracle returned `INVENTORY_DATE` as a string, so the endpoint now normalizes it through Carbon before emitting ISO 8601 JSON.
