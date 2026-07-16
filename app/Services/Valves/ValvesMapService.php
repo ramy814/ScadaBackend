@@ -8,7 +8,10 @@ use Illuminate\Support\Collection;
 
 class ValvesMapService
 {
-    private const GEOSERVER_OWS_URL = 'http://appdev-01.mog.org:8080/geoserver/cite/ows';
+    private const GEOSERVER_OWS_URLS = [
+        'http://appdev-01:8080/geoserver/cite/ows',
+        'http://appdev-01.mog.org:8080/geoserver/cite/ows',
+    ];
 
     private const ALLOWED_FEATURE_LAYERS = [
         'cite:WATER_VALVES',
@@ -54,30 +57,24 @@ class ValvesMapService
             'bbox' => implode(',', [$lng - $buffer, $lat - $buffer, $lng + $buffer, $lat + $buffer]),
         ], '', '&', PHP_QUERY_RFC3986);
 
-        $curl = curl_init(self::GEOSERVER_OWS_URL . '?' . $query);
-        if ($curl === false) {
-            return collect();
-        }
-
-        curl_setopt_array($curl, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_CONNECTTIMEOUT => 5,
-            CURLOPT_TIMEOUT => 15,
-            CURLOPT_HTTPHEADER => [
-                'geo@2022_mogwinO: admin',
-                'Accept: application/json',
+        $context = stream_context_create([
+            'http' => [
+                'method' => 'GET',
+                'timeout' => 15,
+                'ignore_errors' => true,
             ],
         ]);
+        $data = null;
 
-        $body = curl_exec($curl);
-        $status = (int) curl_getinfo($curl, CURLINFO_RESPONSE_CODE);
-        curl_close($curl);
+        foreach (self::GEOSERVER_OWS_URLS as $url) {
+            $body = @file_get_contents($url . '?' . $query, false, $context);
+            $decoded = $body === false ? null : json_decode($body, true);
 
-        if ($body === false || $status < 200 || $status >= 300) {
-            return collect();
+            if (is_array($decoded) && array_key_exists('features', $decoded)) {
+                $data = $decoded;
+                break;
+            }
         }
-
-        $data = json_decode((string) $body, true);
 
         return collect($data['features'] ?? [])
             ->map(function (array $feature): array {

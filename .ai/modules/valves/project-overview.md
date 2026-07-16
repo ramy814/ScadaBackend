@@ -50,6 +50,7 @@ This section is the source of truth for the working web map. It supersedes every
 - `Map.vue` queries visible layers through authenticated `/valves/map-features` in this order: valves, pipes, landmarks, centerlines, buildings.
 - `ValveMapSelector.vue` queries the same endpoint for `cite:WATER_VALVES`.
 - `ValvesMapService` performs the GeoServer WFS query server-side and returns a JSON array of feature-property objects.
+- Production resolves WFS through the internal `appdev-01` hostname; local development falls back to `appdev-01.mog.org`. GeoServer exposes these layers without authentication, so the service must not send a username, password, or authorization header. It uses PHP HTTP streams rather than requiring the optional cURL extension, and an unreachable/invalid upstream returns an empty collection instead of HTTP 500.
 - If a water-valve feature omits `W4_GENERAL_ID` from properties, the service derives it from GeoServer `feature.id`. This ID maps to `EME.WATER_VALVES.W4_GENERAL_ID` and is required for team assignment.
 - Keep the `AbortController` behavior so a new click cancels an older lookup.
 - Never display raw error/HTML text as popup data. An empty/failed lookup produces no feature popup.
