@@ -42,6 +42,7 @@ Route::prefix('api/valve-maintenance')->middleware(['api', 'auth:sanctum'])->gro
 
 Route::middleware(['web', 'auth:admin', 'system.access:valves'])->prefix('valves')->group(function () {
     Route::get('/', [\App\Http\Controllers\Valves\ValvesDashboardController::class, 'index'])->name('valves.dashboard');
+    Route::get('/map-features', [MapController::class, 'features'])->name('valves.map.features');
     Route::get('/map', [\App\Http\Controllers\Valves\ValvesDashboardController::class, 'map'])->name('valves.map');
     Route::get('/reports', [\App\Http\Controllers\Valves\ValvesReportController::class, 'index'])->name('valves.reports.index');
     Route::redirect('/valves', '/valves/map');

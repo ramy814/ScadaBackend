@@ -19,36 +19,58 @@ The Valves module handles the municipality's water valves, tracking their geogra
 - Teams page: `resources/js/Pages/Valves/Teams/Index.vue`
 - Inspectors page: `resources/js/Pages/Valves/Inspectors/Index.vue`
 - Dashboard renders: status distribution bars, recent inspector actions, and maintenance reports table. Do not render the Leaflet map inside the dashboard.
-- The valves map is a dedicated page at `/valves/map` and renders the Leaflet/- **Map Architecture**: 
-  - The default map base is `بدون OpenStreetMap` added on initial load (`noBaseLayer.addTo(map)`). OpenStreetMap is optional in the layer control.
-  - GeoServer WMS tiles are loaded **directly from the GeoServer URL** (`GEOSERVER_WMS_URL`) by the browser to avoid single-threaded PHP/Laravel server blocking issues.
-  - `public/wms.php` is only used as a CORS proxy for `GetFeatureInfo` requests (using fetch API) because direct browser requests are blocked by CORS.
-  - `public/wms.php` does not use local disk cache; GeoServer/server-side caching is expected upstream.
-  - `public/wms.php?health=1` is the map health endpoint. The valves map checks it on load and every 30 seconds; if GeoServer is unreachable and no GeoServer tile loaded recently, show a clear Arabic outage banner to the user. If WMS tiles are loading, suppress the outage banner even when the health probe is stale or fails.
-  - `public/wms.php` blocks oversized WMS `GetMap` requests above `256x256` and returns a transparent PNG before reaching GeoServer.
-  - Leaflet WMS overlays must stay tiled (`tileSize: 256`, `tiled: true`) and should avoid zoom-time refresh storms (`updateWhenZooming: false`, `keepBuffer: 2`). Do not switch back to single-image/full-viewport WMS rendering.
-  - WMS operational overlays are loaded directly and exposed in the Leaflet layer control:
-    - `cite:WATER_VALVES` — Water Valves — WMS `1.1.1`
-    - `cite:WATER_PIPE` — Water Pipe — WMS `1.1.0` — enabled by default.
-    - `cite:V_BUILDING_GEOSRV` — Buildings — WMS `1.1.0` — available but disabled by default.
-    - `cite:V_CENTERLINE_SEGMENTS` — Centerline Segments — WMS `1.1.0` — enabled by default.
-    - `cite:V_LANDMARKS_V2` — Landmarks — WMS `1.1.0` — enabled by default.
 
-  - Layer drawing order is intentional:
-    - Context layers (`Buildings`, `Centerline Segments`, `Landmarks`) stay in `municipalContextPane` with high opacity (near natural colors) but lower z-index than the water network. Buildings are disabled by default.
-    - `cite:WATER_PIPE` is drawn above context layers in `networkPane` and is enabled by default.
-    - `cite:WATER_VALVES` is drawn above pipes in `valvesPane`.
-    - Database valve circle markers are above all WMS layers in `dbMarkersPane`.
-  - Keep pipes and valves visually dominant; do not raise buildings, landmarks, or centerlines above the water network.
-  - Map page clicks use WMS `GetFeatureInfo` through `public/wms.php` (CORS proxy), querying visible layers in priority order: valves, pipes, `cite:V_LANDMARKS_V2`, centerlines, buildings. The popup uses the shared `.v-map-popup` styling in `resources/css/valves.css`, is forced RTL, must use a solid readable background, and must float above WMS layers and the layer control.
-  - `GetFeatureInfo` uses an `AbortController` in `Map.vue` to cancel previous pending requests on subsequent clicks or component unmounting to avoid map freezing.
-  - `GetFeatureInfo` should request JSON first and fall back to `text/html`/text parsing because some GeoServer layers may not consistently support JSON responses.
-  - Do not pass `propertyName` in valves WMS `GetFeatureInfo` requests; `cite:WATER_VALVES` can return `PropertyDescriptor is null` when requested fields do not exactly match the GeoServer feature type.
-  - `public/wms.php` retries WMS `GetMap` requests, then always returns a transparent PNG for failed map tiles, including `TileOutOfRange`, unreachable upstream, 5xx responses, and GeoServer exception bodies. Do not return HTTP `502` for `GetMap`; browser tile failures create noisy console errors and make the map feel broken.
-  - `public/valves-map-sw.js` keeps up to 800 successful WMS tiles in browser Cache Storage for 30 days. It never caches responses marked with `X-WMS-Proxy-Fallback`, and it must not require changes to `public/wms.php`.
-  - The map uses a transparent `errorTileUrl` to prevent broken image icons if the GeoServer times out (502 Bad Gateway).
-  - Do not show a persistent GeoServer outage banner based on individual Leaflet `tileerror` events; some out-of-range or empty tiles can fail while the configured layers are still displaying correctly. Use the `/wms.php?health=1` check for user-facing GeoServer outage state.
-  - Backend valve records are read from `EME.WATER_VALVES`. Because its geometry is Oracle Spatial (`GEOMETRY`), do not select it with normal Eloquent queries; map display should rely on WMS layers unless a repository explicitly extracts coordinates safely.
+## Current Authoritative Web Map Contract (2026-07-16)
+
+This section is the source of truth for the working web map. It supersedes every older map implementation note in `.ai/changelog.md`. Do not invent another proxy, client-side WFS flow, map engine, cache, health endpoint, or GeoServer host unless the product owner explicitly requests a redesign.
+
+### Entry Points And Owners
+- Dedicated page: `GET /valves/map` → `resources/js/Pages/Valves/Map.vue`.
+- Team map selector: `resources/js/Pages/Valves/Teams/ValveMapSelector.vue`.
+- Server-side feature lookup: `GET /valves/map-features?layers=...&lat=...&lng=...` → `App\Http\Controllers\Api\Valves\MapController::features()` → `App\Services\Valves\ValvesMapService::features()`.
+- The route URL is passed to Vue as `mapFeaturesUrl`; do not hard-code a replacement feature endpoint in Vue.
+- `public/wms.php` is an externally fixed file for this project. Do not edit, refactor, harden, replace, or add behavior to it unless the user explicitly asks to change that exact file.
+
+### Tile Loading
+- Local HTTP development (`http://127.0.0.1:*`): Leaflet image tiles load directly from `http://appdev-01.mog.org:8080/geoserver/cite/wms`.
+- HTTPS production: Leaflet image tiles load through `/wms.php?g_page=/cite/wms` to avoid Mixed Content.
+- The default base is `بدون OpenStreetMap`; OpenStreetMap is optional in the layer control.
+- Keep tiled WMS requests: `tileSize: 256`, `tiled: true`, `updateWhenZooming: false`, `keepBuffer: 2`.
+- Keep the transparent `errorTileUrl`; individual tile errors must not create broken-image icons or a persistent outage state.
+- Do not use browser `fetch` to call local GeoServer. Cross-origin fetch is blocked by CORS, while `<img>` tile requests work.
+
+### Layers And Order
+- Enabled: `cite:V_CENTERLINE_SEGMENTS` (WMS 1.1.0), `cite:V_LANDMARKS_V2` (1.1.0), `cite:WATER_PIPE` (1.1.0), and `cite:WATER_VALVES` (1.1.1).
+- Available but disabled by default: `cite:V_BUILDING_GEOSRV` (1.1.0).
+- Context layers use `municipalContextPane`; pipes use `networkPane`; valves use `valvesPane`.
+- Pipes and valves remain above municipal context layers. Do not invent a `dbMarkersPane`; the current page only uses `mapValves` to fit the initial bounds.
+
+### Click And Feature Data
+- Browser clicks never call GeoServer or `wms.php` for feature data.
+- `Map.vue` queries visible layers through authenticated `/valves/map-features` in this order: valves, pipes, landmarks, centerlines, buildings.
+- `ValveMapSelector.vue` queries the same endpoint for `cite:WATER_VALVES`.
+- `ValvesMapService` performs the GeoServer WFS query server-side and returns a JSON array of feature-property objects.
+- If a water-valve feature omits `W4_GENERAL_ID` from properties, the service derives it from GeoServer `feature.id`. This ID maps to `EME.WATER_VALVES.W4_GENERAL_ID` and is required for team assignment.
+- Keep the `AbortController` behavior so a new click cancels an older lookup.
+- Never display raw error/HTML text as popup data. An empty/failed lookup produces no feature popup.
+
+### Health And Cache
+- Local development does not run a `GetCapabilities` browser health probe because CORS rejects it.
+- HTTPS production checks `GetCapabilities` through `/wms.php?g_page=/cite/wms` every 30 seconds; recent successful tile loads also mark the map healthy.
+- There is no dependency on `/wms.php?health=1` in the current web map.
+- `public/valves-map-sw.js` is network-first for same-origin production `GetMap` requests. It verifies the PNG signature, caches up to 800 successful tiles, and uses a cached tile for up to 30 days only when the network response fails or is not a valid PNG.
+- Local direct GeoServer tiles do not pass through this service-worker cache.
+
+### Evidence-First Troubleshooting
+- First identify whether the failure is page rendering, tile loading, health probing, or feature lookup; these are separate paths.
+- Inspect the actual failing URL and response before editing code.
+- Local tile URL must start with `http://appdev-01.mog.org:8080/geoserver/cite/wms?`.
+- Production tile URL must start with `/wms.php?g_page=/cite/wms&`.
+- Web feature lookup must use `/valves/map-features`; seeing browser `GetFeatureInfo`, raw `error`, or direct GeoServer fetch means the client is stale or the contract regressed.
+- After frontend changes, run `npm run build` because production may serve committed `public/build` assets, then hard-refresh so the updated asset and service worker take control.
+- Do not propose OSRM, map matching, a new database table, importing GeoServer features, changing Oracle geometry, or another mapping library for a WMS display/lookup issue.
+
+Backend valve records are read from `EME.WATER_VALVES`. Because its `GEOMETRY` column is Oracle Spatial, do not select it with ordinary Eloquent queries; the map display remains WMS-backed and feature lookup remains server-side through `ValvesMapService`.
 
 ## Backend Service & Controller
 - `App\Services\Valves\ValvesDashboardService` — aggregates stats for the dashboard
@@ -69,7 +91,7 @@ The Valves module handles the municipality's water valves, tracking their geogra
 - Valve teams support `ASSIGN_ALL_VALVES`. When true, the team grants all current and future valves to assigned inspectors and the individual `VALVE_TEAM_VALVES` pivot list is cleared/ignored for access.
 - The teams dashboard supports either selecting a specific group of valves or enabling “إسناد كل المحابس لهذا الفريق”.
 - The teams dashboard valve selector reads from `EME.WATER_VALVES` through `ValveRepository`.
-- Team create/edit forms support both list selection and `ValveMapSelector.vue`. Map clicks query `cite:WATER_VALVES` through `public/wms.php`, derive `W4_GENERAL_ID` from the GeoServer feature ID, and update the same `valve_ids` form array used by list selection.
+- Team create/edit forms support both list selection and `ValveMapSelector.vue`. Map clicks use authenticated `/valves/map-features`, resolve `W4_GENERAL_ID` through `ValvesMapService`, and update the same `valve_ids` form array used by list selection.
 - Team valve lists always show currently assigned/selected valves first so administrators can revoke assignments without searching through the full list.
 - If a map click returns overlapping valves, the selector must show all matching valves and let the administrator toggle each one explicitly rather than silently choosing the first feature.
 - `VALVE_TEAM_VALVES.VALVE_OID`, `VALVE_LOGS.VALVE_OID`, and `VALVE_MAINTENANCE_REPORTS.VALVE_OID` store `EME.WATER_VALVES.W4_GENERAL_ID`.
@@ -87,3 +109,4 @@ The Valves module handles the municipality's water valves, tracking their geogra
   - `GET /api/dashboard/map-features` for map click feature lookup.
   - WMS tiles must be loaded through the returned backend `/wms.php` URL, never direct GeoServer, `geo.mogaza`, or `cs.mogaza` URLs.
   - Mobile map layer defaults must match the web valves map: valves, pipes, landmarks (`cite:V_LANDMARKS_V2`), and centerlines are visible by default; buildings are disabled.
+- Mobile and web share layer names and `ValvesMapService`, but they are different clients. Do not copy the web's local-direct tile rule into Flutter or infer Flutter behavior without inspecting `/Volumes/SecondDrive/Scada/scada_flutter` and `GET /api/dashboard/map-settings`.

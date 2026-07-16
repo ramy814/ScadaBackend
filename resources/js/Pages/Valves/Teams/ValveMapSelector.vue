@@ -6,6 +6,7 @@ const props = defineProps({
     show: { type: Boolean, default: false },
     valves: { type: Array, default: () => [] },
     selectedValveIds: { type: Array, default: () => [] },
+    mapFeaturesUrl: { type: String, required: true },
 })
 
 const emit = defineEmits(['close', 'toggle'])
@@ -16,47 +17,27 @@ const candidateValves = ref([])
 const candidateLatLng = ref(null)
 const selectedCount = computed(() => props.selectedValveIds.length)
 const valvesById = computed(() => new Map(props.valves.map(valve => [Number(valve.OID), valve])))
+const wmsUrl = window.location.protocol === 'https:'
+    ? '/wms.php?g_page=/cite/wms'
+    : 'http://appdev-01.mog.org:8080/geoserver/cite/wms'
 
 let map = null
 let L = null
 let requestController = null
 const selectionMarkers = new Map()
 
-const mapBbox = () => {
-    const bounds = map.getBounds()
-    const southWest = map.options.crs.project(bounds.getSouthWest())
-    const northEast = map.options.crs.project(bounds.getNorthEast())
-
-    return [southWest.x, southWest.y, northEast.x, northEast.y].join(',')
-}
-
-const featureInfoUrl = (point) => {
-    const size = map.getSize()
+const featureInfoUrl = (latLng) => {
     const params = new URLSearchParams({
-        service: 'WMS',
-        request: 'GetFeatureInfo',
-        version: '1.1.1',
         layers: 'cite:WATER_VALVES',
-        query_layers: 'cite:WATER_VALVES',
-        styles: '',
-        bbox: mapBbox(),
-        width: size.x,
-        height: size.y,
-        srs: 'EPSG:3857',
-        x: Math.round(point.x),
-        y: Math.round(point.y),
-        info_format: 'application/json',
-        feature_count: '10',
-        buffer: '12',
+        lat: latLng.lat,
+        lng: latLng.lng,
     })
 
-    return `/wms.php?${params.toString()}`
+    return `${props.mapFeaturesUrl}?${params.toString()}`
 }
 
-const valveIdFromFeature = (feature) => Number(
-    feature?.properties?.W4_GENERAL_ID
-    ?? feature?.properties?.w4_general_id
-    ?? String(feature?.id ?? '').split('.').pop(),
+const valveIdFromProperties = (properties) => Number(
+    properties?.W4_GENERAL_ID ?? properties?.w4_general_id,
 )
 
 const showPopup = (latlng, text) => {
@@ -95,13 +76,12 @@ const selectValveAt = async (event) => {
     requestController = new AbortController()
 
     try {
-        const response = await fetch(featureInfoUrl(map.latLngToContainerPoint(event.latlng)), {
+        const response = await fetch(featureInfoUrl(event.latlng), {
             signal: requestController.signal,
             headers: { Accept: 'application/json' },
         })
-        const contentType = response.headers.get('content-type') ?? ''
-        const data = response.ok && contentType.includes('json') ? await response.json() : null
-        const valves = [...new Set((data?.features ?? []).map(valveIdFromFeature))]
+        const data = response.ok ? await response.json().catch(() => null) : null
+        const valves = [...new Set((data ?? []).map(valveIdFromProperties))]
             .map(valveId => valvesById.value.get(valveId))
             .filter(Boolean)
 
@@ -126,7 +106,7 @@ const selectValveAt = async (event) => {
     }
 }
 
-const addWmsLayer = (layerName, pane, zIndex) => L.tileLayer.wms('/wms.php', {
+const addWmsLayer = (layerName, pane, zIndex) => L.tileLayer.wms(wmsUrl, {
     layers: layerName,
     version: layerName === 'cite:WATER_VALVES' ? '1.1.1' : '1.1.0',
     format: 'image/png',

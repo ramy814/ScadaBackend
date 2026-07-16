@@ -42,7 +42,7 @@ The Fleet Management System is an enterprise application designed for Gaza Munic
 
 ## Integrated Field Modules
 - **Wells**: Has its own wells, teams, inspectors, readings, diesel inventories, and notifications context under `.ai/modules/wells/`.
-- **Valves**: Has its own valves, valve teams, valve inspectors, actions, and maintenance context under `.ai/modules/valves/`. Valve teams/inspectors are intentionally separate from wells teams/inspectors.
+- **Valves**: Has its own valves, valve teams, valve inspectors, actions, and maintenance context under `.ai/modules/valves/`. Valve teams/inspectors are intentionally separate from wells teams/inspectors. The only authoritative contract for the current web map is the section `Current Authoritative Web Map Contract` in `.ai/modules/valves/project-overview.md`; older map notes are historical and must not be used to redesign or guess the integration.
 
 ## Local Development Login
 - Use `http://127.0.0.1:8000/admin/dev-login` to log in locally and open the unified portal card selector.

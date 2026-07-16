@@ -1,5 +1,18 @@
 # Changelog & Recent Actions
 
+## [2026-07-16] Valves Map Server-First Tile Loading
+
+> **Current-state marker:** This 2026-07-16 section and the “Current Authoritative Web Map Contract” in `.ai/modules/valves/project-overview.md` supersede all older map implementation notes below. Older entries are historical context, not instructions for new changes.
+
+- Changed the valves map service worker from cache-first to network-first WMS tile loading.
+- Successful server tiles refresh the browser cache; cached tiles are used for up to 30 days only when the server is unreachable or returns a proxy fallback.
+- Kept `public/wms.php` unchanged and aligned web WMS callers with its required `g_page=/cite/wms` parameter.
+- Normalized verified PNG responses in the service worker because the fixed proxy emits its default `text/html` content type even when the response body is a valid PNG tile.
+- Restored direct GeoServer tile loading for local HTTP development, where the fixed proxy intentionally rejects non-production referrers; HTTPS production continues through the same proxy.
+- Disabled the direct local `GetCapabilities` browser probe because GeoServer rejects cross-origin `fetch` requests; this removes the CORS/404 console errors without changing tile loading or `public/wms.php`.
+- Replaced browser `GetFeatureInfo` calls with authenticated `/valves/map-features` requests backed by `ValvesMapService`, fixing the popup that displayed the literal text `error` locally.
+- Preserved the GeoServer valve feature ID as `W4_GENERAL_ID` when absent from properties so valve-team map selection continues to resolve Oracle valve records.
+
 ## [2026-07-15] Assigned Team Valves First
 
 - Updated valve-team create/edit selectors to keep assigned valves at the beginning of the filtered list for quick revocation.
@@ -8,6 +21,7 @@
 
 - Added an “اختيار من الخريطة” action to valve-team create and edit forms while preserving the existing searchable checkbox list.
 - Added `ValveMapSelector.vue`, which uses WMS `GetFeatureInfo` on `cite:WATER_VALVES` and maps the GeoServer feature ID to `EME.WATER_VALVES.W4_GENERAL_ID`.
+- Superseded on 2026-07-16: the selector now uses authenticated `/valves/map-features` backed by `ValvesMapService`; it no longer calls browser `GetFeatureInfo`.
 - Map selections update the existing `valve_ids` payload, so no new assignment endpoint or database path was introduced.
 - Added an explicit chooser for multiple valves occupying the same or nearby map location.
 

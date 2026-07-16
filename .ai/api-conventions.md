@@ -82,6 +82,7 @@ Valve inspector app accounts are separate from fleet drivers and wells inspector
 - Do not authenticate valve inspectors against wells `INSPECTORS` or fleet driver tables.
 
 ### Valves Mobile Map Source
+- This subsection defines the mobile API contract. The authoritative web-map runtime contract is in `.ai/modules/valves/project-overview.md` under “Current Authoritative Web Map Contract”. Do not merge the two client implementations by assumption.
 - The SCADA Flutter app must read map configuration from this backend, not directly from GeoServer or `cs.mogaza.org`.
 - Map settings endpoint: `GET /api/dashboard/map-settings`
   - Returns an absolute `wms_url` pointing to this backend's `/wms.php` proxy.
@@ -89,10 +90,22 @@ Valve inspector app accounts are separate from fleet drivers and wells inspector
 - Feature query endpoint: `GET /api/dashboard/map-features?layers=...&lat=...&lng=...`
   - The backend queries GeoServer and returns feature properties as JSON.
   - Flutter should not call GeoServer WFS/GetFeatureInfo directly.
+- Authenticated web valves pages use `GET /valves/map-features?layers=...&lat=...&lng=...` through the same `ValvesMapService`; browser map clicks must not call `wms.php` or GeoServer `GetFeatureInfo` directly.
+- For `cite:WATER_VALVES`, the service copies the numeric GeoServer feature ID into `W4_GENERAL_ID` when that field is absent from feature properties so map-based team assignment can resolve the Oracle valve ID.
 - Default mobile and web visible layers must stay aligned:
   - `cite:WATER_VALVES`
   - `cite:WATER_PIPE`
   - `cite:V_CENTERLINE_SEGMENTS`
   - `cite:V_LANDMARKS_V2`
 - `cite:V_BUILDING_GEOSRV` remains available in the layer selector but is disabled by default.
-- The web valves map caches successful WMS `GetMap` tiles locally for 30 days through `/valves-map-sw.js`; this does not change `public/wms.php`.
+- The web valves map loads WMS tiles directly from `http://appdev-01.mog.org:8080/geoserver/cite/wms` during local HTTP development. HTTPS production uses `/wms.php?g_page=/cite/wms` to avoid Mixed Content.
+- The production service worker requests WMS `GetMap` tiles from the server first, updates its local cache after verified PNG responses, and uses cached tiles for up to 30 days only when the server is unreachable or returns an invalid tile response.
+- Do not run a browser `fetch` health probe directly against GeoServer in local development because GeoServer does not allow the local origin through CORS; direct `<img>` tile loading remains valid.
+
+### Valves Web Map Contract
+- Page: `GET /valves/map`.
+- Feature data: authenticated `GET /valves/map-features?layers=...&lat=...&lng=...`; the URL is passed to Vue as `mapFeaturesUrl`.
+- Local HTTP tiles: direct GeoServer WMS image requests.
+- HTTPS production tiles: `/wms.php?g_page=/cite/wms`.
+- Web browser code must not issue `GetFeatureInfo`, direct WFS, or direct GeoServer `fetch` calls.
+- Do not modify `public/wms.php` while fixing web callers unless the user explicitly scopes the request to that file.

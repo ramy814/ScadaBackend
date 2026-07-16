@@ -26,6 +26,7 @@ class ValvesDashboardController extends Controller
     {
         return Inertia::render('Valves/Map', [
             'mapValves' => $this->dashboardService->getStats()['mapValves'] ?? [],
+            'mapFeaturesUrl' => route('valves.map.features'),
         ]);
     }
 }

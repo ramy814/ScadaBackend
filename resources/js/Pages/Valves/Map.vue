@@ -8,10 +8,17 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    mapFeaturesUrl: {
+        type: String,
+        required: true,
+    },
 })
 
-// GeoServer URL goes through the PHP proxy to avoid Mixed Content / TLS errors over HTTPS
-const GEOSERVER_WMS_URL = '/wms.php'
+const GEOSERVER_PROXY_URL = '/wms.php?g_page=/cite/wms'
+const usesWmsProxy = window.location.protocol === 'https:'
+const GEOSERVER_WMS_URL = usesWmsProxy
+    ? GEOSERVER_PROXY_URL
+    : 'http://appdev-01.mog.org:8080/geoserver/cite/wms'
 
 let map = null
 let L = null
@@ -128,102 +135,29 @@ const buildMapPopup = ({ kicker, title, entries, accent = '#38bdf8' }) => {
     `
 }
 
-const mapBoundsBbox = () => {
-    const bounds = map.getBounds()
-    const sw = map.options.crs.project(bounds.getSouthWest())
-    const ne = map.options.crs.project(bounds.getNorthEast())
-    return [sw.x, sw.y, ne.x, ne.y].join(',')
-}
-
-const htmlToText = (html) => {
-    const wrapper = document.createElement('div')
-    wrapper.innerHTML = html
-    return wrapper.textContent?.replace(/\s+/g, ' ').trim() ?? ''
-}
-
-const htmlFeatureEntries = (html) => {
-    const wrapper = document.createElement('div')
-    wrapper.innerHTML = html
-    const rows = Array.from(wrapper.querySelectorAll('tr'))
-
-    return rows.flatMap((row) => {
-        const cells = Array.from(row.querySelectorAll('th,td'))
-            .map(cell => cell.textContent?.replace(/\s+/g, ' ').trim())
-            .filter(Boolean)
-
-        if (cells.length < 2) return []
-
-        const [label, value] = cells
-        if (/feature|fid|bounded|geom|shape/i.test(label)) return []
-
-        return [{ label: featureFieldLabels[normalizeFeatureKey(label)] ?? label, value }]
-    }).slice(0, 10)
-}
-
-const textFeatureEntries = (text) => text
-    .split(/[\n\r]+| {2,}/)
-    .map(value => value.trim())
-    .filter(Boolean)
-    .slice(0, 8)
-    .map((value, index) => ({ label: index === 0 ? 'البيانات' : `تفصيل ${index + 1}`, value }))
-
-const getFeatureInfoUrl = (layerConfig, point, infoFormat = 'application/json') => {
-    const size = map.getSize()
+const getFeatureInfoUrl = (layerConfig, point) => {
+    const latLng = map.containerPointToLatLng(point)
     const params = new URLSearchParams({
-        service: 'WMS',
-        request: 'GetFeatureInfo',
-        version: layerConfig.version,
         layers: layerConfig.layerName,
-        query_layers: layerConfig.layerName,
-        styles: '',
-        bbox: mapBoundsBbox(),
-        width: size.x,
-        height: size.y,
-        srs: 'EPSG:3857',
-        x: Math.round(point.x),
-        y: Math.round(point.y),
-        info_format: infoFormat,
-        feature_count: '5',
+        lat: latLng.lat,
+        lng: latLng.lng,
     })
 
-    // GetFeatureInfo must go through PHP proxy (CORS: fetch() is blocked directly to GeoServer)
-    // WMS tiles use direct URL because <img> tags bypass CORS restrictions
-    return `/wms.php?${params.toString()}`
+    return `${props.mapFeaturesUrl}?${params.toString()}`
 }
 
 const readFeatureInfo = async (layerConfig, point, signal = null) => {
     const fetchOptions = signal ? { signal, headers: { Accept: 'application/json' } } : { headers: { Accept: 'application/json' } }
-    const jsonResponse = await fetch(getFeatureInfoUrl(layerConfig, point), fetchOptions)
+    const response = await fetch(getFeatureInfoUrl(layerConfig, point), fetchOptions)
+    if (!response.ok) return null
 
-    if (jsonResponse.ok) {
-        const contentType = jsonResponse.headers.get('content-type') ?? ''
-        if (contentType.includes('json')) {
-            const data = await jsonResponse.json()
-            const feature = data?.features?.[0]
-            if (feature?.properties) {
-                return {
-                    title: featureTitle(feature.properties, layerConfig.name),
-                    entries: featureEntries(feature.properties),
-                }
-            }
-        }
-    }
-
-    const htmlFetchOptions = signal ? { signal, headers: { Accept: 'text/html,text/plain' } } : { headers: { Accept: 'text/html,text/plain' } }
-    const htmlResponse = await fetch(getFeatureInfoUrl(layerConfig, point, 'text/html'), htmlFetchOptions)
-
-    if (!htmlResponse.ok) return null
-
-    const html = await htmlResponse.text()
-    const text = htmlToText(html)
-    if (/failed to run|getfeatureinfo|exception|propertydescriptor/i.test(text)) return null
-
-    const entries = htmlFeatureEntries(html).length ? htmlFeatureEntries(html) : textFeatureEntries(text)
-    if (!entries.length) return null
+    const data = await response.json().catch(() => [])
+    const properties = Array.isArray(data) ? data[0] : null
+    if (!properties) return null
 
     return {
-        title: layerConfig.name,
-        entries,
+        title: featureTitle(properties, layerConfig.name),
+        entries: featureEntries(properties),
     }
 }
 
@@ -245,18 +179,24 @@ const scheduleMapResize = () => {
 }
 
 const checkGeoServerHealth = async () => {
+    if (!usesWmsProxy) {
+        geoServerHealth.value = { checking: false, ok: true, message: '' }
+        return
+    }
+
     try {
-        const response = await fetch('/wms.php?health=1', {
-            headers: { Accept: 'application/json' },
+        const response = await fetch(`${GEOSERVER_WMS_URL}&service=WMS&request=GetCapabilities`, {
+            headers: { Accept: 'application/xml,text/xml' },
             cache: 'no-store',
         })
-        const data = await response.json().catch(() => ({}))
+        const body = await response.text()
+        const serverAvailable = response.ok && /WMS_Capabilities|WMT_MS_Capabilities/i.test(body)
         const recentTileLoaded = Date.now() - lastGeoServerTileLoadedAt < 60000
 
         geoServerHealth.value = {
             checking: false,
-            ok: (response.ok && data?.ok === true) || recentTileLoaded,
-            message: data?.message || 'تعذر الاتصال بخادم الخرائط GeoServer.',
+            ok: serverAvailable || recentTileLoaded,
+            message: serverAvailable ? '' : 'تعذر الاتصال بخادم الخرائط GeoServer.',
         }
     } catch (error) {
         const recentTileLoaded = Date.now() - lastGeoServerTileLoadedAt < 60000
@@ -392,7 +332,7 @@ const initMap = async () => {
                 return
             } catch (error) {
                 if (error.name === 'AbortError') break
-                // Some GeoServer layers may not support JSON GetFeatureInfo; try the next visible layer.
+                // A layer may have no feature near the click; try the next visible layer.
             }
         }
     })

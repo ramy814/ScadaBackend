@@ -39,6 +39,26 @@ const cacheResponse = async (cache, request, response) => {
     return response
 }
 
+const normalizeTileResponse = async response => {
+    const body = await response.arrayBuffer()
+    const bytes = new Uint8Array(body)
+    const isPng = bytes.length >= 8
+        && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47
+        && bytes[4] === 0x0d && bytes[5] === 0x0a && bytes[6] === 0x1a && bytes[7] === 0x0a
+    const headers = new Headers(response.headers)
+
+    if (isPng) headers.set('Content-Type', 'image/png')
+
+    return {
+        isPng,
+        response: new Response(body, {
+            status: response.status,
+            statusText: response.statusText,
+            headers,
+        }),
+    }
+}
+
 self.addEventListener('fetch', event => {
     if (!isWmsTile(event.request)) return
 
@@ -46,16 +66,16 @@ self.addEventListener('fetch', event => {
         const cache = await caches.open(CACHE_NAME)
         const cached = await cache.match(event.request)
         const cachedAt = Number(cached?.headers.get('X-Local-Cache-Time') ?? 0)
-
-        if (cached && Date.now() - cachedAt < CACHE_TTL) return cached
+        const fallback = cached && Date.now() - cachedAt < CACHE_TTL ? cached : null
 
         try {
-            const response = await fetch(event.request)
-            if (cached && response.headers.has('X-WMS-Proxy-Fallback')) return cached
+            const upstream = await fetch(event.request)
+            const normalized = await normalizeTileResponse(upstream)
+            if (fallback && (!upstream.ok || !normalized.isPng || upstream.headers.has('X-WMS-Proxy-Fallback'))) return fallback
 
-            return await cacheResponse(cache, event.request, response)
+            return await cacheResponse(cache, event.request, normalized.response)
         } catch (error) {
-            if (cached) return cached
+            if (fallback) return fallback
             throw error
         }
     })())

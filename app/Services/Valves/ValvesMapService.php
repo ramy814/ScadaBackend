@@ -80,7 +80,17 @@ class ValvesMapService
         $data = json_decode((string) $body, true);
 
         return collect($data['features'] ?? [])
-            ->map(fn (array $feature): array => $feature['properties'] ?? [])
+            ->map(function (array $feature): array {
+                $properties = $feature['properties'] ?? [];
+                $featureId = (string) ($feature['id'] ?? '');
+                $id = strrchr($featureId, '.');
+
+                if (!isset($properties['W4_GENERAL_ID']) && str_contains(strtoupper($featureId), 'WATER_VALVES.') && $id !== false) {
+                    $properties['W4_GENERAL_ID'] = (int) substr($id, 1);
+                }
+
+                return $properties;
+            })
             ->filter()
             ->values();
     }
