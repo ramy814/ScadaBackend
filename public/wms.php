@@ -6,7 +6,7 @@ $referer = $_SERVER['HTTP_REFERER'] ?? '';
 
 //var_dump(extension_loaded('curl'), function_exists('curl_init'));
 
-if (str_starts_with($referer, 'https://projects.mogaza.org')) {
+if (str_starts_with($referer, 'https://scada.mogaza.org')) {
 //if (str_starts_with($referer, 'http://localhost:8000')) {
 
     $queryString = http_build_query($_REQUEST);

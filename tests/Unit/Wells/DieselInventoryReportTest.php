@@ -12,6 +12,7 @@ use App\Repositories\Wells\GeneratorRepository;
 use App\Services\Wells\DieselFuelCalculator;
 use App\Services\Wells\DieselInventoryService;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Mockery;
 use PHPUnit\Framework\TestCase;
 
@@ -44,7 +45,7 @@ class DieselInventoryReportTest extends TestCase
             'inventory_date' => '2026-06-28 12:00:00',
             'generator_hours_reading' => '120',
             'diesel_height_cm' => '50',
-            'available_fuel_liters' => '1570.80',
+            'available_fuel_liters' => '999999',
         ]);
         $inventory->setRelation('well', $well);
         $inventory->setRelation('inspector', $inspector);
@@ -55,7 +56,7 @@ class DieselInventoryReportTest extends TestCase
         $inventoryRepository->shouldReceive('previousReadingsFor')->once()->andReturn(collect([
             10 => [
                 'diesel_height_cm' => '100',
-                'available_fuel_liters' => '3141.59',
+                'available_fuel_liters' => '888888',
                 'generator_hours_reading' => '100',
                 'inventory_date' => '2026-06-27 12:00:00',
             ],
@@ -96,5 +97,47 @@ class DieselInventoryReportTest extends TestCase
         self::assertSame(1200.0, $row['water_production_m3']);
         self::assertSame(200.0, $row['calculated_diesel_consumption_liters']);
         self::assertSame('GZM-AJP-088-005', $row['generator_number']);
+    }
+
+    public function test_paginated_inventory_exposes_the_previous_generator_hours_reading(): void
+    {
+        $well = new Well;
+        $well->forceFill([
+            'oid' => 14,
+            'TANK_SHAPE' => 'اسطواني عمودي',
+            'TANK_DIAMETER' => '2',
+            'TANK_HEIGHT' => '3',
+        ]);
+        $inventory = new DieselInventory;
+        $inventory->setRawAttributes([
+            'oid' => 10,
+            'diesel_height_cm' => '50',
+            'available_fuel_liters' => '999999',
+        ]);
+        $inventory->setRelation('well', $well);
+        $inventories = new Collection([$inventory]);
+        $paginator = new LengthAwarePaginator($inventories, 1, 15);
+
+        $inventoryRepository = Mockery::mock(DieselInventoryRepository::class);
+        $inventoryRepository->shouldReceive('paginate')->once()->andReturn($paginator);
+        $inventoryRepository->shouldReceive('previousReadingsFor')->once()->andReturn(collect([
+            10 => [
+                'diesel_height_cm' => '100',
+                'available_fuel_liters' => '3141.59',
+                'generator_hours_reading' => '875.5',
+                'inventory_date' => '2026-06-27 12:00:00',
+            ],
+        ]));
+
+        $result = (new DieselInventoryService(
+            $inventoryRepository,
+            new DieselFuelCalculator,
+            Mockery::mock(GeneratorRepository::class),
+        ))->getPaginatedInventories();
+        $row = $result->getCollection()->first();
+
+        self::assertSame('875.5', $row->getAttribute('PREVIOUS_GENERATOR_HOURS_READING'));
+        self::assertSame(1570.8, $row->getAttribute('CALCULATED_AVAILABLE_FUEL_LITERS'));
+        self::assertNull($row->getAttribute('PREVIOUS_AVAILABLE_FUEL_LITERS'));
     }
 }

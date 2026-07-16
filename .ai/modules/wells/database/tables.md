@@ -44,6 +44,7 @@ Fuel balance calculation (`h = DIESEL_HEIGHT_CM / 100`, dimensions in meters):
 - Vertical cylinder: `liters = π × (TANK_DIAMETER / 2)² × min(h, TANK_HEIGHT) × 1000`.
 - Horizontal cylinder: `TANK_HEIGHT` is the cylinder length. With `r = TANK_DIAMETER / 2` and `h` clamped to `0..TANK_DIAMETER`, segment area is `r² × acos((r-h)/r) - (r-h) × sqrt(2rh-h²)`; multiply by `TANK_HEIGHT × 1000`.
 - Cube/square-base tank: `liters = TANK_DIAMETER² × min(h, TANK_HEIGHT) × 1000`.
+- Dashboard inventory rows, totals, and reports use this geometric result as the actual balance. They do not fall back to `AVAILABLE_FUEL_LITERS`; incomplete tank dimensions/shape/height produce an unavailable balance instead of an invented value.
 - The previous reading is selected per well using `INVENTORY_DATE`, then `OID` as the tie-breaker. Dashboard date filters must not remove the historical row used as the previous reading.
 - Diesel report operating hours: `current GENERATOR_HOURS_READING - previous GENERATOR_HOURS_READING`. If the current counter is lower, the result is left blank and a reset/inconsistent-reading note is shown.
 - Approved fuel supplied between inventories: sum `G_STORE.FUEL_LOG_DETAILS.APPROVED_GALLONS` where the linked `G_STORE.FUEL_LOG.FILL_UP_DATE` is after the previous inventory and through the current inventory.

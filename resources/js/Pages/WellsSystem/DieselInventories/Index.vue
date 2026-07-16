@@ -88,7 +88,7 @@ function formatOptionalNumber(value) {
                 <StatsCard
                     icon="fuel"
                     :value="formatNumber(statistics.latest_available_fuel_liters)"
-                    label="آخر رصيد متوفر (لتر)"
+                    label="إجمالي الرصيد المحسوب (لتر)"
                     iconClass="accent"
                 />
             </div>
@@ -142,10 +142,10 @@ function formatOptionalNumber(value) {
                                     <th>البئر</th>
                                     <th>المفتش</th>
                                     <th>المولد</th>
-                                    <th>عداد المولد (ساعات)</th>
+                                    <th>قراءة عداد المولد الحالية (ساعات)</th>
+                                    <th>قراءة عداد المولد السابقة (ساعات)</th>
                                     <th>ارتفاع السولار (سم)</th>
-                                    <th>الرصيد الفعلي (لتر)</th>
-                                    <th>القراءة السابقة (لتر)</th>
+                                    <th>الرصيد الفعلي المحسوب (لتر)</th>
                                     <th>تاريخ الجرد</th>
                                     <th>المزامنة</th>
                                 </tr>
@@ -156,12 +156,12 @@ function formatOptionalNumber(value) {
                                     <td class="font-bold">{{ inventory.WELL?.NAME || '-' }}</td>
                                     <td>{{ inventory.INSPECTOR?.NAME || '-' }}</td>
                                     <td>{{ inventory.GENERATOR_OID || '-' }}</td>
-                                    <td>{{ inventory.GENERATOR_HOURS_READING || '-' }}</td>
+                                    <td>{{ formatOptionalNumber(inventory.GENERATOR_HOURS_READING) }}</td>
+                                    <td>{{ formatOptionalNumber(inventory.PREVIOUS_GENERATOR_HOURS_READING) }}</td>
                                     <td>{{ inventory.DIESEL_HEIGHT_CM || '-' }}</td>
                                     <td class="font-bold">
-                                        {{ formatOptionalNumber(inventory.CALCULATED_AVAILABLE_FUEL_LITERS ?? inventory.AVAILABLE_FUEL_LITERS) }}
+                                        {{ formatOptionalNumber(inventory.CALCULATED_AVAILABLE_FUEL_LITERS) }}
                                     </td>
-                                    <td>{{ formatOptionalNumber(inventory.PREVIOUS_AVAILABLE_FUEL_LITERS) }}</td>
                                     <td>{{ formatDate(inventory.INVENTORY_DATE) }}</td>
                                     <td>
                                         <span v-if="inventory.SYNCED_AT" class="badge badge-active">تم</span>

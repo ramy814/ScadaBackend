@@ -43,7 +43,10 @@ A comprehensive well management system consisting of two main applications:
 - Flutter app works fully offline using SQLite
 - Generators data comes from existing Oracle tables (`G_STORE.GENERATOR`, `G_STORE.FUEL_LOG_DETAILS`) and dashboard well assignment lists must only show active generator assets (`IS_ACTIVE = 1`, `TYPE_OID = 128`).
 - Diesel inventory is stored locally in `DIESEL_INVENTORIES` and is entered from the field inspector app through `/api/diesel-inventories/sync`.
-- The dashboard derives the actual fuel balance from `DIESEL_HEIGHT_CM` and the well tank dimensions. It also shows the preceding chronological inventory reading for the same well; this lookup must include history outside the current dashboard filters.
+- The dashboard derives the actual fuel balance exclusively from `DIESEL_HEIGHT_CM` plus the well's `TANK_SHAPE`, `TANK_DIAMETER`, and `TANK_HEIGHT`. Dashboard totals, rows, and reports must not fall back to the stored/client-provided `AVAILABLE_FUEL_LITERS` when the geometric calculation is unavailable; show the balance as unavailable until the tank data is completed.
+- In the diesel inventory dashboard table, the current and preceding `GENERATOR_HOURS_READING` values are adjacent and displayed in hours. Never populate either meter-reading column from `AVAILABLE_FUEL_LITERS` or a calculated fuel balance.
+- Previous/current generator meter readings determine operating hours and consumption rates; they do not change the geometric current fuel balance.
+- The preceding chronological inventory lookup must include history outside the current dashboard filters.
 - Diesel reports derive operating hours and consumption from consecutive inventories. Approved supply is summed from `G_STORE.FUEL_LOG_DETAILS.APPROVED_GALLONS` between the preceding and current inventory dates; never infer or manually invent missing supply.
 - If `DIESEL_INVENTORIES.GENERATOR_OID` is null, the report may use `WELL_GENERATORS` only when the well has exactly one assigned generator. Multiple assignments must remain unresolved and appear as a report note.
 - Dashboard users monitor diesel inventory reports at `/diesel-inventories`, with a summary also shown on the main dashboard.

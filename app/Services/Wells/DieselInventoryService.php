@@ -37,11 +37,8 @@ class DieselInventoryService
                     : null,
             );
             $inventory->setAttribute(
-                'PREVIOUS_AVAILABLE_FUEL_LITERS',
-                $well && $previous
-                    ? $this->fuelCalculator->litersForWell($well, $previous['diesel_height_cm'])
-                        ?? $previous['available_fuel_liters']
-                    : null,
+                'PREVIOUS_GENERATOR_HOURS_READING',
+                $previous['generator_hours_reading'] ?? null,
             );
             $inventory->setAttribute('PREVIOUS_DIESEL_HEIGHT_CM', $previous['diesel_height_cm'] ?? null);
         });
@@ -90,7 +87,7 @@ class DieselInventoryService
                     )
                     : null;
 
-                return $calculated ?? (float) $inventory->getAttribute('available_fuel_liters');
+                return $calculated ?? 0.0;
             });
 
         $statistics['latest_available_fuel_liters'] = round($latestFuelBalance, 2);
@@ -164,12 +161,10 @@ class DieselInventoryService
             $previousHeight = $this->numeric($previous['diesel_height_cm'] ?? null);
             $currentBalance = $well
                 ? $this->fuelCalculator->litersForWell($well, $currentHeight)
-                    ?? $this->numeric($this->attribute($inventory, 'AVAILABLE_FUEL_LITERS'))
-                : $this->numeric($this->attribute($inventory, 'AVAILABLE_FUEL_LITERS'));
+                : null;
             $previousBalance = $well
                 ? $this->fuelCalculator->litersForWell($well, $previousHeight)
-                    ?? $this->numeric($previous['available_fuel_liters'] ?? null)
-                : $this->numeric($previous['available_fuel_liters'] ?? null);
+                : null;
             $suppliedFuel = $previousDate && $generatorId
                 ? $this->suppliedFuelBetween(
                     $deliveries->get((int) $generatorId, collect()),
@@ -184,6 +179,14 @@ class DieselInventoryService
 
             if ($currentHours !== null && $previousHours !== null && $currentHours < $previousHours) {
                 $notes[] = 'قراءة عداد المولد الحالية أقل من القراءة السابقة';
+            }
+
+            if ($currentBalance === null) {
+                $notes[] = 'تعذر احتساب الرصيد الحالي لعدم اكتمال بيانات الخزان أو ارتفاع السولار';
+            }
+
+            if ($previousDate && $previousBalance === null) {
+                $notes[] = 'تعذر احتساب الرصيد السابق لعدم اكتمال بيانات الخزان أو الارتفاع السابق';
             }
 
             if ($consumedFuel !== null && $consumedFuel < 0) {

@@ -4,6 +4,9 @@
 
 > **Current-state marker:** This 2026-07-16 section and the “Current Authoritative Web Map Contract” in `.ai/modules/valves/project-overview.md` supersede all older map implementation notes below. Older entries are historical context, not instructions for new changes.
 
+- Reordered the diesel inventory dashboard so current and previous generator-hour readings are adjacent and explicitly measured in hours.
+- Made dashboard fuel balances and report calculations use only the well tank geometry plus diesel height; stored/client `AVAILABLE_FUEL_LITERS` is no longer used as a fallback when tank data is incomplete.
+
 - Changed the valves map service worker from cache-first to network-first WMS tile loading.
 - Successful server tiles refresh the browser cache; cached tiles are used for up to 30 days only when the server is unreachable or returns a proxy fallback.
 - Kept `public/wms.php` unchanged and aligned web WMS callers with its required `g_page=/cite/wms` parameter.
