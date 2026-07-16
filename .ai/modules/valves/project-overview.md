@@ -13,7 +13,7 @@ The Valves module handles the municipality's water valves, tracking their geogra
 
 ## Frontend
 - Layout: `resources/js/ValvesSystem/Layouts/AppLayout.vue`
-- CSS: `resources/css/valves.css` — uses `--valves-primary: #e8590c` orange theme
+- CSS: `resources/css/valves.css` — aliases the global `--theme-*` surfaces from `resources/css/app.css` and keeps the Valves orange identity through `--valves-primary`. The Valves dark palette is the authoritative shared dark theme for every system; do not fork a separate base dark palette here.
 - Dashboard page: `resources/js/Pages/Valves/Dashboard.vue`
 - Map page: `resources/js/Pages/Valves/Map.vue`
 - Teams page: `resources/js/Pages/Valves/Teams/Index.vue`

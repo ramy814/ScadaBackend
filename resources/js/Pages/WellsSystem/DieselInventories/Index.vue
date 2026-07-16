@@ -70,11 +70,6 @@ function formatOptionalNumber(value) {
     return value === null || value === undefined || value === '' ? '-' : formatNumber(value)
 }
 
-function generatorLabel(inventory) {
-    const generator = inventory.RESOLVED_GENERATOR
-    if (generator?.NUMBER && generator?.NAME) return `${generator.NUMBER} — ${generator.NAME}`
-    return generator?.NUMBER || generator?.NAME || inventory.GENERATOR_OID || 'غير مسند'
-}
 </script>
 
 <template>
@@ -161,7 +156,16 @@ function generatorLabel(inventory) {
                                     <td>{{ index + 1 }}</td>
                                     <td class="font-bold">{{ inventory.WELL?.NAME || '-' }}</td>
                                     <td>{{ inventory.INSPECTOR?.NAME || '-' }}</td>
-                                    <td>{{ generatorLabel(inventory) }}</td>
+                                    <td class="diesel-generator-cell">
+                                        <div class="diesel-generator">
+                                            <span class="diesel-generator-number" dir="ltr">
+                                                {{ inventory.RESOLVED_GENERATOR?.NUMBER || inventory.GENERATOR_OID || 'غير مسند' }}
+                                            </span>
+                                            <span v-if="inventory.RESOLVED_GENERATOR?.NAME" class="diesel-generator-name">
+                                                {{ inventory.RESOLVED_GENERATOR.NAME }}
+                                            </span>
+                                        </div>
+                                    </td>
                                     <td>{{ formatOptionalNumber(inventory.GENERATOR_HOURS_READING) }}</td>
                                     <td>{{ formatOptionalNumber(inventory.PREVIOUS_GENERATOR_HOURS_READING) }}</td>
                                     <td>{{ inventory.DIESEL_HEIGHT_CM || '-' }}</td>

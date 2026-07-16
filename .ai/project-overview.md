@@ -18,6 +18,7 @@ The Fleet Management System is an enterprise application designed for Gaza Munic
 - **Thin Controllers**: Controllers only handle HTTP request routing and basic validation. Complex business logic resides in Services (e.g., `TripSyncService`).
 - **Repository Pattern**: All queries to the external Oracle database are strictly encapsulated within Repositories.
 - **Authoritative Trip Maps**: Administrative trip maps show the recorded GPS points without road matching. Visual direction aids may be derived in the browser, but stored coordinates and calculated trip data remain unchanged.
+- **Unified Dashboard Themes**: Fleet, Wells, Valves, the portal, and permissions share the semantic `--theme-*` tokens in `resources/css/app.css`. Light mode is based on Fleet and dark mode is based on Valves; individual systems retain only their identity accents. The selected `light`/`dark` value is shared through `localStorage.theme` and applied as `html[data-theme]`.
 
 ## Tech Stack
 - **Framework**: Laravel 11.x

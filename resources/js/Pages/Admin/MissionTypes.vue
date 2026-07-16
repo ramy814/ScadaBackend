@@ -130,11 +130,11 @@ function submitUpdate(id) {
   padding: 9px 12px;
   font-size: 13px;
   font-family: 'Tajawal', sans-serif;
-  background: #f8fafc;
+  background: var(--input-surface);
   transition: var(--transition);
   color: var(--text-primary);
 }
-.form-input:focus { outline: none; border-color: var(--brand); background: #fff; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+.form-input:focus { outline: none; border-color: var(--brand); background: var(--surface-strong); box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
 .btn-primary {
   border: none;
   border-radius: var(--radius-md);

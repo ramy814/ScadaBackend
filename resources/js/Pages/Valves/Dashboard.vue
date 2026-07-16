@@ -149,7 +149,7 @@ const refresh = () => router.reload()
                         </div>
                         <div class="v-status-bar-item">
                             <div class="v-status-bar-header">
-                                <span class="v-status-bar-label" style="color: #94a3b8;">مغلقة</span>
+                                <span class="v-status-bar-label" style="color: var(--color-text-muted);">مغلقة</span>
                                 <span class="v-status-bar-count">{{ stats.closedValves }} ({{ closedPct }}%)</span>
                             </div>
                             <div class="v-progress">

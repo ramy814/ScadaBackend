@@ -116,6 +116,8 @@ Fuel balance calculation (`h = DIESEL_HEIGHT_CM / 100`, dimensions in meters):
 | WELL_OID | INTEGER FK | References WELLS |
 | INSPECTOR_OID | INTEGER FK | References INSPECTORS |
 | FLOW_RATE | DECIMAL | Flow rate in m³ |
+| GENERATOR_HOURS_READING | DECIMAL | Generator operating-hours meter; required by the mobile form |
+| PUMP_HOURS_READING | DECIMAL NULL | Pump operating-hours meter; optional in mobile entry and sync |
 | CHLORINE | DECIMAL | Chlorine in liters |
 | SALINITY | DECIMAL | Salinity reading |
 | QUALITY | VARCHAR | excellent/good/acceptable/poor |

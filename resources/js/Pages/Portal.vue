@@ -13,13 +13,13 @@ defineProps({
 <template>
     <Head title="بوابة الأنظمة" />
 
-    <div class="min-h-screen relative overflow-hidden bg-[#09090b] text-slate-200 selection:bg-blue-500/30 font-cairo" dir="rtl">
+    <div class="portal-shell min-h-screen relative overflow-hidden selection:bg-blue-500/30 font-cairo" dir="rtl">
         <!-- Ambient Background Glows -->
         <div class="absolute top-[-20%] right-[-10%] w-[700px] h-[700px] rounded-full bg-blue-600/10 blur-[120px] pointer-events-none"></div>
         <div class="absolute bottom-[-20%] left-[-10%] w-[600px] h-[600px] rounded-full bg-indigo-600/10 blur-[120px] pointer-events-none"></div>
 
         <!-- Header -->
-        <header class="sticky top-0 z-50 backdrop-blur-xl bg-[#09090b]/70 border-b border-white/5 transition-all duration-300">
+        <header class="portal-header sticky top-0 z-50 backdrop-blur-xl border-b transition-all duration-300">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
                 <div class="flex items-center gap-4 group cursor-pointer">
                     <div class="relative">
@@ -27,7 +27,7 @@ defineProps({
                         <img src="/images/mogaza-logo.png" alt="شعار البلدية" class="relative h-14 w-auto bg-white/5 rounded-full p-1 ring-1 ring-white/10 shadow-xl" />
                     </div>
                     <div>
-                        <h1 class="text-xl font-extrabold text-transparent bg-clip-text bg-gradient-to-l from-white to-slate-400 tracking-tight">بلدية غزة</h1>
+                        <h1 class="portal-gradient-title text-xl font-extrabold text-transparent bg-clip-text tracking-tight">بلدية غزة</h1>
                         <p class="text-xs text-blue-400/80 font-medium tracking-wide">بوابة الأنظمة الموحدة</p>
                     </div>
                 </div>
@@ -55,7 +55,7 @@ defineProps({
         <!-- Main Content -->
         <main class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 min-h-[calc(100vh-80px)] flex flex-col justify-center">
             <div class="text-center mb-16 opacity-0 animate-[fadeInDown_0.8s_ease-out_forwards]">
-                <h2 class="text-4xl md:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-b from-white to-slate-400 mb-6 tracking-tight">الأنظمة المتاحة</h2>
+                <h2 class="portal-gradient-title text-4xl md:text-5xl font-extrabold text-transparent bg-clip-text mb-6 tracking-tight">الأنظمة المتاحة</h2>
                 <p class="text-slate-400 text-lg md:text-xl max-w-2xl mx-auto leading-relaxed font-light">
                     اختر النظام الذي ترغب بالدخول إليه من القائمة أدناه بناءً على الصلاحيات الممنوحة لك.
                 </p>
@@ -67,7 +67,7 @@ defineProps({
                     <!-- Accessible System -->
                     <Link v-if="system.hasAccess && system.available" 
                           :href="system.route"
-                          class="group relative flex flex-col p-8 rounded-3xl bg-white/[0.02] border border-white/[0.05] backdrop-blur-md overflow-hidden transition-all duration-500 hover:bg-white/[0.04] hover:border-white/[0.1] hover:-translate-y-2 hover:shadow-[0_20px_40px_-15px_rgba(0,0,0,0.5)]"
+                          class="portal-card group relative flex flex-col p-8 rounded-3xl border backdrop-blur-md overflow-hidden transition-all duration-500 hover:-translate-y-2"
                           :style="{ animationDelay: `${index * 100}ms` }"
                           style="animation: fadeInUp 0.8s ease-out forwards; opacity: 0;">
                         <!-- Hover Gradient Background -->
@@ -92,12 +92,12 @@ defineProps({
 
                     <!-- Locked System (No Permission) -->
                     <div v-else-if="system.available && !system.hasAccess"
-                          class="group relative flex flex-col p-8 rounded-3xl bg-white/[0.01] border border-white/[0.02] backdrop-blur-sm overflow-hidden transition-all duration-500"
+                          class="portal-card portal-card-locked group relative flex flex-col p-8 rounded-3xl border backdrop-blur-sm overflow-hidden transition-all duration-500"
                           :style="{ animationDelay: `${index * 100}ms` }"
                           style="animation: fadeInUp 0.8s ease-out forwards; opacity: 0;">
                         
                         <!-- Lock overlay -->
-                        <div class="absolute inset-0 bg-[#09090b]/80 z-20 flex items-center justify-center backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-all duration-300">
+                        <div class="portal-lock-overlay absolute inset-0 z-20 flex items-center justify-center backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-all duration-300">
                             <div class="flex items-center gap-3 bg-white/5 border border-white/10 text-white px-5 py-2.5 rounded-full text-sm font-semibold shadow-2xl transform translate-y-4 group-hover:translate-y-0 transition-all duration-300">
                                 <svg class="w-4 h-4 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
@@ -123,7 +123,7 @@ defineProps({
 
                     <!-- Unavailable System (Coming Soon) -->
                     <div v-else
-                          class="relative flex flex-col p-8 rounded-3xl bg-white/[0.01] border border-white/[0.05] border-dashed backdrop-blur-sm overflow-hidden transition-all duration-500"
+                          class="portal-card portal-card-locked relative flex flex-col p-8 rounded-3xl border border-dashed backdrop-blur-sm overflow-hidden transition-all duration-500"
                           :style="{ animationDelay: `${index * 100}ms` }"
                           style="animation: fadeInUp 0.8s ease-out forwards; opacity: 0;">
                         
@@ -154,6 +154,40 @@ defineProps({
 .font-cairo {
     font-family: 'Cairo', sans-serif !important;
 }
+
+.portal-shell {
+    background: var(--theme-bg);
+    color: var(--theme-text);
+}
+
+.portal-header {
+    background: color-mix(in srgb, var(--theme-bg) 70%, transparent);
+    border-color: var(--theme-border);
+}
+
+.portal-gradient-title {
+    background-image: linear-gradient(to left, var(--theme-text), var(--theme-text-muted));
+}
+
+.portal-card {
+    background: var(--theme-surface);
+    border-color: var(--theme-border);
+    box-shadow: var(--theme-shadow-md);
+}
+
+.portal-card:hover {
+    background: var(--theme-surface-strong);
+    border-color: rgba(59, 130, 246, 0.2);
+    box-shadow: var(--theme-shadow-lg);
+}
+
+.portal-card-locked { opacity: 0.78; }
+.portal-lock-overlay { background: color-mix(in srgb, var(--theme-bg) 82%, transparent); }
+.portal-shell .text-white,
+.portal-shell .text-slate-200,
+.portal-shell .text-slate-300 { color: var(--theme-text); }
+.portal-shell .text-slate-400 { color: var(--theme-text-muted); }
+.portal-shell .text-slate-500 { color: var(--theme-text-subtle); }
 
 @keyframes fadeInUp {
     from {

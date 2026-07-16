@@ -154,12 +154,18 @@ class WellRepository
     public function withSourceWellCode(Builder $query): Builder
     {
         return $query
-            ->select('wells.*', 'source_wells.SOURCE_WELL_CODE')
+            ->select('wells.*', 'source_wells.SOURCE_WELL_CODE', 'quarters.NAME as QUARTER_NAME')
             ->leftJoin(
                 DB::raw('DSS_CORE.WTR_WELLS source_wells'),
                 'source_wells.WELL_ID',
                 '=',
                 'wells.WELL_NUM'
+            )
+            ->leftJoin(
+                DB::raw('GAZADATA.QUARTERS quarters'),
+                'quarters.OID',
+                '=',
+                'wells.QUARTER_OID'
             );
     }
 }

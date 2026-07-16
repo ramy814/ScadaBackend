@@ -104,25 +104,27 @@ function isActive(componentName) {
 @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap');
 
 :root {
-  --bg-color: #f0f4f8;
-  --surface: rgba(255, 255, 255, 0.7);
-  --stroke: rgba(0, 0, 0, 0.05);
-  --text-primary: #1e293b;
-  --text-secondary: #64748b;
+  --bg-color: var(--theme-bg);
+  --surface: var(--theme-surface);
+  --surface-strong: var(--theme-surface-strong);
+  --input-surface: var(--theme-input);
+  --stroke: var(--theme-border);
+  --text-primary: var(--theme-text);
+  --text-secondary: var(--theme-text-muted);
   --brand: #3b82f6;
   --brand-light: #eff6ff;
   --brand-hover: #2563eb;
   --ok: #10b981;
-  --ok-bg: #d1fae5;
+  --ok-bg: var(--theme-success-bg);
   --warn: #f59e0b;
-  --warn-bg: #fef3c7;
+  --warn-bg: var(--theme-warning-bg);
   --danger: #ef4444;
-  --danger-bg: #fee2e2;
+  --danger-bg: var(--theme-danger-bg);
   --radius-lg: 16px;
   --radius-md: 12px;
-  --shadow-sm: 0 1px 3px rgba(0,0,0,0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.05);
-  --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.05);
+  --shadow-sm: var(--theme-shadow-sm);
+  --shadow-md: var(--theme-shadow-md);
+  --shadow-lg: var(--theme-shadow-lg);
   --shadow-glow: 0 0 25px rgba(59, 130, 246, 0.1);
   --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   --glass-blur: blur(24px);
@@ -130,45 +132,15 @@ function isActive(componentName) {
 
 @media (prefers-color-scheme: dark) {
   html:not([data-theme="light"]) {
-    --bg-color: #0a0e1a;
-    --surface: rgba(17, 24, 39, 0.45);
-    --stroke: rgba(255, 255, 255, 0.05);
-    --text-primary: #e2e8f0;
-    --text-secondary: #94a3b8;
-    --brand: #3b82f6;
     --brand-light: rgba(59, 130, 246, 0.15);
     --brand-hover: #60a5fa;
-    --ok: #10b981;
-    --ok-bg: rgba(16, 185, 129, 0.15);
-    --warn: #f59e0b;
-    --warn-bg: rgba(245, 158, 11, 0.15);
-    --danger: #ef4444;
-    --danger-bg: rgba(239, 68, 68, 0.15);
-    --shadow-sm: 0 4px 6px rgba(0, 0, 0, 0.3);
-    --shadow-md: 0 10px 25px rgba(0, 0, 0, 0.4);
-    --shadow-lg: 0 10px 30px -10px rgba(0, 0, 0, 0.6);
     --shadow-glow: 0 0 25px rgba(59, 130, 246, 0.2);
   }
 }
 
 html[data-theme="dark"] {
-  --bg-color: #0a0e1a;
-  --surface: rgba(17, 24, 39, 0.45);
-  --stroke: rgba(255, 255, 255, 0.05);
-  --text-primary: #e2e8f0;
-  --text-secondary: #94a3b8;
-  --brand: #3b82f6;
   --brand-light: rgba(59, 130, 246, 0.15);
   --brand-hover: #60a5fa;
-  --ok: #10b981;
-  --ok-bg: rgba(16, 185, 129, 0.15);
-  --warn: #f59e0b;
-  --warn-bg: rgba(245, 158, 11, 0.15);
-  --danger: #ef4444;
-  --danger-bg: rgba(239, 68, 68, 0.15);
-  --shadow-sm: 0 4px 6px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 10px 25px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 10px 30px -10px rgba(0, 0, 0, 0.6);
   --shadow-glow: 0 0 25px rgba(59, 130, 246, 0.2);
 }
 
@@ -529,7 +501,7 @@ tr:hover td { background: var(--stroke); }
 .stat-item { display: flex; flex-direction: column; gap: 4px; }
 .stat-item .label { font-size: 12px; color: var(--text-secondary); font-weight: 600; }
 .stat-item .value { font-size: 26px; font-weight: 800; color: var(--text-primary); text-shadow: 0 0 10px rgba(255, 255, 255, 0.2); transition: all 0.3s ease; }
-.stat-group:hover .stat-item .value { color: #fff; text-shadow: 0 0 15px rgba(255, 255, 255, 0.5); transform: scale(1.05); transform-origin: right; }
+.stat-group:hover .stat-item .value { color: var(--text-primary); text-shadow: 0 0 15px rgba(59, 130, 246, 0.2); transform: scale(1.05); transform-origin: right; }
 
 @media (max-width: 1200px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 768px) {

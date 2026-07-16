@@ -35,13 +35,13 @@ function initMap() {
             const marker = L.marker([well.LATITUDE, well.LONGITUDE]).addTo(map)
             marker.bindPopup(`
                 <div style="direction: rtl; font-family: Cairo, sans-serif; min-width: 200px;">
-                    <h3 style="margin: 0 0 8px; color: #00d4aa; font-size: 16px;">${well.NAME}</h3>
+                    <h3 style="margin: 0 0 8px; color: #1d4ed8; font-size: 16px;">${well.NAME}</h3>
                     <p style="margin: 4px 0; font-size: 13px;"># ${wellNumber}</p>
-                    <p style="margin: 4px 0; font-size: 13px;">📍 ${well.quarter_name || '-'}</p>
+                    <p style="margin: 4px 0; font-size: 13px;">📍 ${well.QUARTER_NAME || '-'}</p>
                     <p style="margin: 4px 0; font-size: 13px;">⚙️ ${pumpTypeLabels[well.PUMP_TYPE] || well.PUMP_TYPE}</p>
                     <p style="margin: 4px 0; font-size: 13px;">⚡ ${powerSourceLabels[well.POWER_SOURCE] || well.POWER_SOURCE}</p>
                     <p style="margin: 4px 0; font-size: 13px;">📏 ${well.CAPACITY} م³</p>
-                    <a href="/wells/wells/${well.OID}/edit" style="display: inline-block; margin-top: 8px; padding: 4px 12px; background: #00d4aa; color: #0a0e1a; border-radius: 6px; font-size: 12px; font-weight: 700; text-decoration: none;">✏️ تعديل</a>
+                    <a href="/wells/wells/${well.OID}/edit" style="display: inline-block; margin-top: 8px; padding: 4px 12px; background: #1d4ed8; color: #ffffff; border-radius: 6px; font-size: 12px; font-weight: 700; text-decoration: none;">✏️ تعديل</a>
                 </div>
             `)
         }

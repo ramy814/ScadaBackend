@@ -169,7 +169,7 @@ const clearFilters = () => {
                         <td>
                             <div style="font-size: 0.9em; max-width: 200px;">
                                 {{ log.VALVE?.NAME || 'غير متوفر' }}
-                                <div style="color: var(--v-text-muted); font-size: 0.85em;">
+                                <div style="color: var(--color-text-muted); font-size: 0.85em;">
                                     {{ log.VALVE?.AREA || '' }}
                                 </div>
                             </div>
@@ -182,11 +182,11 @@ const clearFilters = () => {
                         <td>
                             <div v-if="log.INSPECTOR">
                                 <strong>{{ log.INSPECTOR.NAME }}</strong>
-                                <div style="color: var(--v-text-muted); font-size: 0.85em;" dir="ltr">
+                                <div style="color: var(--color-text-muted); font-size: 0.85em;" dir="ltr">
                                     {{ log.INSPECTOR.PHONE }}
                                 </div>
                             </div>
-                            <span v-else style="color: var(--v-text-muted);">غير معروف</span>
+                            <span v-else style="color: var(--color-text-muted);">غير معروف</span>
                         </td>
                         <td>
                             <span style="font-family: monospace; font-size: 0.9em;" dir="ltr">
@@ -194,13 +194,13 @@ const clearFilters = () => {
                             </span>
                         </td>
                         <td>
-                            <div style="max-width: 250px; white-space: normal; color: var(--v-text-muted); font-size: 0.9em;">
+                            <div style="max-width: 250px; white-space: normal; color: var(--color-text-muted); font-size: 0.9em;">
                                 {{ log.NOTE || '-' }}
                             </div>
                         </td>
                     </tr>
                     <tr v-if="logs.data.length === 0">
-                        <td colspan="6" style="text-align: center; padding: 2rem; color: var(--v-text-muted);">
+                        <td colspan="6" style="text-align: center; padding: 2rem; color: var(--color-text-muted);">
                             لا توجد عمليات مسجلة تطابق محددات البحث
                         </td>
                     </tr>
@@ -216,9 +216,9 @@ const clearFilters = () => {
 
 <style scoped>
 .v-filters-card {
-    background: var(--v-card-bg);
-    border: 1px solid var(--v-border);
-    border-radius: var(--v-radius);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
     padding: 1.25rem;
 }
 
@@ -235,17 +235,17 @@ const clearFilters = () => {
 }
 
 .v-table th {
-    background: rgba(255, 255, 255, 0.02);
+    background: var(--color-surface-2);
     padding: 1rem;
     font-size: 0.85rem;
     font-weight: 600;
-    color: var(--v-text-muted);
-    border-bottom: 1px solid var(--v-border);
+    color: var(--color-text-muted);
+    border-bottom: 1px solid var(--color-border);
 }
 
 .v-table td {
     padding: 1rem;
-    border-bottom: 1px solid var(--v-border);
+    border-bottom: 1px solid var(--color-border);
     vertical-align: middle;
 }
 
@@ -254,6 +254,6 @@ const clearFilters = () => {
 }
 
 .v-table tr:hover td {
-    background: rgba(255, 255, 255, 0.02);
+    background: var(--color-surface-2);
 }
 </style>

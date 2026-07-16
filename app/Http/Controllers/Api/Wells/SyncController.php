@@ -16,7 +16,6 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\ValidationException;
 
 class SyncController extends Controller
 {
@@ -59,11 +58,6 @@ class SyncController extends Controller
                     'PUMP_HOURS_READING',
                     'pump_hours_reading',
                 ]);
-                if ($pumpHours === null) {
-                    throw ValidationException::withMessages([
-                        'readings' => 'PUMP_HOURS_READING is required.',
-                    ]);
-                }
 
                 $reading = new WellReading;
                 $reading->well_oid = $this->payloadValue($readingData, ['WELL_OID', 'well_oid']);

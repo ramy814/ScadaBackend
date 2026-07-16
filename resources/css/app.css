@@ -9,3 +9,57 @@
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
 }
+
+/* Shared dashboard surfaces: Fleet light theme + Valves dark theme. */
+:root {
+    --theme-bg: #f0f4f8;
+    --theme-surface: rgba(255, 255, 255, 0.7);
+    --theme-surface-strong: rgba(255, 255, 255, 0.9);
+    --theme-input: #f8fafc;
+    --theme-border: rgba(0, 0, 0, 0.05);
+    --theme-text: #1e293b;
+    --theme-text-muted: #64748b;
+    --theme-text-subtle: #94a3b8;
+    --theme-success-bg: #d1fae5;
+    --theme-warning-bg: #fef3c7;
+    --theme-danger-bg: #fee2e2;
+    --theme-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
+    --theme-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    --theme-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+}
+
+@media (prefers-color-scheme: dark) {
+    html:not([data-theme="light"]) {
+        --theme-bg: #09090b;
+        --theme-surface: rgba(24, 24, 27, 0.4);
+        --theme-surface-strong: rgba(39, 39, 42, 0.6);
+        --theme-input: rgba(39, 39, 42, 0.6);
+        --theme-border: rgba(255, 255, 255, 0.05);
+        --theme-text: #e2e8f0;
+        --theme-text-muted: #94a3b8;
+        --theme-text-subtle: #64748b;
+        --theme-success-bg: rgba(16, 185, 129, 0.15);
+        --theme-warning-bg: rgba(245, 158, 11, 0.15);
+        --theme-danger-bg: rgba(239, 68, 68, 0.15);
+        --theme-shadow-sm: 0 4px 15px rgba(0, 0, 0, 0.3);
+        --theme-shadow-md: 0 10px 40px -10px rgba(0, 0, 0, 0.5);
+        --theme-shadow-lg: 0 10px 40px -10px rgba(0, 0, 0, 0.5);
+    }
+}
+
+html[data-theme="dark"] {
+    --theme-bg: #09090b;
+    --theme-surface: rgba(24, 24, 27, 0.4);
+    --theme-surface-strong: rgba(39, 39, 42, 0.6);
+    --theme-input: rgba(39, 39, 42, 0.6);
+    --theme-border: rgba(255, 255, 255, 0.05);
+    --theme-text: #e2e8f0;
+    --theme-text-muted: #94a3b8;
+    --theme-text-subtle: #64748b;
+    --theme-success-bg: rgba(16, 185, 129, 0.15);
+    --theme-warning-bg: rgba(245, 158, 11, 0.15);
+    --theme-danger-bg: rgba(239, 68, 68, 0.15);
+    --theme-shadow-sm: 0 4px 15px rgba(0, 0, 0, 0.3);
+    --theme-shadow-md: 0 10px 40px -10px rgba(0, 0, 0, 0.5);
+    --theme-shadow-lg: 0 10px 40px -10px rgba(0, 0, 0, 0.5);
+}

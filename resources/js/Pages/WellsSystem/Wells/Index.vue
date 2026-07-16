@@ -157,7 +157,7 @@ function deleteWell() {
                                             {{ wellGeneratorsNumber(well) }}
                                         </span>
                                     </td>
-                                    <td>{{ well.quarter_name || '-' }}</td>
+                                    <td>{{ well.QUARTER_NAME || '-' }}</td>
                                     <td>
                                         <span class="badge badge-active">
                                             {{ pumpTypeLabels[well.PUMP_TYPE] || well.PUMP_TYPE }}

@@ -1,10 +1,34 @@
 # Changelog & Recent Actions
 
+## [2026-07-16] Wells Recent Records And Optional Pump Reading
+
+- Restored the latest three per-well reading and diesel inventory records in the Flutter input forms using local SQLite data, including pending offline records.
+- Made `PUMP_HOURS_READING` optional end-to-end: omitted mobile values remain null and the Laravel sync endpoint no longer rejects them.
+- Kept `GENERATOR_HOURS_READING` required and added Flutter/PHP regression coverage for the optional pump value.
+
+## [2026-07-16] Wells Quarter Names In List And Map
+
+- Joined `GAZADATA.QUARTERS` once in the shared Wells repository display query and exposed its name as `QUARTER_NAME`.
+- Updated the Wells table and map popup to consume the uppercase Oracle/Inertia key, so wells with a stored `QUARTER_OID` display their actual area while wells without one continue to show `-`.
+
+## [2026-07-16] Unified Themes Across All Systems
+
+- Added the authoritative shared semantic theme tokens to `resources/css/app.css` for Fleet, Wells, Valves, the unified portal, and the permissions screen.
+- Standardized light mode on the Fleet dashboard palette: `#f0f4f8` page background, translucent white surfaces, slate text, subtle borders, and low-contrast shadows.
+- Standardized dark mode on the Valves dashboard palette: `#09090b` page background, translucent zinc surfaces, slate text, white translucent borders, and deeper shadows.
+- Kept each module's identity accent independent from the shared surfaces: Fleet/Wells remain blue and Valves remains orange; semantic green, amber, and red continue to indicate status.
+- All pages now initialize `html[data-theme]` before rendering from the shared `localStorage.theme` preference or the operating-system preference, preventing portal/theme flashes and keeping navigation between systems consistent.
+- Replaced fixed light/dark backgrounds in Fleet forms, Wells surfaces, Valves forms/tables, the portal, and the permissions screen with shared theme variables. Solid map controls and popups remain intentionally light for legibility over map imagery.
+- Reworked Wells pagination to use the same shared surfaces in both themes and aligned the Wells map popup action with the module's blue identity accent.
+- Removed the Blade-level `bg-gray-50` body class so it cannot override a module's selected theme.
+- Audited the remaining module pages and replaced the undefined `--v-*` tokens in Valves reports, the fixed dark Valves theme-toggle surface, and residual white-only table/progress/hover styling with the authoritative shared aliases.
+
 ## [2026-07-16] Wells Unified Colors And Diesel Generator Display
 
 - Unified the Wells dashboard light and dark themes around a restrained blue accent; green, amber, and red are now reserved for semantic statuses instead of competing primary navigation colors.
 - Replaced the mixed teal/blue navigation, buttons, cards, highlights, and generator panels with one blue color family while retaining neutral white/slate light surfaces.
 - Made the diesel inventory table display the generator number and name instead of only the raw `GENERATOR_OID`.
+- Split the generator display into a non-wrapping LTR number and a smaller Arabic name below it, preventing generator codes from breaking vertically and inflating table rows.
 - For historical inventories with a null `GENERATOR_OID`, the dashboard now uses the same safe resolution rule as the diesel report: use the well assignment only when exactly one generator is assigned; ambiguous assignments remain unresolved.
 - Verified the resolved generator against live Oracle data and covered the paginated inventory contract with a unit test.
 

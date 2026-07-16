@@ -217,8 +217,8 @@ function selectUser(user) {
 <style scoped>
 .permissions-page {
   min-height: 100vh;
-  background: #0f172a;
-  color: #e2e8f0;
+  background: var(--theme-bg);
+  color: var(--theme-text);
   font-family: Tajawal, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
@@ -228,13 +228,13 @@ function selectUser(user) {
   justify-content: space-between;
   gap: 24px;
   padding: 24px 40px;
-  background: #1e293b;
-  border-bottom: 1px solid #334155;
+  background: var(--theme-surface-strong);
+  border-bottom: 1px solid var(--theme-border);
 }
 
 .eyebrow {
   margin: 0 0 6px;
-  color: #94a3b8;
+  color: var(--theme-text-muted);
   font-size: 14px;
 }
 
@@ -245,7 +245,7 @@ p {
 }
 
 h1 {
-  color: #fff;
+  color: var(--theme-text);
   font-size: 28px;
   font-weight: 800;
 }
@@ -265,11 +265,11 @@ h1 {
 }
 
 .panel {
-  background: #172033;
-  border: 1px solid #334155;
+  background: var(--theme-surface);
+  border: 1px solid var(--theme-border);
   border-radius: 8px;
   padding: 24px;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.18);
+  box-shadow: var(--theme-shadow-lg);
 }
 
 .panel + .panel {
@@ -285,13 +285,13 @@ h1 {
 }
 
 .panel-title h2 {
-  color: #fff;
+  color: var(--theme-text);
   font-size: 20px;
   font-weight: 800;
 }
 
 .panel-title p {
-  color: #94a3b8;
+  color: var(--theme-text-muted);
   line-height: 1.7;
   font-size: 14px;
 }
@@ -312,7 +312,7 @@ h1 {
 }
 
 .field span {
-  color: #cbd5e1;
+  color: var(--theme-text-muted);
   font-weight: 700;
 }
 
@@ -320,10 +320,10 @@ input[type="number"],
 input[type="text"] {
   width: 100%;
   min-height: 44px;
-  border: 1px solid #475569;
+  border: 1px solid var(--theme-border);
   border-radius: 8px;
-  background: #0f172a;
-  color: #fff;
+  background: var(--theme-input);
+  color: var(--theme-text);
   padding: 0 14px;
   font: inherit;
 }
@@ -360,9 +360,9 @@ small,
   gap: 12px;
   min-height: 94px;
   padding: 16px;
-  border: 1px solid #334155;
+  border: 1px solid var(--theme-border);
   border-radius: 8px;
-  background: #0f172a;
+  background: var(--theme-surface-strong);
   cursor: pointer;
 }
 
@@ -379,11 +379,11 @@ small,
 }
 
 .system-option strong {
-  color: #fff;
+  color: var(--theme-text);
 }
 
 .system-option em {
-  color: #94a3b8;
+  color: var(--theme-text-muted);
   font-style: normal;
   line-height: 1.6;
   font-size: 13px;
@@ -416,13 +416,13 @@ small,
 
 .btn.ghost {
   background: transparent;
-  border-color: #475569;
-  color: #e2e8f0;
+  border-color: var(--theme-border);
+  color: var(--theme-text);
 }
 
 .btn.ghost:hover {
   border-color: #38bdf8;
-  color: #fff;
+  color: var(--theme-text);
 }
 
 .btn.danger {
@@ -455,23 +455,23 @@ th,
 td {
   padding: 15px 14px;
   text-align: right;
-  border-bottom: 1px solid #273449;
+  border-bottom: 1px solid var(--theme-border);
 }
 
 th {
-  color: #94a3b8;
+  color: var(--theme-text-muted);
   font-size: 13px;
-  background: #111827;
+  background: var(--theme-surface-strong);
 }
 
 td strong {
   display: block;
-  color: #fff;
+  color: var(--theme-text);
   margin-bottom: 4px;
 }
 
 td span {
-  color: #94a3b8;
+  color: var(--theme-text-muted);
   font-size: 13px;
 }
 
@@ -502,9 +502,9 @@ td span {
 }
 
 .empty-state {
-  background: #0f172a;
-  color: #94a3b8;
-  border: 1px dashed #475569;
+  background: var(--theme-surface-strong);
+  color: var(--theme-text-muted);
+  border: 1px dashed var(--theme-border);
 }
 
 .alert {
@@ -553,8 +553,8 @@ td span {
   top: calc(100% + 4px);
   left: 0;
   right: 0;
-  background: #1e293b;
-  border: 1px solid #334155;
+  background: var(--theme-surface-strong);
+  border: 1px solid var(--theme-border);
   border-radius: 8px;
   max-height: 250px;
   overflow-y: auto;
@@ -568,8 +568,8 @@ td span {
   padding: 10px 14px;
   background: transparent;
   border: none;
-  border-bottom: 1px solid #334155;
-  color: #e2e8f0;
+  border-bottom: 1px solid var(--theme-border);
+  color: var(--theme-text);
   cursor: pointer;
   transition: background 0.2s;
 }
@@ -579,7 +579,7 @@ td span {
 }
 
 .search-item:hover {
-  background: #0f172a;
+  background: var(--theme-surface);
 }
 
 .user-name {
@@ -590,13 +590,13 @@ td span {
 
 .user-meta {
   font-size: 12px;
-  color: #94a3b8;
+  color: var(--theme-text-muted);
 }
 
 .selected-user {
   margin-top: 8px;
   padding: 10px 14px;
-  background: #0f172a;
+  background: var(--theme-surface-strong);
   border: 1px solid #0284c7;
   border-radius: 8px;
   color: #bae6fd;

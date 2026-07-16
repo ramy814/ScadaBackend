@@ -202,11 +202,11 @@ function formatDate(dateStr) {
   padding: 9px 12px;
   font-size: 13px;
   font-family: 'Tajawal', sans-serif;
-  background: #f8fafc;
+  background: var(--input-surface);
   transition: var(--transition);
   color: var(--text-primary);
 }
-.form-input:focus { outline: none; border-color: var(--brand); background: #fff; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+.form-input:focus { outline: none; border-color: var(--brand); background: var(--surface-strong); box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
 
 .field-error { color: #ef4444; font-size: 12px; margin-top: 4px; }
 
@@ -281,7 +281,7 @@ function formatDate(dateStr) {
   z-index: 1000;
 }
 .modal-card {
-  background: #fff;
+  background: var(--surface-strong);
   border-radius: 16px;
   padding: 40px 36px;
   max-width: 400px;

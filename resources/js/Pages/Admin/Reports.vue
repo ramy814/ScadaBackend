@@ -234,7 +234,7 @@ function reviewLabel(s) {
   padding: 9px 12px;
   font-size: 13px;
   font-family: 'Tajawal', sans-serif;
-  background: #f8fafc;
+  background: var(--input-surface);
   color: var(--text-primary);
   transition: var(--transition);
   min-width: 210px;
@@ -248,8 +248,8 @@ function reviewLabel(s) {
   cursor: pointer; transition: var(--transition);
 }
 .btn-primary:hover { background: var(--brand-hover); }
-.btn-primary.secondary { background: #e2e8f0; color: #334155; }
-.btn-primary.secondary:hover { background: #cbd5e1; color: #0f172a; }
+.btn-primary.secondary { background: var(--surface-strong); color: var(--text-primary); border: 1px solid var(--stroke); }
+.btn-primary.secondary:hover { background: var(--brand-light); color: var(--brand-hover); }
 
 .btn-export {
   display: inline-flex; align-items: center; gap: 6px;
