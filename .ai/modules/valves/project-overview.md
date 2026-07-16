@@ -71,7 +71,18 @@ This section is the source of truth for the working web map. It supersedes every
 - After frontend changes, run `npm run build` because production may serve committed `public/build` assets, then hard-refresh so the updated asset and service worker take control.
 - Do not propose OSRM, map matching, a new database table, importing GeoServer features, changing Oracle geometry, or another mapping library for a WMS display/lookup issue.
 
-Backend valve records are read from `EME.WATER_VALVES`. Because its `GEOMETRY` column is Oracle Spatial, do not select it with ordinary Eloquent queries; the map display remains WMS-backed and feature lookup remains server-side through `ValvesMapService`.
+Backend valve records are read from `EME.WATER_VALVES`. Because its `GEOMETRY` column is Oracle Spatial, do not select it with ordinary Eloquent queries. The web map remains WMS-backed and web feature lookup remains server-side through `ValvesMapService`.
+
+## Current Authoritative Inspector Mobile Map Contract (2026-07-16)
+
+- App: `/Volumes/SecondDrive/Scada/scada_flutter`.
+- OpenStreetMap is the only mobile tile/base-map source.
+- Authenticated `GET /api/valves` is the only mobile marker source and returns only valves assigned to the inspector's teams, except the explicit `ASSIGN_ALL_VALVES` team rule.
+- `ValveController::index()` delegates to `ValveService` and `ValveRepository`; do not move assignment or Oracle Spatial logic back into the controller.
+- `ValveRepository` reads coordinates from `EME.WATER_VALVES.GEOMETRY`, whose SRID is 2039, and transforms them to WGS84/EPSG:4326 for `latitude` and `longitude` response attributes.
+- The mobile routes `/api/dashboard/map-data`, `/api/dashboard/map-settings`, and `/api/dashboard/map-features` were removed and must not be recreated.
+- The mobile app must not call GeoServer, WMS/WFS, `/wms.php`, or web `/valves/map-features`. Marker taps use the valve data already returned by `/api/valves`.
+- This mobile contract does not change the separate authoritative web-map contract above. `ValvesMapService`, `/valves/map-features`, web WMS callers, and the externally fixed `public/wms.php` remain web-only.
 
 ## Backend Service & Controller
 - `App\Services\Valves\ValvesDashboardService` — aggregates stats for the dashboard
@@ -81,6 +92,7 @@ Backend valve records are read from `EME.WATER_VALVES`. Because its `GEOMETRY` c
 - `App\Http\Controllers\Valves\ValveTeamController` — dashboard CRUD for valve-only field teams
 - `App\Http\Controllers\Valves\ValveInspectorController` — dashboard CRUD for valve-only inspectors and app accounts
 - `App\Http\Controllers\Api\Valves\AuthController` — valve inspector mobile login using phone/password
+- `App\Services\Valves\ValveService` and `App\Repositories\Valves\ValveRepository` — assigned mobile valve list plus Oracle Spatial coordinate transformation
 - `App\Services\Valves\ValveTeamService` — team creation/update and valve assignment
 - `App\Services\Valves\ValveInspectorService` — inspector account creation/update, activation, team assignment, and authentication
 - The old `php artisan valves:sync-geoserver` importer was removed because it populated the wrong local `VALVES` table.
@@ -105,9 +117,5 @@ Backend valve records are read from `EME.WATER_VALVES`. Because its `GEOMETRY` c
 - API login route: `POST /api/valves/auth/login`
 - Authenticated valve inspectors are scoped to valves assigned to their teams.
 - The SCADA Flutter app lives outside this repo at `/Volumes/SecondDrive/Scada/scada_flutter`; keep it pointed at this backend's `/api/valves/auth/login` and `/api/valves` endpoints.
-- The SCADA Flutter app must use this backend as the single map source:
-  - `GET /api/dashboard/map-settings` for WMS URL and layer definitions.
-  - `GET /api/dashboard/map-features` for map click feature lookup.
-  - WMS tiles must be loaded through the returned backend `/wms.php` URL, never direct GeoServer, `geo.mogaza`, or `cs.mogaza` URLs.
-  - Mobile map layer defaults must match the web valves map: valves, pipes, landmarks (`cite:V_LANDMARKS_V2`), and centerlines are visible by default; buildings are disabled.
-- Mobile and web share layer names and `ValvesMapService`, but they are different clients. Do not copy the web's local-direct tile rule into Flutter or infer Flutter behavior without inspecting `/Volumes/SecondDrive/Scada/scada_flutter` and `GET /api/dashboard/map-settings`.
+- The SCADA Flutter map must use OpenStreetMap plus team-scoped markers from `/api/valves`; it does not share web GeoServer layers or `ValvesMapService`.
+- Inspect the Flutter app and the “Current Authoritative Inspector Mobile Map Contract” before proposing mobile map changes. Never infer mobile behavior from the web map.

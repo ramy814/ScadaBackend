@@ -34,16 +34,6 @@ class DashboardController extends Controller
         ]);
     }
 
-    public function mapData(): JsonResponse
-    {
-        $valves = Valve::with('latestLog')->get();
-
-        return response()->json([
-            'valves' => $valves,
-            'wells' => [],
-        ]);
-    }
-
     public function recentActivity(): JsonResponse
     {
         $recentActions = ValveLog::with('valve')

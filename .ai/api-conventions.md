@@ -83,24 +83,13 @@ Valve inspector app accounts are separate from fleet drivers and wells inspector
 
 ### Valves Mobile Map Source
 - This subsection defines the mobile API contract. The authoritative web-map runtime contract is in `.ai/modules/valves/project-overview.md` under “Current Authoritative Web Map Contract”. Do not merge the two client implementations by assumption.
-- The SCADA Flutter app must read map configuration from this backend, not directly from GeoServer or `cs.mogaza.org`.
-- Map settings endpoint: `GET /api/dashboard/map-settings`
-  - Returns an absolute `wms_url` pointing to this backend's `/wms.php` proxy.
-  - Returns the same layer list used by the web valves map.
-- Feature query endpoint: `GET /api/dashboard/map-features?layers=...&lat=...&lng=...`
-  - The backend queries GeoServer and returns feature properties as JSON.
-  - Flutter should not call GeoServer WFS/GetFeatureInfo directly.
-- Authenticated web valves pages use `GET /valves/map-features?layers=...&lat=...&lng=...` through the same `ValvesMapService`; browser map clicks must not call `wms.php` or GeoServer `GetFeatureInfo` directly.
-- For `cite:WATER_VALVES`, the service copies the numeric GeoServer feature ID into `W4_GENERAL_ID` when that field is absent from feature properties so map-based team assignment can resolve the Oracle valve ID.
-- Default mobile and web visible layers must stay aligned:
-  - `cite:WATER_VALVES`
-  - `cite:WATER_PIPE`
-  - `cite:V_CENTERLINE_SEGMENTS`
-  - `cite:V_LANDMARKS_V2`
-- `cite:V_BUILDING_GEOSRV` remains available in the layer selector but is disabled by default.
-- The web valves map loads WMS tiles directly from `http://appdev-01.mog.org:8080/geoserver/cite/wms` during local HTTP development. HTTPS production uses `/wms.php?g_page=/cite/wms` to avoid Mixed Content.
-- The production service worker requests WMS `GetMap` tiles from the server first, updates its local cache after verified PNG responses, and uses cached tiles for up to 30 days only when the server is unreachable or returns an invalid tile response.
-- Do not run a browser `fetch` health probe directly against GeoServer in local development because GeoServer does not allow the local origin through CORS; direct `<img>` tile loading remains valid.
+- The Flutter inspector app uses OpenStreetMap as its only tile source.
+- Authenticated `GET /api/valves` is the only source of mobile valve markers.
+- The response is scoped to valves assigned through the inspector's teams. A team with `ASSIGN_ALL_VALVES = true` retains the existing all-valves behavior.
+- Each returned valve includes WGS84 `latitude` and `longitude`. `ValveRepository` extracts vertices from `EME.WATER_VALVES.GEOMETRY` and transforms Oracle Spatial SRID 2039 to EPSG:4326 through `SDO_CS.TRANSFORM`.
+- The mobile routes `/api/dashboard/map-data`, `/api/dashboard/map-settings`, and `/api/dashboard/map-features` do not exist and must not be restored.
+- The mobile app must not call GeoServer, WMS/WFS, `/wms.php`, or the authenticated web `/valves/map-features` endpoint.
+- Assigned valve JSON and OpenStreetMap tiles may be cached by the mobile app for offline use; the assignment scope remains the backend `/api/valves` response.
 
 ### Valves Web Map Contract
 - Page: `GET /valves/map`.
@@ -108,4 +97,6 @@ Valve inspector app accounts are separate from fleet drivers and wells inspector
 - Local HTTP tiles: direct GeoServer WMS image requests.
 - HTTPS production tiles: `/wms.php?g_page=/cite/wms`.
 - Web browser code must not issue `GetFeatureInfo`, direct WFS, or direct GeoServer `fetch` calls.
+- GeoServer WFS is public inside the municipality network. `ValvesMapService` must not send a username, password, custom credential header, or `Authorization` header.
+- Server-side WFS transport tries `http://appdev-01:8080/geoserver/cite/ows` before the local FQDN and returns an empty feature array on invalid/unreachable upstream responses.
 - Do not modify `public/wms.php` while fixing web callers unless the user explicitly scopes the request to that file.

@@ -16,13 +16,6 @@ class MapController extends Controller
     ) {
     }
 
-    public function settings(Request $request): JsonResponse
-    {
-        return response()->json(
-            $this->mapService->settings($request->getSchemeAndHttpHost()),
-        );
-    }
-
     public function features(Request $request): JsonResponse
     {
         return response()->json(

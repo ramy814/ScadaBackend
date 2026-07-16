@@ -22,6 +22,11 @@ class Valve extends Model
 
     protected $guarded = ['W4_GENERAL_ID'];
 
+    protected $hidden = [
+        'map_latitude',
+        'map_longitude',
+    ];
+
     protected $appends = [
         'oid',
         'code',
@@ -124,12 +129,16 @@ class Valve extends Model
 
     public function getLatitudeAttribute(): ?float
     {
-        return null;
+        $value = $this->attributes['map_latitude'] ?? null;
+
+        return $value === null ? null : (float) $value;
     }
 
     public function getLongitudeAttribute(): ?float
     {
-        return null;
+        $value = $this->attributes['map_longitude'] ?? null;
+
+        return $value === null ? null : (float) $value;
     }
 
     public function logs(): HasMany

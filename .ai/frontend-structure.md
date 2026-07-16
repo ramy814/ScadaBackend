@@ -43,6 +43,10 @@ resources/
 4. **Export Buttons**: CSV and PDF generation is handled by standard `<button>` clicks that trigger a programmatic file download, rather than `<a>` tags, because Inertia intercepts `<a>` tags.
 5. **Valves Module Pages**: Valves pages live under `resources/js/Pages/Valves/**` and use `resources/js/ValvesSystem/Layouts/AppLayout.vue`.
 6. **Portal Permissions**: System permissions are managed from `resources/js/Pages/Portal/Permissions.vue` via `/permissions`, not from the Fleet dashboard navigation.
+7. **Wells Layout**: Wells pages own the single `.content-wrapper`; `WellsSystem/Layouts/AppLayout.vue` must not wrap the slot in a second content wrapper. Wide tables scroll inside `.data-table-wrapper`, while `.app-content` keeps `min-width: 0` so they never expand or cover the fixed sidebar.
+8. **Wells Sidebar State**: `/wells` and `/` use exact active-link matching. Deeper items match their exact path or child paths, so only one sidebar entry is active on `/wells/diesel-inventories` and `/wells/wells-map`.
+9. **Wells Themes**: Shared light/dark colors, borders, cards, inputs, tables, and navigation contrast live in `resources/css/wells.css`. The primary Wells accent is blue; reserve green/amber/red for semantic statuses. Keep light accent/body text at WCAG-readable contrast and avoid hard-coded white hover text or white-only borders.
+10. **Diesel Generator Label**: The diesel inventory page reads `RESOLVED_GENERATOR` and shows its generator number/name. The backend resolves a null inventory `GENERATOR_OID` only from a single unambiguous `WELL_GENERATORS` assignment.
 
 ## Trip Map Display Contract
 

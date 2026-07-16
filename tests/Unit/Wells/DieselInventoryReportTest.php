@@ -111,6 +111,7 @@ class DieselInventoryReportTest extends TestCase
         $inventory = new DieselInventory;
         $inventory->setRawAttributes([
             'oid' => 10,
+            'well_oid' => 14,
             'diesel_height_cm' => '50',
             'available_fuel_liters' => '999999',
         ]);
@@ -129,15 +130,28 @@ class DieselInventoryReportTest extends TestCase
             ],
         ]));
 
+        $generatorRepository = Mockery::mock(GeneratorRepository::class);
+        $generatorRepository->shouldReceive('getReportGenerators')->once()->with([14], [])->andReturn([
+            'by_id' => [],
+            'by_well' => [
+                14 => [
+                    'oid' => 76,
+                    'name' => 'مولد الجندي',
+                    'number' => 'GZM-AJP-088-005',
+                ],
+            ],
+        ]);
+
         $result = (new DieselInventoryService(
             $inventoryRepository,
             new DieselFuelCalculator,
-            Mockery::mock(GeneratorRepository::class),
+            $generatorRepository,
         ))->getPaginatedInventories();
         $row = $result->getCollection()->first();
 
         self::assertSame('875.5', $row->getAttribute('PREVIOUS_GENERATOR_HOURS_READING'));
         self::assertSame(1570.8, $row->getAttribute('CALCULATED_AVAILABLE_FUEL_LITERS'));
+        self::assertSame('GZM-AJP-088-005', $row->getAttribute('RESOLVED_GENERATOR')['number']);
         self::assertNull($row->getAttribute('PREVIOUS_AVAILABLE_FUEL_LITERS'));
     }
 }

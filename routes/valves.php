@@ -20,10 +20,7 @@ Route::prefix('api/valves')->middleware('api')->group(function () {
 
 Route::prefix('api/dashboard')->middleware(['api', 'auth:sanctum'])->group(function () {
     Route::get('/stats', [\App\Http\Controllers\Api\DashboardController::class, 'stats'])->name('api.dashboard.stats');
-    Route::get('/map-data', [\App\Http\Controllers\Api\DashboardController::class, 'mapData'])->name('api.dashboard.map-data');
     Route::get('/recent-activity', [\App\Http\Controllers\Api\DashboardController::class, 'recentActivity'])->name('api.dashboard.recent-activity');
-    Route::get('/map-settings', [MapController::class, 'settings'])->name('api.dashboard.map-settings');
-    Route::get('/map-features', [MapController::class, 'features'])->name('api.dashboard.map-features');
 });
 
 Route::prefix('api/valves')->middleware(['api', 'auth:sanctum'])->group(function () {

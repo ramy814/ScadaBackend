@@ -48,8 +48,11 @@ A comprehensive well management system consisting of two main applications:
 - Previous/current generator meter readings determine operating hours and consumption rates; they do not change the geometric current fuel balance.
 - The preceding chronological inventory lookup must include history outside the current dashboard filters.
 - Diesel reports derive operating hours and consumption from consecutive inventories. Approved supply is summed from `G_STORE.FUEL_LOG_DETAILS.APPROVED_GALLONS` between the preceding and current inventory dates; never infer or manually invent missing supply.
-- If `DIESEL_INVENTORIES.GENERATOR_OID` is null, the report may use `WELL_GENERATORS` only when the well has exactly one assigned generator. Multiple assignments must remain unresolved and appear as a report note.
+- If `DIESEL_INVENTORIES.GENERATOR_OID` is null, the report and dashboard table may use `WELL_GENERATORS` only when the well has exactly one assigned generator. Multiple assignments must remain unresolved; reports include an explicit note and the dashboard shows no invented generator.
 - Dashboard users monitor diesel inventory reports at `/diesel-inventories`, with a summary also shown on the main dashboard.
+- Wells dashboard pages use one page-level `.content-wrapper`. Wide inventory tables must remain inside their horizontal scroll container and must not resize or overlap the fixed sidebar.
+- Sidebar active-state matching treats `/wells` as an exact dashboard route; `/wells/diesel-inventories` activates only `جرد السولار`.
+- The Wells UI uses a restrained blue accent family for navigation, buttons, highlights, and decorative panels in both themes. Light mode uses opaque white surfaces with visible slate borders/text; green, amber, and red are reserved for semantic statuses.
 - Well equipment records include pump horsepower, `submersible`/`vertical` pump types, generator power, fuel/chlorine/cooling tank specifications, chlorination operating status, cooling system, and cooling-line type.
 - Well images are managed through the unified `WELL_MEDIA` table. Supported categories are `pump`, `fuel_tank`, `cooling`, `valves_parts`, and `well_room`; every image can have a user-provided label and can be removed independently.
 - Well images are stored on Laravel's private `local` disk and streamed only through the authenticated `wells.media.show` route. Do not expose their storage paths directly.

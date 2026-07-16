@@ -9,38 +9,24 @@ use App\Models\Valves\Valve;
 use App\Models\Valves\ValveInspector;
 use App\Models\Valves\ValveLog;
 use App\Models\Valves\ValveMaintenanceReport;
+use App\Services\Valves\ValveService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class ValveController extends Controller
 {
+    public function __construct(
+        private readonly ValveService $valveService,
+    ) {
+    }
+
     public function index(Request $request): JsonResponse
     {
-        $query = Valve::query();
         $user = $request->user();
-
-        if ($user instanceof ValveInspector) {
-            $inspectorTeams = $user->teams()->get(['valve_teams.oid', 'valve_teams.ASSIGN_ALL_VALVES']);
-            $hasAllValvesAccess = $inspectorTeams->contains(fn ($team): bool => (bool) ($team->assign_all_valves ?? $team->ASSIGN_ALL_VALVES));
-
-            if (!$hasAllValvesAccess) {
-                $teamIds = $inspectorTeams->pluck('oid');
-
-                $query->whereHas('teams', function ($teamQuery) use ($teamIds): void {
-                    $teamQuery->whereIn('valve_teams.oid', $teamIds);
-                });
-            }
-        }
-
-        if ($request->has('area')) {
-            $query->where('W4_SOURCE', $request->area);
-        }
-
-        if ($request->has('status')) {
-            $query->where('W4_STATUS', strtoupper((string) $request->status));
-        }
-
-        $valves = $query->with('latestLog')->orderBy('W4_GENERAL_ID')->get();
+        $valves = $this->valveService->getAssignedValves(
+            $user instanceof ValveInspector ? $user : null,
+            $request->only(['area', 'status']),
+        );
 
         return response()->json($valves);
     }

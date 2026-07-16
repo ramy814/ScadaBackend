@@ -25,10 +25,25 @@ class DieselInventoryService
         $paginator = $this->dieselInventoryRepository->paginate($perPage, $filters);
         $inventories = $paginator->getCollection();
         $previousReadings = $this->dieselInventoryRepository->previousReadingsFor($inventories);
+        $generators = $this->generatorRepository->getReportGenerators(
+            $inventories
+                ->map(fn (DieselInventory $inventory): mixed => $this->attribute($inventory, 'WELL_OID'))
+                ->filter()
+                ->all(),
+            $inventories
+                ->map(fn (DieselInventory $inventory): mixed => $this->attribute($inventory, 'GENERATOR_OID'))
+                ->filter()
+                ->all(),
+        );
 
-        $inventories->each(function (DieselInventory $inventory) use ($previousReadings): void {
+        $inventories->each(function (DieselInventory $inventory) use ($previousReadings, $generators): void {
             $previous = $previousReadings->get((int) $inventory->getKey());
             $well = $inventory->well;
+            $wellId = (int) $this->attribute($inventory, 'WELL_OID');
+            $explicitGeneratorId = $this->attribute($inventory, 'GENERATOR_OID');
+            $generator = $explicitGeneratorId
+                ? ($generators['by_id'][(int) $explicitGeneratorId] ?? null)
+                : ($generators['by_well'][$wellId] ?? null);
 
             $inventory->setAttribute(
                 'CALCULATED_AVAILABLE_FUEL_LITERS',
@@ -36,6 +51,7 @@ class DieselInventoryService
                     ? $this->fuelCalculator->litersForWell($well, $inventory->getAttribute('diesel_height_cm'))
                     : null,
             );
+            $inventory->setAttribute('RESOLVED_GENERATOR', $generator);
             $inventory->setAttribute(
                 'PREVIOUS_GENERATOR_HOURS_READING',
                 $previous['generator_hours_reading'] ?? null,

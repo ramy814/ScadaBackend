@@ -1,8 +1,35 @@
 # Changelog & Recent Actions
 
+## [2026-07-16] Wells Unified Colors And Diesel Generator Display
+
+- Unified the Wells dashboard light and dark themes around a restrained blue accent; green, amber, and red are now reserved for semantic statuses instead of competing primary navigation colors.
+- Replaced the mixed teal/blue navigation, buttons, cards, highlights, and generator panels with one blue color family while retaining neutral white/slate light surfaces.
+- Made the diesel inventory table display the generator number and name instead of only the raw `GENERATOR_OID`.
+- For historical inventories with a null `GENERATOR_OID`, the dashboard now uses the same safe resolution rule as the diesel report: use the well assignment only when exactly one generator is assigned; ambiguous assignments remain unresolved.
+- Verified the resolved generator against live Oracle data and covered the paginated inventory contract with a unit test.
+
+## [2026-07-16] Wells Sidebar And Light Theme Repair
+
+- Fixed sidebar route matching so `/wells/diesel-inventories` activates only `جرد السولار` instead of also activating `لوحة التحكم`; child well routes still activate `الآبار` correctly.
+- Removed the duplicated Wells content wrapper from the shared layout, eliminating excessive top spacing on every Wells page.
+- Prevented wide diesel tables from expanding the flex layout or pressing against the fixed sidebar by constraining `.app-content` and the table scroll container.
+- Improved light-theme contrast for accents, secondary/muted text, borders, cards, inputs, table headers, hover states, and secondary buttons while preserving separate dark-theme colors. The later unified-colors entry supersedes the original green accent choice.
+- Restored the responsive sidebar toggle on narrow screens and kept flash messages in a fixed layout-safe container.
+- Verified active-route edge cases, WCAG contrast ratios (accent 4.96:1; secondary text 8.56:1), and the production Vite build.
+
+## [2026-07-16] Inspector App OpenStreetMap-Only Map
+
+- Removed all GeoServer/WMS code, layer settings, feature queries, and feature-info UI from `/Volumes/SecondDrive/Scada/scada_flutter`.
+- Changed the full inspector map and dashboard preview to use OpenStreetMap only and render markers from authenticated `GET /api/valves`.
+- Kept mobile map visibility team-scoped by using the existing inspector/team assignment query, including the explicit `ASSIGN_ALL_VALVES` rule.
+- Added Oracle Spatial coordinate extraction in `ValveRepository`: `EME.WATER_VALVES.GEOMETRY` is transformed from SRID 2039 to WGS84/EPSG:4326 and returned as `latitude`/`longitude`.
+- Removed the unused mobile endpoints `/api/dashboard/map-data`, `/api/dashboard/map-settings`, and `/api/dashboard/map-features`, plus their mobile-only controller/service methods.
+- Preserved the separate web map contract, `ValvesMapService::features()`, authenticated `/valves/map-features`, and `public/wms.php` without modification.
+- Verified against live Oracle data: inspector 1 received 11 assigned valves with 11 coordinates; the all-valves path returned 1,847 valves with 1,847 coordinates.
+
 ## [2026-07-16] Valves Map Server-First Tile Loading
 
-> **Current-state marker:** This 2026-07-16 section and the “Current Authoritative Web Map Contract” in `.ai/modules/valves/project-overview.md` supersede all older map implementation notes below. Older entries are historical context, not instructions for new changes.
+> **Current-state marker:** This 2026-07-16 section and the “Current Authoritative Web Map Contract” in `.ai/modules/valves/project-overview.md` supersede all older map implementation notes below. Older entries are historical context, not instructions for new changes. In particular, historical GeoServer credential/header and cURL instructions must not be restored: current WMS/WFS layers require no GeoServer username or password.
 
 - Reordered the diesel inventory dashboard so current and previous generator-hour readings are adjacent and explicitly measured in hours.
 - Made dashboard fuel balances and report calculations use only the well tank geometry plus diesel height; stored/client `AVAILABLE_FUEL_LITERS` is no longer used as a fallback when tank data is incomplete.
@@ -14,7 +41,7 @@
 - Restored direct GeoServer tile loading for local HTTP development, where the fixed proxy intentionally rejects non-production referrers; HTTPS production continues through the same proxy.
 - Disabled the direct local `GetCapabilities` browser probe because GeoServer rejects cross-origin `fetch` requests; this removes the CORS/404 console errors without changing tile loading or `public/wms.php`.
 - Replaced browser `GetFeatureInfo` calls with authenticated `/valves/map-features` requests backed by `ValvesMapService`, fixing the popup that displayed the literal text `error` locally.
-- Made `ValvesMapService` feature lookup compatible with production by trying the internal `appdev-01` host before the local FQDN and using PHP streams instead of the optional cURL extension; upstream failures no longer cause `/valves/map-features` to return HTTP 500.
+- Made `ValvesMapService` feature lookup compatible with production by trying the internal `appdev-01` host before the local FQDN and using unauthenticated PHP streams instead of the optional cURL extension; upstream failures no longer cause `/valves/map-features` to return HTTP 500.
 - Preserved the GeoServer valve feature ID as `W4_GENERAL_ID` when absent from properties so valve-team map selection continues to resolve Oracle valve records.
 
 ## [2026-07-15] Assigned Team Valves First
@@ -311,7 +338,7 @@ Two permanent rules added to `.ai/coding-rules.md` and `.ai/modules/wells/coding
 ## [2026-06-30] WMS Proxy Local Cache Removal
 
 - Removed local disk caching from `public/wms.php` per project owner direction; the proxy no longer reads or writes `storage/app/wms-cache/`.
-- Kept the required cURL proxy header `geo@2022_mogwinO: admin`.
+- Historical only, superseded on 2026-07-16: the old cURL proxy header is not required and must not be restored.
 - `GetMap` requests now retry once, then return a transparent PNG on upstream GeoServer failures so Leaflet does not show broken tile icons.
 - `GetFeatureInfo` failures return `204 No Content` to keep map click inspection quiet when a layer cannot identify a feature.
 - Added diagnostic headers (`X-WMS-Proxy-Fallback`, `X-WMS-Proxy-Reason`) to fallback responses so missing tiles can be traced from browser Network tools.
@@ -322,7 +349,7 @@ Two permanent rules added to `.ai/coding-rules.md` and `.ai/modules/wells/coding
 - Fixed the empty valve selector in the valve teams modal by importing WMS/WFS valves into the managed `VALVES` table.
 - Added `php artisan valves:sync-geoserver` in `routes/console.php`.
   - Source: GeoServer WFS `cite:WATER_VALVES`.
-  - Header: `geo@2022_mogwinO: admin`.
+  - Historical only, superseded on 2026-07-16: no GeoServer credential header is used by the current map.
   - Stable local code format: `WV-{GeoServer feature id}`.
   - Maps geometry coordinates into `LATITUDE` and `LONGITUDE`.
 - Ran the importer successfully:
@@ -390,8 +417,7 @@ Two permanent rules added to `.ai/coding-rules.md` and `.ai/modules/wells/coding
 ## [2026-06-29] Valves Dashboard WMTS Proxy Fix
 
 - `public/wms.php` was updated so the valves dashboard map tiles load successfully again.
-- The working GeoServer WMTS proxy header is `geo@2022_mogwinO: admin`.
-- The proxy uses cURL because Laravel `Http` rejects the non-standard `@` header name.
+- Historical only, superseded on 2026-07-16: the old WMTS credential header and cURL requirement are not part of the current map contract.
 - `TileOutOfRange` responses now return a transparent PNG instead of a visible tile error.
 - Added WMS proxy support and Leaflet overlays for `cite:WATER_VALVES`, `cite:WATER_PIPE`, `cite:V_BUILDING_GEOSRV`, `cite:V_CENTERLINE_SEGMENTS`, and `cite:V_LANDMARKS_V3`.
 - Added a `بدون OpenStreetMap` base-layer option so OpenStreetMap can be turned off.

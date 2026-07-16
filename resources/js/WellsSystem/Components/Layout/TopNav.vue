@@ -12,7 +12,7 @@ const unreadCount = computed(() => page.props.unread_notifications_count || 0);
 <template>
     <header class="topnav">
         <div class="flex items-center gap-3">
-            <button class="btn btn-icon btn-secondary" @click="$emit('toggle-sidebar')" style="display: none;">
+            <button class="btn btn-icon btn-secondary sidebar-toggle" @click="$emit('toggle-sidebar')">
                 ☰
             </button>
             <h1 class="topnav-title">نظام ادارة آبار بلدية غزة</h1>

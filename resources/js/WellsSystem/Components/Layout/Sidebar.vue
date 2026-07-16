@@ -36,8 +36,10 @@ function toggleTheme() {
 }
 
 const isActive = (path) => {
-    if (path === '/') return currentUrl.value === '/';
-    return currentUrl.value.startsWith(path);
+    const currentPath = currentUrl.value.split('?')[0];
+    const exactOnly = path === '/' || path === '/wells';
+
+    return currentPath === path || (!exactOnly && currentPath.startsWith(`${path}/`));
 };
 
 const navItems = [

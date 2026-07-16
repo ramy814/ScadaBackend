@@ -22,16 +22,16 @@ const toggleSidebar = () => {
         <div class="app-content">
             <TopNav @toggle-sidebar="toggleSidebar" />
 
-            <div class="content-wrapper">
+            <div v-if="flash?.success || flash?.error" class="layout-flashes">
                 <div v-if="flash?.success" class="flash-message flash-success animate-slide-up">
                     ✓ {{ flash.success }}
                 </div>
                 <div v-if="flash?.error" class="flash-message flash-error animate-slide-up">
                     ✗ {{ flash.error }}
                 </div>
-
-                <slot />
             </div>
+
+            <slot />
         </div>
     </div>
 </template>
