@@ -32,6 +32,7 @@ resources/
 │       │   └── Login.vue
 │       └── Valves/
 │           ├── Dashboard.vue
+│           ├── Map.vue
 │           ├── Teams/Index.vue
 │           └── Inspectors/Index.vue
 ```
@@ -48,6 +49,8 @@ resources/
 9. **Unified Theme Contract**: The authoritative cross-system surface, text, border, status-background, and shadow tokens live in `resources/css/app.css` as `--theme-*`. Light mode follows the Fleet dashboard palette and dark mode follows the Valves dashboard palette. Fleet `AppLayout.vue`, `wells.css`, and `valves.css` may alias these tokens but must not redefine a competing base palette. Module identity accents remain separate: Fleet/Wells use blue and Valves uses orange. All systems share `localStorage.theme` and `html[data-theme]`; the Blade shell initializes it before rendering. Keep solid light map controls/popups when needed for map legibility.
    Valves pages must use the defined `--color-*` aliases from `valves.css`; legacy/undefined `--v-*` theme variables are not part of this contract.
 10. **Diesel Generator Label**: The diesel inventory page reads `RESOLVED_GENERATOR` and shows its generator number as a non-wrapping LTR line with the Arabic name below it. The backend resolves a null inventory `GENERATOR_OID` only from a single unambiguous `WELL_GENERATORS` assignment.
+11. **Valves Web Map Modes**: `Valves/Map.vue` defaults to an OpenStreetMap base containing only Oracle-backed valve markers. GeoServer is a mutually exclusive base mode with a separate WMS layer selector that is hidden in OpenStreetMap mode. GeoServer clicks query visible-layer properties through same-origin `/valves/map-features` and render localized RTL popups; switching to OSM aborts that lookup. The map uses Gaza bounds (`31.15..31.65` latitude, `34.15..34.65` longitude) and `minZoom = 10`; never fit the view to unfiltered Oracle Spatial coordinates.
+12. **Fleet Dashboard Trip Search**: `Admin/Dashboard.vue` displays `#id` as the user-facing trip number. Its shared search field matches an exact numeric trip ID as well as partial vehicle plates and driver names, while retaining the selected period and clarification-status filters.
 
 ## Trip Map Display Contract
 

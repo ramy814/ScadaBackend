@@ -15,8 +15,8 @@
           <input
             v-model="searchTerm"
             type="search"
-            placeholder="ابحث برقم المركبة أو اسم السائق"
-            style="min-width:260px; height:38px; border:1px solid var(--stroke); border-radius:8px; padding:0 12px; color:var(--text-primary); background:var(--card-bg);"
+            placeholder="ابحث برقم الرحلة أو المركبة أو اسم السائق"
+            style="min-width:320px; height:38px; border:1px solid var(--stroke); border-radius:8px; padding:0 12px; color:var(--text-primary); background:var(--card-bg);"
           />
           <button type="submit" class="btn-icon view" title="بحث" style="width:38px; height:38px;">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -130,6 +130,7 @@
         <table>
           <thead>
             <tr>
+              <th>رقم الرحلة</th>
               <th>المركبة / السائق</th>
               <th>المسار (انطلاق ← وجهة)</th>
               <th>النقاط</th>
@@ -141,11 +142,12 @@
           </thead>
           <tbody>
             <tr v-if="recentTrips.data.length === 0">
-              <td colspan="7" style="text-align:center; padding:48px; color:var(--text-secondary);">
+              <td colspan="8" style="text-align:center; padding:48px; color:var(--text-secondary);">
                 لا توجد رحلات ضمن الفترة المحددة.
               </td>
             </tr>
             <tr v-for="trip in recentTrips.data" :key="trip.id">
+              <td style="font-weight:800;" dir="ltr">#{{ trip.id }}</td>
               <td>
                 <div style="font-weight:700;">{{ trip.vehicle?.plate_number ?? '-' }}</div>
                 <div style="font-size:12px; color:var(--text-secondary); margin-top:2px;">{{ trip.driver?.name ?? '-' }}</div>

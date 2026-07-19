@@ -18,7 +18,7 @@
 </head>
 <body>
     <div class="title">تقرير حركة مركبات بلدية غزة</div>
-    <div class="sub">تقرير {{ $period === 'daily' ? 'يومي' : ($period === 'weekly' ? 'أسبوعي' : 'شهري') }}</div>
+    <div class="sub">تقرير {{ $period === 'daily' ? 'يومي' : ($period === 'weekly' ? 'أسبوعي' : 'شهري') }} — الوقود تقدير حسابي وليس قراءة فعلية من الخزان.</div>
     <div class="meta">
         <span>من: {{ $from->format('Y-m-d H:i') }}</span>
         <span>إلى: {{ $to->format('Y-m-d H:i') }}</span>
@@ -28,7 +28,7 @@
     <table class="stats">
         <tr>
             <td><div class="label">عدد الرحلات</div><div>{{ $summary['trips_count'] }}</div></td>
-            <td><div class="label">إجمالي الوقود الافتراضي (لتر)</div><div>{{ $summary['sum_virtual_fuel'] }}</div></td>
+            <td><div class="label">إجمالي تقدير الوقود (لتر)</div><div>{{ $summary['sum_virtual_fuel'] }}</div></td>
         </tr>
     </table>
 
@@ -43,7 +43,7 @@
                 <th>الوجهة</th>
                 <th>الحالة</th>
                 <th>المراجعة</th>
-                <th>وقود افتراضي</th>
+                <th>تقدير الوقود</th>
                 <th>النقاط</th>
             </tr>
         </thead>

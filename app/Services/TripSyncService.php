@@ -5,6 +5,9 @@ namespace App\Services;
 use App\Models\Beneficiary;
 use App\Models\Trip;
 use App\Repositories\MunicipalityVehicleRepository;
+use DateTimeImmutable;
+use DateTimeInterface;
+use DateTimeZone;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
@@ -13,11 +16,26 @@ use Illuminate\Support\Facades\Schema;
 
 class TripSyncService
 {
-    public function __construct(private readonly MunicipalityVehicleRepository $vehicles) {}
+    public function __construct(
+        private readonly MunicipalityVehicleRepository $vehicles,
+        private readonly VirtualFuelService $fuel,
+    ) {}
 
     public function storeTrip(Beneficiary $driver, array $data): Trip
     {
         return DB::transaction(function () use ($driver, $data): Trip {
+            $existing = Trip::query()->where('local_id', $data['local_id'])->first();
+            if ($existing) {
+                abort_unless(
+                    (string) $existing->oracle_driver_id === (string) $driver->getAuthIdentifier(),
+                    409,
+                    'معرف الرحلة مستخدم من سائق آخر.',
+                );
+                if ($existing->status === 'confirmed') {
+                    return $existing;
+                }
+            }
+
             $oracleVehicle = $this->vehicles->findAssignedToDriver(
                 (string) $driver->getAuthIdentifier(),
                 $driver->phoneNumber(),
@@ -56,6 +74,7 @@ class TripSyncService
                 'start_odometer' => $data['start_odometer'] ?? null,
                 'end_odometer' => $data['end_odometer'] ?? null,
                 'points_expected' => $data['points_expected'] ?? 0,
+                'quality_version' => $data['quality_version'] ?? null,
             ];
 
             if ($hasDriverIdColumn) {
@@ -353,6 +372,10 @@ SQL,
 
     public function uploadPoints(Trip $trip, array $points): int
     {
+        if ($trip->status === 'confirmed') {
+            return $trip->points()->count();
+        }
+
         foreach ($points as $point) {
             $trip->points()->updateOrCreate(
                 ['sequence_number' => $point['sequence_number']],
@@ -365,6 +388,9 @@ SQL,
                     'battery_level',
                     'provider',
                     'captured_at',
+                    'recorded_at',
+                    'client_is_valid',
+                    'quality_reason',
                 ]),
             );
         }
@@ -377,21 +403,26 @@ SQL,
 
     public function confirm(Trip $trip, int $expected, string $checksum): Trip
     {
+        if ($trip->status === 'confirmed') {
+            return $trip->fresh();
+        }
+
+        $pointsReceived = $trip->points()->count();
         $serverPoints = $trip->points()
             ->orderBy('sequence_number')
-            ->get(['sequence_number', 'latitude', 'longitude', 'captured_at']);
+            ->cursor([
+                'sequence_number',
+                'latitude',
+                'longitude',
+                'accuracy',
+                'speed',
+                'captured_at',
+                'recorded_at',
+                'client_is_valid',
+                'quality_reason',
+            ]);
 
-        $pointsReceived = $serverPoints->count();
-
-        // Rebuild server checksum using plain arrays (same format as client)
-        $serverChecksumData = $serverPoints->map(fn ($p) => [
-            'sequence_number' => (int) $p->sequence_number,
-            'latitude'        => (float) $p->latitude,
-            'longitude'       => (float) $p->longitude,
-            'captured_at'     => $p->captured_at?->toIso8601String(),
-        ])->values()->all();
-
-        $serverChecksum = hash('sha256', json_encode($serverChecksumData));
+        $serverChecksum = $this->checksumForPoints($serverPoints);
 
         $trip->update([
             'points_expected' => $expected,
@@ -400,14 +431,19 @@ SQL,
             'server_checksum' => $serverChecksum,
         ]);
 
-        // Consider complete if received >= expected (>= handles edge cases)
-        // OR if expected is 0 (trip with no GPS data still gets confirmed)
-        $isComplete = $expected === 0 || $pointsReceived >= $expected;
+        $isComplete = $this->isCompleteUpload(
+            $expected,
+            $pointsReceived,
+            $checksum,
+            $serverChecksum,
+        );
 
         $trip->update([
             'status'               => $isComplete ? 'confirmed' : 'uploaded',
             'confirmed_at'         => $isComplete ? now() : null,
-            'virtual_fuel_liters'  => app(VirtualFuelService::class)->estimateLiters($trip),
+            'virtual_fuel_liters'  => $isComplete
+                ? $this->fuel->estimateLiters($trip)
+                : null,
         ]);
 
         Log::info('driver.trip_sync.confirm', [
@@ -419,5 +455,87 @@ SQL,
         ]);
 
         return $trip->fresh();
+    }
+
+    public function assertOwnedBy(Trip $trip, Beneficiary $driver): void
+    {
+        abort_unless(
+            (string) $trip->oracle_driver_id === (string) $driver->getAuthIdentifier(),
+            403,
+            'غير مسموح.',
+        );
+    }
+
+    public function isCompleteUpload(
+        int $expected,
+        int $received,
+        string $clientChecksum,
+        string $serverChecksum,
+    ): bool {
+        return $expected === $received
+            && hash_equals($serverChecksum, strtolower($clientChecksum));
+    }
+
+    public function checksumForPoints(iterable $points): string
+    {
+        $hash = hash_init('sha256');
+        hash_update($hash, '[');
+        $first = true;
+        foreach ($points as $point) {
+            $value = static fn (string $key): mixed => is_array($point)
+                ? ($point[$key] ?? null)
+                : ($point->{$key} ?? null);
+            $capturedAt = $value('captured_at');
+            $date = $capturedAt instanceof DateTimeInterface
+                ? DateTimeImmutable::createFromInterface($capturedAt)
+                : new DateTimeImmutable((string) $capturedAt);
+            $date = $date->setTimezone(new DateTimeZone('UTC'));
+            $clientIsValid = $value('client_is_valid');
+
+            $data = [
+                'sequence_number' => (int) $value('sequence_number'),
+                'latitude' => number_format((float) $value('latitude'), 7, '.', ''),
+                'longitude' => number_format((float) $value('longitude'), 7, '.', ''),
+                'accuracy' => $value('accuracy') === null
+                    ? null
+                    : number_format((float) $value('accuracy'), 2, '.', ''),
+                'speed' => $value('speed') === null
+                    ? null
+                    : number_format((float) $value('speed'), 2, '.', ''),
+                'captured_at' => $date->format('Y-m-d\TH:i:s\Z'),
+                'recorded_at' => $this->canonicalOptionalTimestamp(
+                    $value('recorded_at'),
+                ),
+                'client_is_valid' => $clientIsValid === null
+                    ? true
+                    : (bool) $clientIsValid,
+                'quality_reason' => $value('quality_reason'),
+            ];
+            if (! $first) {
+                hash_update($hash, ',');
+            }
+            $first = false;
+            hash_update($hash, json_encode(
+                $data,
+                JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
+            ));
+        }
+        hash_update($hash, ']');
+
+        return hash_final($hash);
+    }
+
+    private function canonicalOptionalTimestamp(mixed $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+        $date = $value instanceof DateTimeInterface
+            ? DateTimeImmutable::createFromInterface($value)
+            : new DateTimeImmutable((string) $value);
+
+        return $date
+            ->setTimezone(new DateTimeZone('UTC'))
+            ->format('Y-m-d\TH:i:s\Z');
     }
 }

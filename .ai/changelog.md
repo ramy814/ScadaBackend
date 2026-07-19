@@ -1,5 +1,37 @@
 # Changelog & Recent Actions
 
+## [2026-07-19] GeoServer Map Click Data Restored
+
+- Passed `mapFeaturesUrl` to the dedicated valves map and registered click lookup only while the mutually exclusive GeoServer mode is active.
+- Queried only the currently visible WMS layers through authenticated same-origin `/valves/map-features`; the browser still never sends direct WFS or `GetFeatureInfo` requests to GeoServer.
+- Added attractive RTL popups that identify each source layer, translate common valve/pipe/street fields, safely escape values, support overlapping features, and show localized loading, empty, and failure states.
+- Added the Leaflet zoom to feature lookup so `ValvesMapService` narrows its WFS bounding box as the user zooms in. Returned features now include internal layer/id metadata used only to label popup sections.
+- Preserved complete OpenStreetMap independence: returning to OSM aborts any feature request, closes the GeoServer popup, removes WMS layers, and marker clicks continue using the already-loaded Oracle payload.
+- Verified live against GeoServer at valve 6: zoom-level lookup returned the matching `WATER_VALVES.6` data plus nearby centerline features. PHP syntax, all 30 automated tests, `git diff --check`, and the Vite production build passed.
+
+## [2026-07-19] Fleet Dashboard Trip Number Search
+
+- Extended the vehicle-tracking dashboard search to accept an exact numeric trip ID while preserving the existing vehicle-plate and driver-name matching.
+- Displayed the trip number as `#id` in its own table column so administrators can identify and search the same value.
+- Kept period, clarification-status, pagination, and post-review navigation filters intact.
+- Moved the dashboard trip-list query into `TripRepository` and covered trip-number plus legacy vehicle/driver matching with repository feature tests.
+
+## [2026-07-19] Valves Web Map Modes And Gaza Bounds
+
+> **Current valves-map state:** This entry and `.ai/modules/valves/project-overview.md` supersede the older web-map behavior documented below.
+
+- Made OpenStreetMap the default web-map mode and rendered interactive valve markers directly from the `mapValves` Inertia payload sourced through `ValveRepository` and `ValveService` from `EME.WATER_VALVES`.
+- Restored a mutually exclusive OpenStreetMap/GeoServer base-map chooser. OpenStreetMap contains only OSM tiles plus Oracle markers; GeoServer has a separate layer selector for centerlines, landmarks, pipes, valves, and optional buildings.
+- Ensured switching to OpenStreetMap removes every WMS layer and hides the GeoServer layer selector; switching to GeoServer removes the OSM tile and Oracle marker group before enabling WMS layers.
+- Constrained Leaflet to the Gaza bounding box (`31.15..31.65` latitude, `34.15..34.65` longitude) with `minZoom = 10`, preventing the world view.
+- Filtered missing and outlier transformed coordinates in `ValveService::getMapValves()`. Live verification kept 1,836 valid Gaza markers and excluded 11 corrupt outliers whose transformed coordinates reached unrelated global locations.
+- Kept OpenStreetMap marker popups local to the already-loaded Oracle payload and styled them with the Valves orange identity. GeoServer mode later regained server-side click lookup through `/valves/map-features` as documented by the newer entry above.
+- Verified the Gaza filter with `ValveServiceTest`, live Oracle bounds, `git diff --check`, PHP syntax checks, and a successful Vite production build.
+
+## [2026-07-16] Active Wells First
+
+- Ordered the paginated Wells management table by `WELLS.IS_ACTIVE` descending, then by well name, so active wells appear before inactive wells while preserving filters and pagination.
+
 ## [2026-07-16] Wells Recent Records And Optional Pump Reading
 
 - Restored the latest three per-well reading and diesel inventory records in the Flutter input forms using local SQLite data, including pending offline records.
@@ -53,7 +85,7 @@
 
 ## [2026-07-16] Valves Map Server-First Tile Loading
 
-> **Current-state marker:** This 2026-07-16 section and the “Current Authoritative Web Map Contract” in `.ai/modules/valves/project-overview.md` supersede all older map implementation notes below. Older entries are historical context, not instructions for new changes. In particular, historical GeoServer credential/header and cURL instructions must not be restored: current WMS/WFS layers require no GeoServer username or password.
+> **Historical state:** Superseded by the 2026-07-19 valves-map entry and the “Current Authoritative Web Map Contract” in `.ai/modules/valves/project-overview.md`. Historical GeoServer credential/header and cURL instructions must not be restored.
 
 - Reordered the diesel inventory dashboard so current and previous generator-hour readings are adjacent and explicitly measured in hours.
 - Made dashboard fuel balances and report calculations use only the well tank geometry plus diesel height; stored/client `AVAILABLE_FUEL_LITERS` is no longer used as a fallback when tank data is incomplete.

@@ -2,7 +2,7 @@
   <AppLayout>
     <div style="margin-bottom:24px;">
       <h2 style="font-size:22px; font-weight:800; margin:0 0 4px;">التقارير</h2>
-      <p style="color:var(--text-secondary); margin:0; font-size:14px;">تقارير يومية وأسبوعية وشهرية مع تصدير CSV وPDF</p>
+      <p style="color:var(--text-secondary); margin:0; font-size:14px;">تقارير يومية وأسبوعية وشهرية مع تصدير CSV وPDF. الوقود تقدير حسابي وليس قراءة فعلية من الخزان.</p>
     </div>
 
     <!-- Filters Bar -->
@@ -66,7 +66,7 @@
       </div>
       <div class="stat-group success">
         <div class="stat-item">
-          <div class="label">إجمالي الوقود الافتراضي (لتر)</div>
+          <div class="label">إجمالي تقدير الوقود (لتر)</div>
           <div class="value">{{ summary.sum_virtual_fuel }}</div>
         </div>
       </div>
@@ -86,7 +86,7 @@
               <th>الوجهة</th>
               <th>الحالة</th>
               <th>المراجعة</th>
-              <th>وقود افتراضي</th>
+              <th>تقدير الوقود</th>
               <th>النقاط</th>
               <th>إجراءات</th>
             </tr>

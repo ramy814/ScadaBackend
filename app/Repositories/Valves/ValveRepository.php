@@ -21,6 +21,13 @@ class ValveRepository
         return $this->model->orderBy('W4_GENERAL_ID')->get();
     }
 
+    public function forMap(): Collection
+    {
+        return $this->attachWgs84Coordinates(
+            $this->model->orderBy('W4_GENERAL_ID')->get(),
+        );
+    }
+
     public function assignedToInspector(?ValveInspector $inspector, array $filters = []): Collection
     {
         $query = $this->model->newQuery();

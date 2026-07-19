@@ -25,6 +25,7 @@ class StoreTripRequest extends FormRequest
             'end_odometer' => ['nullable', 'integer', 'min:0'],
             'wait_minutes' => ['nullable', 'integer', 'min:0'],
             'points_expected' => ['nullable', 'integer', 'min:0'],
+            'quality_version' => ['nullable', 'integer', 'in:2'],
             'passengers' => ['array'],
             'passengers.*.employee_id' => ['nullable', 'string', 'max:120'],
             'passengers.*.name' => ['required', 'string', 'max:255'],
@@ -37,4 +38,3 @@ class StoreTripRequest extends FormRequest
         ];
     }
 }
-

@@ -23,6 +23,7 @@ class MapController extends Controller
                 (string) $request->query('layers', ''),
                 (float) $request->query('lat', 0),
                 (float) $request->query('lng', 0),
+                (int) $request->query('zoom', 12),
             ),
         );
     }

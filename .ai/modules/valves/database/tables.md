@@ -17,6 +17,7 @@ Authoritative source for municipality water network records used by the valves m
 - `W4_VALVE_NO`: Valve number.
 - `W4_VALVE_OPEN`: Open/closed source value where populated.
 - `GEOMETRY`: Oracle Spatial geometry. Do not select this with normal `select *`/Eloquent queries because PDO may throw `ORA-00932`.
+- Web-map coordinates are attached separately by `ValveRepository::forMap()` using `SDO_CS.TRANSFORM(..., 4326)` and `SDO_UTIL.GETVERTICES`. `ValveService::getMapValves()` accepts only coordinates inside the Gaza bounding box (`31.15..31.65` latitude, `34.15..34.65` longitude); corrupt spatial outliers remain untouched in Oracle and are omitted only from the web payload.
 
 There must be no local managed `VALVES` table. Migration `2026_06_30_000009_drop_wrong_valves_table.php` removes the incorrectly-created table.
 

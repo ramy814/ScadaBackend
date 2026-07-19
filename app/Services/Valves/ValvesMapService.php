@@ -21,7 +21,7 @@ class ValvesMapService
         'cite:V_LANDMARKS_V2',
     ];
 
-    public function features(string $layers, float $lat, float $lng): Collection
+    public function features(string $layers, float $lat, float $lng, int $zoom = 12): Collection
     {
         $allowedLayers = collect(explode(',', $layers))
             ->map(fn (string $layer): string => trim($layer))
@@ -33,7 +33,7 @@ class ValvesMapService
             return collect();
         }
 
-        $buffer = 0.001;
+        $buffer = $this->featureBuffer($zoom);
         $query = http_build_query([
             'service' => 'WFS',
             'version' => '1.0.0',
@@ -67,14 +67,25 @@ class ValvesMapService
                 $properties = $feature['properties'] ?? [];
                 $featureId = (string) ($feature['id'] ?? '');
                 $id = strrchr($featureId, '.');
+                $layer = strstr($featureId, '.', true);
 
                 if (!isset($properties['W4_GENERAL_ID']) && str_contains(strtoupper($featureId), 'WATER_VALVES.') && $id !== false) {
                     $properties['W4_GENERAL_ID'] = (int) substr($id, 1);
                 }
 
+                $properties['_feature_layer'] = $layer === false ? null : $layer;
+                $properties['_feature_id'] = $featureId;
+
                 return $properties;
             })
             ->filter()
             ->values();
+    }
+
+    private function featureBuffer(int $zoom): float
+    {
+        $zoom = max(10, min(19, $zoom));
+
+        return max(0.00005, min(0.001, 0.001 / (2 ** max(0, $zoom - 12))));
     }
 }

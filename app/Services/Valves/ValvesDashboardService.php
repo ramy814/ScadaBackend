@@ -61,8 +61,6 @@ class ValvesDashboardService
             ])
             ->toArray();
 
-        $mapValves = [];
-
         return [
             'totalValves'       => $totalValves,
             'openValves'        => $openValves,
@@ -76,7 +74,6 @@ class ValvesDashboardService
             'resolvedReports'   => $resolvedReports,
             'recentReports'     => $recentReports,
             'recentActions'     => $recentActions,
-            'mapValves'         => $mapValves,
         ];
     }
 }

@@ -18,6 +18,9 @@ class TripPoint extends Model
         'battery_level',
         'provider',
         'captured_at',
+        'recorded_at',
+        'client_is_valid',
+        'quality_reason',
     ];
 
     public $timestamps = false;
@@ -32,6 +35,8 @@ class TripPoint extends Model
             'heading' => 'decimal:2',
             'battery_level' => 'integer',
             'captured_at' => 'datetime',
+            'recorded_at' => 'datetime',
+            'client_is_valid' => 'boolean',
         ];
     }
 

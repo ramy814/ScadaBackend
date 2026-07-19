@@ -19,7 +19,9 @@ class UploadTripPointsRequest extends FormRequest
             'points.*.battery_level' => ['nullable', 'integer', 'min:0', 'max:100'],
             'points.*.provider' => ['nullable', 'string', 'max:50'],
             'points.*.captured_at' => ['required', 'date'],
+            'points.*.recorded_at' => ['nullable', 'date'],
+            'points.*.client_is_valid' => ['sometimes', 'boolean'],
+            'points.*.quality_reason' => ['nullable', 'string', 'max:80'],
         ];
     }
 }
-

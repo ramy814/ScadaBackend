@@ -14,10 +14,19 @@
     <!-- Stats -->
     <div class="stats-grid-5">
       <div class="stat-card"><div class="label">النقاط</div><div class="value" :style="pointsColor">{{ trip.points_received }} / {{ trip.points_expected }}</div></div>
-      <div class="stat-card"><div class="label">المسافة التقريبية</div><div class="value">{{ distanceKm }} <span class="unit">كم</span></div></div>
-      <div class="stat-card"><div class="label">مدة الرحلة</div><div class="value">{{ tripDurationMinutes ?? '-' }} <span class="unit">دقيقة</span></div></div>
+      <div class="stat-card"><div class="label">{{ qualityVersion >= 2 ? 'المسافة المنقّاة' : 'المسافة التقريبية' }}</div><div class="value">{{ distanceKm }} <span class="unit">كم</span></div></div>
+      <div class="stat-card"><div class="label">{{ qualityVersion >= 2 ? 'المدة المعتمدة' : 'مدة الرحلة' }}</div><div class="value">{{ tripDurationMinutes ?? '-' }} <span class="unit">دقيقة</span></div></div>
       <div class="stat-card"><div class="label">وقت الانتظار</div><div class="value" :style="totalWait > 0 ? 'color:var(--warn)' : ''">{{ totalWait > 0 ? totalWait + ' دقيقة' : 'لا يوجد' }}</div></div>
-      <div class="stat-card"><div class="label">الوقود الافتراضي</div><div class="value">{{ trip.virtual_fuel_liters ?? '-' }} <span class="unit">لتر</span></div></div>
+      <div class="stat-card"><div class="label">{{ qualityVersion >= 2 ? 'الوقود التقديري المنقّى' : 'الوقود الافتراضي' }}</div><div class="value">{{ estimatedFuelLiters ?? '-' }} <span class="unit">لتر</span></div></div>
+    </div>
+
+    <div v-if="qualityMessages.length" class="alert-box" style="border-right:4px solid var(--warn);margin-bottom:24px;">
+      <strong style="display:block;color:var(--warn);margin-bottom:6px;">تنبيه جودة البيانات</strong>
+      <div>{{ qualityMessages.join('، ') }}</div>
+      <div style="font-size:12px;color:var(--text-secondary);margin-top:6px;">
+        القيم الخام للتدقيق: {{ rawDistanceKm }} كم، {{ reportedTripDurationMinutes ?? '-' }} دقيقة.
+        استُبعدت {{ rejectedPoints }} نقطة من الحساب فقط، ولم تُحذف من السجل.
+      </div>
     </div>
 
     <!-- Info Panels -->
@@ -78,10 +87,10 @@
       <div class="panel-header map-panel-header">
         <div>
           <div>مسار الرحلة</div>
-          <div class="map-panel-subtitle">عرض نقاط GPS الأصلية بالترتيب الزمني</div>
+          <div class="map-panel-subtitle">{{ qualityVersion >= 2 ? 'عرض مقاطع GPS المقبولة دون وصل فجوات التتبع' : 'عرض نقاط GPS الأصلية بالترتيب الزمني' }}</div>
         </div>
         <div class="map-header-actions">
-          <span class="badge neutral">{{ points.length }} نقطة مسجلة</span>
+          <span class="badge neutral">{{ pointsCount }} نقطة مسجلة</span>
         </div>
       </div>
       <div class="map-legend" aria-label="دليل مسار الرحلة">
@@ -97,11 +106,11 @@
           <span class="map-legend-route" aria-hidden="true"></span>
           <div>
             <span>المسار الفعلي</span>
-            <strong>حسب نقاط GPS الأصلية</strong>
+            <strong>حسب نقاط GPS الموثوقة</strong>
           </div>
         </div>
       </div>
-      <div class="map-integrity-note">المسار المعروض هو سجل GPS الأصلي غير المعدّل.</div>
+      <div class="map-integrity-note">{{ qualityVersion >= 2 ? 'المسار المعروض منقّى للحساب؛ تبقى العينات الخام محفوظة للتدقيق.' : 'هذه رحلة من إصدار سابق؛ تُعرض بياناتها الأصلية دون تطبيق قواعد النسخة الجديدة.' }}</div>
       <div class="map-stage">
         <div ref="mapEl" class="trip-map" aria-label="خريطة مسار الرحلة"></div>
         <div class="map-floating-panel">
@@ -111,8 +120,8 @@
             <strong>الأسهم توضح اتجاه السير</strong>
           </div>
         </div>
-        <div v-if="!mappedPoints.length" class="map-empty-state">لا توجد نقاط GPS كافية لعرض مسار هذه الرحلة.</div>
-        <button v-if="mappedPoints.length" type="button" class="map-fit-button" @click="fitRouteBounds">
+        <div v-if="!mappedSegments.length" class="map-empty-state">لا توجد نقاط GPS موثوقة كافية لعرض مسار هذه الرحلة.</div>
+        <button v-if="mappedSegments.length" type="button" class="map-fit-button" @click="fitRouteBounds">
           عرض المسار كاملاً
         </button>
       </div>
@@ -259,11 +268,17 @@ const page = usePage();
 
 const props = defineProps({
   trip: { type: Object, required: true },
-  points: { type: Array, default: () => [] },
-  mappedPoints: { type: Array, default: () => [] },
+  qualityVersion: { type: Number, default: 0 },
+  pointsCount: { type: Number, default: 0 },
+  mappedSegments: { type: Array, default: () => [] },
   distanceKm: Number,
+  rawDistanceKm: Number,
   stopsMinutes: Number,
   tripDurationMinutes: Number,
+  reportedTripDurationMinutes: Number,
+  qualityFlags: { type: Array, default: () => [] },
+  rejectedPoints: { type: Number, default: 0 },
+  estimatedFuelLiters: Number,
 });
 
 const mapEl = ref(null);
@@ -277,6 +292,29 @@ let routeBounds = null;
 
 const totalWait = computed(() =>
   Math.max(props.stopsMinutes ?? 0, props.trip.wait_minutes ?? 0)
+);
+
+const qualityLabels = {
+  poor_accuracy: 'نقاط GPS منخفضة الدقة',
+  impossible_speed: 'سرعات GPS غير منطقية',
+  point_outside_trip_time: 'نقاط خارج زمن الرحلة',
+  out_of_order_time: 'توقيت نقاط غير مرتب',
+  tracking_gap: 'انقطاع طويل في التتبع',
+  gps_noise: 'اهتزاز GPS أثناء الوقوف',
+  gps_jump: 'قفزات GPS مستبعدة',
+  invalid_duration: 'مدة غير صحيحة',
+  duration_over_12h: 'المدة المبلّغ عنها تجاوزت 12 ساعة',
+  invalid_point: 'نقاط غير صالحة',
+  mocked_location: 'موقع وهمي أو محاكى مستبعد',
+  stale_or_future_timestamp: 'وقت GPS قديم أو مستقبلي',
+  client_rejected: 'عينات رفضها فحص الهاتف',
+  no_gps_points: 'لم تُسجل أي نقاط GPS',
+  no_valid_points: 'لم توجد نقاط GPS موثوقة للحساب',
+  distance_over_policy: 'المسافة تجاوزت 200 كم وتحتاج مراجعة قبل اعتماد الوقود',
+  incomplete_upload: 'رفع نقاط الرحلة غير مكتمل؛ لن يُعتمد الوقود قبل اكتماله',
+};
+const qualityMessages = computed(() =>
+  props.qualityFlags.map(flag => qualityLabels[flag] ?? flag)
 );
 
 const pointsColor = computed(() => {
@@ -350,8 +388,10 @@ onMounted(async () => {
     attribution: '© OpenStreetMap',
   }).addTo(mapInstance);
 
-  if (!props.mappedPoints.length) return;
-  const rawLatLngs = props.mappedPoints.map(p => [p.lat, p.lng]);
+  if (!props.mappedSegments.length) return;
+  const filteredSegments = props.mappedSegments
+    .map(segment => segment.map(point => [point.lat, point.lng]))
+    .filter(segment => segment.length);
   const routeStyle = {
     lineCap: 'round',
     lineJoin: 'round',
@@ -468,7 +508,7 @@ onMounted(async () => {
           offset: [0, 14],
           className: 'trip-map-tooltip trip-map-tooltip-start',
         })
-        .bindPopup('نقطة انطلاق GPS الأصلية')
+        .bindPopup('أول نقطة GPS موثوقة')
         .addTo(group);
       L.circleMarker(end, { ...markerStyle, fillColor: '#dc2626' })
         .bindTooltip('نهاية الرحلة', {
@@ -477,17 +517,17 @@ onMounted(async () => {
           offset: [0, -14],
           className: 'trip-map-tooltip trip-map-tooltip-end',
         })
-        .bindPopup('نقطة وصول GPS الأصلية')
+        .bindPopup('آخر نقطة GPS موثوقة')
         .addTo(group);
     }
 
     return { group, bounds, hasReturn: directionalRoute.hasReturn };
   }
 
-  const rawRoute = buildRouteLayer([rawLatLngs]);
-  routeLayer = rawRoute.group;
-  routeBounds = rawRoute.bounds;
-  routeHasReturn.value = rawRoute.hasReturn;
+  const filteredRoute = buildRouteLayer(filteredSegments);
+  routeLayer = filteredRoute.group;
+  routeBounds = filteredRoute.bounds;
+  routeHasReturn.value = filteredRoute.hasReturn;
   routeLayer.addTo(mapInstance);
   fitRouteBounds();
 });

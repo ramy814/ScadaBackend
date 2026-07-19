@@ -118,6 +118,7 @@ The wells module has its own AI context under `.ai/modules/wells/`.
 The valves module manages municipality valves operations and maintenance logs.
 - Valve source data is read from external Oracle table `EME.WATER_VALVES`; do not create or repopulate a local `VALVES` table.
 - `App\Models\Valves\Valve` maps to `EME.WATER_VALVES` with primary key `W4_GENERAL_ID` and avoids selecting the Oracle Spatial `GEOMETRY` column by default.
+- `ValveRepository::forMap()` transforms `GEOMETRY` to WGS84 without selecting the spatial object through normal PDO hydration. `ValveService::getMapValves()` excludes missing coordinates and values outside the Gaza bounding box before serializing the web-map payload; outliers are neither modified nor deleted in Oracle.
 - Managed features in `CONTROL_UNIT`: `VALVE_LOGS`, `VALVE_MAINTENANCE_REPORTS`, `VALVE_TEAMS`, `VALVE_TEAM_VALVES`, `VALVE_INSPECTORS`, and `VALVE_INSPECTOR_TEAMS`.
 - `VALVE_OID` columns store `EME.WATER_VALVES.W4_GENERAL_ID`; they are not foreign keys to a local `VALVES` table.
 - Context is located under `.ai/modules/valves/`.

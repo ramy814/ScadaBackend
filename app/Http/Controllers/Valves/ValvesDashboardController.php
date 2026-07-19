@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Valves;
 
 use App\Http\Controllers\Controller;
+use App\Services\Valves\ValveService;
 use App\Services\Valves\ValvesDashboardService;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -13,6 +14,7 @@ class ValvesDashboardController extends Controller
 {
     public function __construct(
         private readonly ValvesDashboardService $dashboardService,
+        private readonly ValveService $valveService,
     ) {}
 
     public function index(): Response
@@ -25,7 +27,7 @@ class ValvesDashboardController extends Controller
     public function map(): Response
     {
         return Inertia::render('Valves/Map', [
-            'mapValves' => $this->dashboardService->getStats()['mapValves'] ?? [],
+            'mapValves' => $this->valveService->getMapValves(),
             'mapFeaturesUrl' => route('valves.map.features'),
         ]);
     }

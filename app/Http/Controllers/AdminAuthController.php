@@ -8,6 +8,8 @@ use App\Models\MissionType;
 use App\Models\Trip;
 use App\Repositories\MunicipalityDriverRepository;
 use App\Repositories\MunicipalityVehicleRepository;
+use App\Repositories\TripRepository;
+use App\Services\VirtualFuelService;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -44,6 +46,7 @@ class AdminAuthController extends Controller
     public function dashboard(
         MunicipalityVehicleRepository $vehicleRepository,
         MunicipalityDriverRepository $driverRepository,
+        TripRepository $tripRepository,
     ): InertiaResponse {
         $period = request()->query('period', 'daily');
         $responseStatus = request()->query('response_status', 'all');
@@ -58,25 +61,12 @@ class AdminAuthController extends Controller
         $rejectedTrips       = Trip::query()->where('review_status', 'rejected')->count();
         $clarificationTrips  = Trip::query()->where('review_status', 'needs_clarification')->count();
 
-        $recentTripsQuery = Trip::query()
-            ->whereBetween('started_at', [$from, $to])
-            ->latest('started_at');
-
-        if ($responseStatus === 'pending') {
-            $recentTripsQuery->where('review_status', 'needs_clarification')->whereNull('clarification_response');
-        } elseif ($responseStatus === 'responded') {
-            $recentTripsQuery->whereNotNull('clarification_response');
-        }
-
-        if ($search !== '') {
-            $likeSearch = "%{$search}%";
-            $recentTripsQuery->where(function ($query) use ($likeSearch): void {
-                $query->where('vehicle_plate', 'like', $likeSearch)
-                    ->orWhere('driver_name', 'like', $likeSearch);
-            });
-        }
-
-        $recentTrips = $recentTripsQuery->paginate(30)->withQueryString();
+        $recentTrips = $tripRepository->paginateForDashboard(
+            $from,
+            $to,
+            $responseStatus,
+            $search,
+        );
         $this->hydrateTripDrivers($recentTrips->getCollection(), $driverRepository);
 
         $clarificationPendingResponse = Trip::query()
@@ -223,7 +213,7 @@ class AdminAuthController extends Controller
         return redirect()->route('admin.mission-types')->with('ok', 'تم تعديل نوع المهمة.');
     }
 
-    public function showTrip(Trip $trip): InertiaResponse
+    public function showTrip(Trip $trip, VirtualFuelService $fuel): InertiaResponse
     {
         $this->hydrateTripDrivers(collect([$trip]), app(MunicipalityDriverRepository::class));
 
@@ -232,29 +222,47 @@ class AdminAuthController extends Controller
             'passengers:id,trip_id,employee_id,name,source',
         ]);
 
-        $points = $trip->points()
-            ->select('id', 'trip_id', 'sequence_number', 'latitude', 'longitude', 'accuracy', 'speed', 'captured_at')
-            ->orderBy('sequence_number')
-            ->get();
+        $pointsQuery = $trip->points()
+            ->select(
+                'id',
+                'trip_id',
+                'sequence_number',
+                'latitude',
+                'longitude',
+                'accuracy',
+                'speed',
+                'captured_at',
+                'recorded_at',
+                'client_is_valid',
+                'quality_reason',
+            );
+        $pointsCount = (clone $pointsQuery)->count();
+        $qualityVersion = (int) ($trip->quality_version ?? 0);
 
-        $mappedPoints = $points->map(fn ($point): array => [
-            'lat' => (float) $point->latitude,
-            'lng' => (float) $point->longitude,
-            'seq' => (int) $point->sequence_number,
-        ])->values()->all();
-
-        $distanceKm = 0.0;
-        $prevPoint  = null;
-        foreach ($points as $point) {
-            if ($prevPoint !== null) {
-                $distanceKm += $this->haversineKm(
-                    (float) $prevPoint->latitude,
-                    (float) $prevPoint->longitude,
-                    (float) $point->latitude,
-                    (float) $point->longitude
-                );
+        if ($qualityVersion >= 2) {
+            $metrics = $fuel->metricsFromPoints(
+                $pointsQuery->orderBy('sequence_number')->cursor(),
+                $trip->started_at,
+                $trip->ended_at,
+                true,
+            );
+            $uploadComplete = $trip->status === 'confirmed'
+                && (int) $trip->points_received === (int) $trip->points_expected;
+            if (! $uploadComplete) {
+                $metrics['quality_flags'][] = 'incomplete_upload';
+                $metrics['quality_flags'] = array_values(array_unique($metrics['quality_flags']));
             }
-            $prevPoint = $point;
+            $estimatedFuel = $uploadComplete
+                ? $fuel->estimateFromMetrics($trip, $metrics)
+                : null;
+        } else {
+            // Keep legacy trips byte-for-byte in their original policy. The
+            // new filters are explicitly opt-in from driver-app quality v2.
+            $metrics = $this->legacyTripMetrics(
+                $pointsQuery->orderBy('sequence_number')->cursor(),
+                $trip,
+            );
+            $estimatedFuel = $trip->virtual_fuel_liters;
         }
 
         $stopsMinutes = $trip->stops->sum(function ($stop) {
@@ -264,17 +272,19 @@ class AdminAuthController extends Controller
             return max(0, $stop->started_at->diffInMinutes($stop->ended_at));
         });
 
-        $tripDurationMinutes = ($trip->started_at && $trip->ended_at)
-            ? $trip->started_at->diffInMinutes($trip->ended_at)
-            : null;
-
         return Inertia::render('Admin/TripShow', [
             'trip'                => $trip,
-            'points'              => $points,
-            'mappedPoints'        => $mappedPoints,
-            'distanceKm'          => round($distanceKm, 2),
+            'qualityVersion'      => $qualityVersion,
+            'pointsCount'         => $pointsCount,
+            'mappedSegments'      => $metrics['accepted_segments'],
+            'distanceKm'          => round((float) $metrics['distance_km'], 2),
+            'rawDistanceKm'       => round((float) $metrics['raw_distance_km'], 2),
             'stopsMinutes'        => $stopsMinutes,
-            'tripDurationMinutes' => $tripDurationMinutes,
+            'tripDurationMinutes' => $metrics['duration_minutes'],
+            'reportedTripDurationMinutes' => $metrics['reported_duration_minutes'],
+            'qualityFlags'        => $metrics['quality_flags'],
+            'rejectedPoints'      => $metrics['rejected_points'],
+            'estimatedFuelLiters' => $estimatedFuel,
         ]);
     }
 
@@ -308,7 +318,7 @@ class AdminAuthController extends Controller
             fputcsv($handle, [
                 'trip_id', 'started_at', 'ended_at', 'driver_name', 'driver_phone',
                 'vehicle_plate', 'vehicle_name', 'origin', 'destination', 'status',
-                'review_status', 'virtual_fuel_liters',
+                'review_status', 'estimated_virtual_fuel_liters',
                 'points_received', 'points_expected',
             ]);
             foreach ($trips as $trip) {
@@ -450,17 +460,6 @@ class AdminAuthController extends Controller
         };
     }
 
-    private function haversineKm(float $lat1, float $lon1, float $lat2, float $lon2): float
-    {
-        $earthRadiusKm = 6371.0;
-        $deltaLat = deg2rad($lat2 - $lat1);
-        $deltaLon = deg2rad($lon2 - $lon1);
-        $a = sin($deltaLat / 2) ** 2
-            + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($deltaLon / 2) ** 2;
-
-        return $earthRadiusKm * 2 * asin(min(1, sqrt($a)));
-    }
-
     private function buildReportData(Request $request): array
     {
         $period = $request->query('period', 'daily');
@@ -586,5 +585,61 @@ class AdminAuthController extends Controller
                 $trip->saveQuietly();
             }
         }
+    }
+
+    private function legacyTripMetrics(iterable $points, Trip $trip): array
+    {
+        $distanceKm = 0.0;
+        $previous = null;
+        $coordinates = [];
+
+        foreach ($points as $point) {
+            $current = [
+                'lat' => (float) $point->latitude,
+                'lng' => (float) $point->longitude,
+            ];
+            if ($previous !== null) {
+                $distanceKm += $this->haversineKm(
+                    $previous['lat'],
+                    $previous['lng'],
+                    $current['lat'],
+                    $current['lng'],
+                );
+            }
+            $coordinates[] = $current;
+            $previous = $current;
+        }
+
+        $duration = ($trip->started_at && $trip->ended_at)
+            ? $trip->started_at->diffInMinutes($trip->ended_at)
+            : null;
+
+        return [
+            'accepted_segments' => $coordinates === [] ? [] : [$coordinates],
+            'distance_km' => round($distanceKm, 3),
+            'raw_distance_km' => round($distanceKm, 3),
+            'duration_minutes' => $duration,
+            'reported_duration_minutes' => $duration,
+            'rejected_points' => 0,
+            'quality_flags' => [],
+        ];
+    }
+
+    private function haversineKm(
+        float $latitude1,
+        float $longitude1,
+        float $latitude2,
+        float $longitude2,
+    ): float {
+        $earthKm = 6371.0;
+        $deltaLatitude = deg2rad($latitude2 - $latitude1);
+        $deltaLongitude = deg2rad($longitude2 - $longitude1);
+        $a = sin($deltaLatitude / 2) ** 2
+            + cos(deg2rad($latitude1))
+            * cos(deg2rad($latitude2))
+            * sin($deltaLongitude / 2) ** 2;
+        $a = min(1.0, max(0.0, $a));
+
+        return $earthKm * 2 * atan2(sqrt($a), sqrt(max(0.0, 1 - $a)));
     }
 }

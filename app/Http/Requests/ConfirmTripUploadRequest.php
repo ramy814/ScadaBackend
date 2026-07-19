@@ -10,8 +10,8 @@ class ConfirmTripUploadRequest extends FormRequest
     {
         return [
             'points_expected' => ['required', 'integer', 'min:0'],
-            'checksum' => ['required', 'string', 'max:128'],
+            'checksum' => ['required', 'string', 'regex:/^[a-fA-F0-9]{64}$/'],
+            'checksum_version' => ['nullable', 'integer', 'in:1,2'],
         ];
     }
 }
-

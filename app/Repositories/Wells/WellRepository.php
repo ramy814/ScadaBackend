@@ -28,6 +28,7 @@ class WellRepository
         $query = $this->withSourceWellCode($this->model->newQuery())
             ->with(['teams', 'generators'])
             ->withCount(['readings', 'dieselInventories'])
+            ->orderByDesc('wells.IS_ACTIVE')
             ->orderBy('wells.NAME');
 
         if (! empty($filters['search'])) {

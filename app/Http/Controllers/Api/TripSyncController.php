@@ -31,8 +31,14 @@ class TripSyncController extends Controller
         ], 201);
     }
 
-    public function uploadPoints(UploadTripPointsRequest $request, Trip $trip, TripSyncService $sync): JsonResponse
-    {
+    public function uploadPoints(
+        UploadTripPointsRequest $request,
+        Trip $trip,
+        TripSyncService $sync,
+        CurrentBeneficiaryService $drivers,
+    ): JsonResponse {
+        $driver = $drivers->resolve($request->user());
+        $sync->assertOwnedBy($trip, $driver);
         $received = $sync->uploadPoints($trip, $request->validated('points'));
 
         return response()->json([
@@ -41,8 +47,14 @@ class TripSyncController extends Controller
         ]);
     }
 
-    public function confirm(ConfirmTripUploadRequest $request, Trip $trip, TripSyncService $sync): JsonResponse
-    {
+    public function confirm(
+        ConfirmTripUploadRequest $request,
+        Trip $trip,
+        TripSyncService $sync,
+        CurrentBeneficiaryService $drivers,
+    ): JsonResponse {
+        $driver = $drivers->resolve($request->user());
+        $sync->assertOwnedBy($trip, $driver);
         $trip = $sync->confirm(
             $trip,
             (int) $request->validated('points_expected'),
