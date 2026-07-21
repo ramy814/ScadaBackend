@@ -10,6 +10,7 @@ use App\Http\Requests\UploadTripPointsRequest;
 use App\Models\AuditLog;
 use App\Models\Trip;
 use App\Services\CurrentBeneficiaryService;
+use App\Services\DriverTripSummaryService;
 use App\Services\TripSyncService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -51,6 +52,7 @@ class TripSyncController extends Controller
         ConfirmTripUploadRequest $request,
         Trip $trip,
         TripSyncService $sync,
+        DriverTripSummaryService $summaries,
         CurrentBeneficiaryService $drivers,
     ): JsonResponse {
         $driver = $drivers->resolve($request->user());
@@ -68,11 +70,15 @@ class TripSyncController extends Controller
             'points_received' => $trip->points_received,
             'virtual_fuel_liters' => $trip->virtual_fuel_liters,
             'can_delete_local' => $trip->status === 'confirmed',
+            ...$summaries->summarize($trip),
         ]);
     }
 
-    public function index(Request $request, CurrentBeneficiaryService $drivers): JsonResponse
-    {
+    public function index(
+        Request $request,
+        CurrentBeneficiaryService $drivers,
+        DriverTripSummaryService $summaries,
+    ): JsonResponse {
         $driver = $drivers->resolve($request->user());
         $status = (string) $request->query('status', '');
         $reviewStatus = (string) $request->query('review_status', '');
@@ -128,6 +134,7 @@ class TripSyncController extends Controller
                 'points_expected' => $trip->points_expected,
                 'points_received' => $trip->points_received,
                 'confirmed_at' => optional($trip->confirmed_at)?->toIso8601String(),
+                ...$summaries->summarize($trip),
             ])
             ->values();
 
@@ -136,8 +143,11 @@ class TripSyncController extends Controller
         ]);
     }
 
-    public function reconcile(Request $request, CurrentBeneficiaryService $drivers): JsonResponse
-    {
+    public function reconcile(
+        Request $request,
+        CurrentBeneficiaryService $drivers,
+        DriverTripSummaryService $summaries,
+    ): JsonResponse {
         $driver = $drivers->resolve($request->user());
         $localIdsCsv = trim((string) $request->query('local_ids', ''));
         $localIds = collect(explode(',', $localIdsCsv))
@@ -158,7 +168,7 @@ class TripSyncController extends Controller
             ->get()
             ->keyBy('local_id');
 
-        $items = $localIds->map(function (string $localId) use ($rows): array {
+        $items = $localIds->map(function (string $localId) use ($rows, $summaries): array {
             /** @var Trip|null $trip */
             $trip = $rows->get($localId);
             if (! $trip) {
@@ -180,6 +190,7 @@ class TripSyncController extends Controller
                 'points_received' => $trip->points_received,
                 'virtual_fuel_liters' => $trip->virtual_fuel_liters,
                 'vehicle_plate' => $trip->vehicle_plate,
+                ...$summaries->summarize($trip),
             ];
         })->values();
 

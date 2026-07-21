@@ -22,6 +22,7 @@ resources/
 │       ├── Admin/
 │       │   ├── Dashboard.vue   # Map view and pending trips
 │       │   ├── Reports.vue     # Filtering and exporting data
+│       │   ├── DriverApps.vue  # Driver app adoption/version monitoring
 │       │   ├── TripShow.vue    # Detailed view of a single trip (map + points)
 │       │   ├── Locations.vue   # CRUD for mission locations
 │       │   └── MissionTypes.vue# CRUD for mission types
@@ -51,10 +52,12 @@ resources/
 10. **Diesel Generator Label**: The diesel inventory page reads `RESOLVED_GENERATOR` and shows its generator number as a non-wrapping LTR line with the Arabic name below it. The backend resolves a null inventory `GENERATOR_OID` only from a single unambiguous `WELL_GENERATORS` assignment.
 11. **Valves Web Map Modes**: `Valves/Map.vue` defaults to an OpenStreetMap base containing only Oracle-backed valve markers. GeoServer is a mutually exclusive base mode with a separate WMS layer selector that is hidden in OpenStreetMap mode. GeoServer clicks query visible-layer properties through same-origin `/valves/map-features` and render localized RTL popups; switching to OSM aborts that lookup. The map uses Gaza bounds (`31.15..31.65` latitude, `34.15..34.65` longitude) and `minZoom = 10`; never fit the view to unfiltered Oracle Spatial coordinates.
 12. **Fleet Dashboard Trip Search**: `Admin/Dashboard.vue` displays `#id` as the user-facing trip number. Its shared search field matches an exact numeric trip ID as well as partial vehicle plates and driver names, while retaining the selected period and clarification-status filters.
+13. **Driver App Monitoring**: `Admin/DriverApps.vue` combines presence telemetry and trip-history users, then displays live Oracle vehicle assignments, version/build, installer source, and last presence. Search and filters use the globally shared `urls.driverApps`; do not hard-code the route or use Ziggy.
 
 ## Trip Map Display Contract
 
-- `TripShow.vue` displays the original GPS trace from `trip_points`, ordered by `sequence_number`.
+- `TripShow.vue` always displays the recorded distance and also displays the filtered distance when quality filtering is available. Quality-v2 trips are always filtered; legacy trips are filtered only when at least 80% of their samples contain usable GPS accuracy metadata. The map then uses accepted segments without changing stored points; legacy trips with insufficient metadata retain their original trace.
+- Solid blue segments are included in filtered distance/fuel. Amber dashed connectors make GPS coverage gaps understandable but are display-only and never contribute to distance or fuel. Duplicate-time and stationary samples are reported as collapsed, not falsely labeled as invalid or out-of-order.
 - The trip map does not provide an original/corrected toggle and does not request a server-side or third-party road-matched route.
 - No Docker, OSRM service, Windows service, map-matching environment variables, or external routing API is required for production deployment.
 - Start is a green marker and end is a red marker, both with permanent Arabic labels.

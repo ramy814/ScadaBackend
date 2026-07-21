@@ -39,6 +39,8 @@ class Trip extends Model
         'confirmed_at',
         'wait_minutes',
         'virtual_fuel_liters',
+        'distance_km',
+        'duration_minutes',
         'quality_version',
         'review_status',
         'review_note',
@@ -59,6 +61,8 @@ class Trip extends Model
             'reviewed_at' => 'datetime',
             'clarification_responded_at' => 'datetime',
             'virtual_fuel_liters' => 'decimal:3',
+            'distance_km' => 'decimal:3',
+            'duration_minutes' => 'integer',
             'quality_version' => 'integer',
         ];
     }

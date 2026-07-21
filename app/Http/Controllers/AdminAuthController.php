@@ -15,9 +15,11 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 use Mog\ProjectHelper\AuthHelpers;
+use Mpdf\Mpdf;
 
 class AdminAuthController extends Controller
 {
@@ -30,12 +32,12 @@ class AdminAuthController extends Controller
         if ($request->has('sso_error')) {
             return response(
                 '<html><head><meta charset="utf-8"><title>خطأ في تسجيل الدخول</title></head>'
-                . '<body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#1a1a2e;color:#fff;">'
-                . '<div style="text-align:center;">'
-                . '<h2>⚠️ فشل تسجيل الدخول</h2>'
-                . '<p>تعذّر التحقق من رمز SSO. الرجاء المحاولة مرة أخرى.</p>'
-                . '<a href="/admin/login" style="color:#6c9ef8;">إعادة المحاولة</a>'
-                . '</div></body></html>',
+                .'<body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#1a1a2e;color:#fff;">'
+                .'<div style="text-align:center;">'
+                .'<h2>⚠️ فشل تسجيل الدخول</h2>'
+                .'<p>تعذّر التحقق من رمز SSO. الرجاء المحاولة مرة أخرى.</p>'
+                .'<a href="/admin/login" style="color:#6c9ef8;">إعادة المحاولة</a>'
+                .'</div></body></html>',
                 200
             );
         }
@@ -53,13 +55,13 @@ class AdminAuthController extends Controller
         $search = trim((string) request()->query('search', ''));
         [$from, $to] = $this->periodRange($period);
 
-        $todayTrips          = Trip::query()->whereDate('started_at', now()->toDateString())->count();
-        $confirmedTrips      = Trip::query()->where('status', 'confirmed')->count();
-        $activeVehicles      = \Illuminate\Support\Facades\DB::connection('oracle')->table('g_store.VEHICLE')->where('IS_ACTIVE', 1)->count();
-        $activeDrivers       = \Illuminate\Support\Facades\DB::connection('oracle')->table('g_store.BENEFICIARIES')->where('IS_ACTIVE', 1)->count();
-        $approvedTrips       = Trip::query()->where('review_status', 'approved')->count();
-        $rejectedTrips       = Trip::query()->where('review_status', 'rejected')->count();
-        $clarificationTrips  = Trip::query()->where('review_status', 'needs_clarification')->count();
+        $todayTrips = Trip::query()->whereDate('started_at', now()->toDateString())->count();
+        $confirmedTrips = Trip::query()->where('status', 'confirmed')->count();
+        $activeVehicles = DB::connection('oracle')->table('g_store.VEHICLE')->where('IS_ACTIVE', 1)->count();
+        $activeDrivers = DB::connection('oracle')->table('g_store.BENEFICIARIES')->where('IS_ACTIVE', 1)->count();
+        $approvedTrips = Trip::query()->where('review_status', 'approved')->count();
+        $rejectedTrips = Trip::query()->where('review_status', 'rejected')->count();
+        $clarificationTrips = Trip::query()->where('review_status', 'needs_clarification')->count();
 
         $recentTrips = $tripRepository->paginateForDashboard(
             $from,
@@ -79,19 +81,19 @@ class AdminAuthController extends Controller
             ->count();
 
         return Inertia::render('Admin/Dashboard', [
-            'todayTrips'                   => $todayTrips,
-            'confirmedTrips'               => $confirmedTrips,
-            'activeVehicles'               => $activeVehicles,
-            'activeDrivers'                => $activeDrivers,
-            'approvedTrips'                => $approvedTrips,
-            'rejectedTrips'                => $rejectedTrips,
-            'clarificationTrips'           => $clarificationTrips,
+            'todayTrips' => $todayTrips,
+            'confirmedTrips' => $confirmedTrips,
+            'activeVehicles' => $activeVehicles,
+            'activeDrivers' => $activeDrivers,
+            'approvedTrips' => $approvedTrips,
+            'rejectedTrips' => $rejectedTrips,
+            'clarificationTrips' => $clarificationTrips,
             'clarificationPendingResponse' => $clarificationPendingResponse,
-            'clarificationResponded'       => $clarificationResponded,
-            'period'                       => $period,
-            'responseStatus'               => $responseStatus,
-            'search'                       => $search,
-            'recentTrips'                  => $recentTrips,
+            'clarificationResponded' => $clarificationResponded,
+            'period' => $period,
+            'responseStatus' => $responseStatus,
+            'search' => $search,
+            'recentTrips' => $recentTrips,
         ]);
     }
 
@@ -108,17 +110,17 @@ class AdminAuthController extends Controller
     public function storeLocation(Request $request): RedirectResponse
     {
         $data = $request->validate([
-            'name'       => ['required', 'string', 'max:255'],
-            'category'   => ['required', 'in:origin,destination,both'],
+            'name' => ['required', 'string', 'max:255'],
+            'category' => ['required', 'in:origin,destination,both'],
             'sort_order' => ['nullable', 'integer', 'min:0'],
-            'active'     => ['nullable', 'boolean'],
+            'active' => ['nullable', 'boolean'],
         ]);
 
         MissionLocation::query()->create([
-            'name'       => $data['name'],
-            'category'   => $data['category'],
+            'name' => $data['name'],
+            'category' => $data['category'],
             'sort_order' => $data['sort_order'] ?? 0,
-            'active'     => (bool) ($data['active'] ?? true),
+            'active' => (bool) ($data['active'] ?? true),
         ]);
 
         return redirect()->route('admin.locations')->with('ok', 'تمت إضافة الموقع.');
@@ -127,17 +129,17 @@ class AdminAuthController extends Controller
     public function updateLocation(Request $request, MissionLocation $location): RedirectResponse
     {
         $data = $request->validate([
-            'name'       => ['required', 'string', 'max:255'],
-            'category'   => ['required', 'in:origin,destination,both'],
+            'name' => ['required', 'string', 'max:255'],
+            'category' => ['required', 'in:origin,destination,both'],
             'sort_order' => ['nullable', 'integer', 'min:0'],
-            'active'     => ['nullable', 'boolean'],
+            'active' => ['nullable', 'boolean'],
         ]);
 
         $location->update([
-            'name'       => $data['name'],
-            'category'   => $data['category'],
+            'name' => $data['name'],
+            'category' => $data['category'],
             'sort_order' => $data['sort_order'] ?? 0,
-            'active'     => (bool) ($data['active'] ?? false),
+            'active' => (bool) ($data['active'] ?? false),
         ]);
 
         return redirect()->route('admin.locations')->with('ok', 'تم تعديل الموقع.');
@@ -153,7 +155,7 @@ class AdminAuthController extends Controller
         } catch (QueryException $exception) {
             if ((int) $exception->getCode() === 942 || str_contains($exception->getMessage(), 'ORA-00942')) {
                 return Inertia::render('Admin/MissionTypes', [
-                    'items'        => collect(),
+                    'items' => collect(),
                     'tableMissing' => true,
                 ]);
             }
@@ -166,16 +168,16 @@ class AdminAuthController extends Controller
     public function storeMissionType(Request $request): RedirectResponse
     {
         $data = $request->validate([
-            'name'       => ['required', 'string', 'max:255'],
+            'name' => ['required', 'string', 'max:255'],
             'sort_order' => ['nullable', 'integer', 'min:0'],
-            'active'     => ['nullable', 'boolean'],
+            'active' => ['nullable', 'boolean'],
         ]);
 
         try {
             MissionType::query()->create([
-                'name'       => $data['name'],
+                'name' => $data['name'],
                 'sort_order' => $data['sort_order'] ?? 0,
-                'active'     => (bool) ($data['active'] ?? true),
+                'active' => (bool) ($data['active'] ?? true),
             ]);
         } catch (QueryException $exception) {
             if ((int) $exception->getCode() === 942 || str_contains($exception->getMessage(), 'ORA-00942')) {
@@ -191,16 +193,16 @@ class AdminAuthController extends Controller
     public function updateMissionType(Request $request, MissionType $missionType): RedirectResponse
     {
         $data = $request->validate([
-            'name'       => ['required', 'string', 'max:255'],
+            'name' => ['required', 'string', 'max:255'],
             'sort_order' => ['nullable', 'integer', 'min:0'],
-            'active'     => ['nullable', 'boolean'],
+            'active' => ['nullable', 'boolean'],
         ]);
 
         try {
             $missionType->update([
-                'name'       => $data['name'],
+                'name' => $data['name'],
                 'sort_order' => $data['sort_order'] ?? 0,
-                'active'     => (bool) ($data['active'] ?? false),
+                'active' => (bool) ($data['active'] ?? false),
             ]);
         } catch (QueryException $exception) {
             if ((int) $exception->getCode() === 942 || str_contains($exception->getMessage(), 'ORA-00942')) {
@@ -238,26 +240,29 @@ class AdminAuthController extends Controller
             );
         $pointsCount = (clone $pointsQuery)->count();
         $qualityVersion = (int) ($trip->quality_version ?? 0);
+        $filteredMetrics = $fuel->metricsFromPoints(
+            $pointsQuery->orderBy('sequence_number')->cursor(),
+            $trip->started_at,
+            $trip->ended_at,
+            true,
+        );
+        $hasFilteredDistance = $qualityVersion >= 2
+            || $fuel->hasSufficientQualityData($filteredMetrics);
 
-        if ($qualityVersion >= 2) {
-            $metrics = $fuel->metricsFromPoints(
-                $pointsQuery->orderBy('sequence_number')->cursor(),
-                $trip->started_at,
-                $trip->ended_at,
-                true,
-            );
+        if ($hasFilteredDistance) {
+            $metrics = $filteredMetrics;
             $uploadComplete = $trip->status === 'confirmed'
                 && (int) $trip->points_received === (int) $trip->points_expected;
-            if (! $uploadComplete) {
+            if ($qualityVersion >= 2 && ! $uploadComplete) {
                 $metrics['quality_flags'][] = 'incomplete_upload';
                 $metrics['quality_flags'] = array_values(array_unique($metrics['quality_flags']));
             }
-            $estimatedFuel = $uploadComplete
-                ? $fuel->estimateFromMetrics($trip, $metrics)
-                : null;
+            $estimatedFuel = $qualityVersion >= 2
+                ? ($uploadComplete ? $fuel->estimateFromMetrics($trip, $metrics) : null)
+                : $trip->virtual_fuel_liters;
         } else {
-            // Keep legacy trips byte-for-byte in their original policy. The
-            // new filters are explicitly opt-in from driver-app quality v2.
+            // Old trips without enough accuracy metadata keep their original
+            // display and calculation policy.
             $metrics = $this->legacyTripMetrics(
                 $pointsQuery->orderBy('sequence_number')->cursor(),
                 $trip,
@@ -265,26 +270,45 @@ class AdminAuthController extends Controller
             $estimatedFuel = $trip->virtual_fuel_liters;
         }
 
+        $fuelEstimateIsProvisional = false;
+        if ($estimatedFuel === null && $hasFilteredDistance) {
+            $estimatedFuel = $fuel->estimateProvisionalFromMetrics($metrics);
+            $fuelEstimateIsProvisional = $estimatedFuel !== null;
+        }
+
         $stopsMinutes = $trip->stops->sum(function ($stop) {
             if (! $stop->started_at || ! $stop->ended_at) {
                 return 0;
             }
+
             return max(0, $stop->started_at->diffInMinutes($stop->ended_at));
         });
 
         return Inertia::render('Admin/TripShow', [
-            'trip'                => $trip,
-            'qualityVersion'      => $qualityVersion,
-            'pointsCount'         => $pointsCount,
-            'mappedSegments'      => $metrics['accepted_segments'],
-            'distanceKm'          => round((float) $metrics['distance_km'], 2),
-            'rawDistanceKm'       => round((float) $metrics['raw_distance_km'], 2),
-            'stopsMinutes'        => $stopsMinutes,
+            'trip' => $trip,
+            'qualityVersion' => $qualityVersion,
+            'hasFilteredDistance' => $hasFilteredDistance,
+            'pointsCount' => $pointsCount,
+            'mappedSegments' => $metrics['accepted_segments'],
+            'gapConnectors' => $metrics['gap_connectors'] ?? [],
+            'recordedStart' => $metrics['recorded_start'] ?? null,
+            'recordedEnd' => $metrics['recorded_end'] ?? null,
+            'distanceKm' => round((float) $metrics['distance_km'], 2),
+            'filteredDistanceKm' => $hasFilteredDistance
+                ? round((float) $metrics['distance_km'], 2)
+                : null,
+            'recordedDistanceKm' => round((float) $metrics['raw_distance_km'], 2),
+            'rawDistanceKm' => round((float) $metrics['raw_distance_km'], 2),
+            'stopsMinutes' => $stopsMinutes,
             'tripDurationMinutes' => $metrics['duration_minutes'],
             'reportedTripDurationMinutes' => $metrics['reported_duration_minutes'],
-            'qualityFlags'        => $metrics['quality_flags'],
-            'rejectedPoints'      => $metrics['rejected_points'],
+            'qualityFlags' => $metrics['quality_flags'],
+            'rejectedPoints' => $metrics['rejected_points'],
+            'collapsedPoints' => $metrics['collapsed_points'] ?? 0,
+            'rejectionCounts' => $metrics['rejection_counts'] ?? [],
             'estimatedFuelLiters' => $estimatedFuel,
+            'fuelEstimateIsProvisional' => $fuelEstimateIsProvisional,
+            'fuelRatePerKm' => $fuel->litersPerKilometer(),
         ]);
     }
 
@@ -297,10 +321,10 @@ class AdminAuthController extends Controller
 
         return Inertia::render('Admin/Reports', [
             ...$filters,
-            'trips'   => $paginatedTrips,
+            'trips' => $paginatedTrips,
             'summary' => [
-                'trips_count'       => (clone $trips)->count(),
-                'sum_virtual_fuel'  => round((float) ((clone $trips)->sum('virtual_fuel_liters') ?? 0), 2),
+                'trips_count' => (clone $trips)->count(),
+                'sum_virtual_fuel' => round((float) ((clone $trips)->sum('virtual_fuel_liters') ?? 0), 2),
             ],
         ]);
     }
@@ -308,13 +332,13 @@ class AdminAuthController extends Controller
     public function reportsCsv(Request $request)
     {
         [$filters, $tripsQuery] = $this->buildReportData($request);
-        $trips    = $tripsQuery->limit(5000)->get();
+        $trips = $tripsQuery->limit(5000)->get();
         $this->hydrateTripDrivers($trips, app(MunicipalityDriverRepository::class));
-        $fileName = 'fleet-report-' . $filters['period'] . '-' . now()->format('Ymd_His') . '.csv';
+        $fileName = 'fleet-report-'.$filters['period'].'-'.now()->format('Ymd_His').'.csv';
 
         return response()->streamDownload(function () use ($trips): void {
             $handle = fopen('php://output', 'wb');
-            fprintf($handle, chr(0xEF) . chr(0xBB) . chr(0xBF));
+            fprintf($handle, chr(0xEF).chr(0xBB).chr(0xBF));
             fputcsv($handle, [
                 'trip_id', 'started_at', 'ended_at', 'driver_name', 'driver_phone',
                 'vehicle_plate', 'vehicle_name', 'origin', 'destination', 'status',
@@ -346,45 +370,47 @@ class AdminAuthController extends Controller
     public function reportsPdf(Request $request)
     {
         [$filters, $tripsQuery] = $this->buildReportData($request);
-        $trips   = $tripsQuery->limit(2000)->get();
+        $trips = $tripsQuery->limit(2000)->get();
         $this->hydrateTripDrivers($trips, app(MunicipalityDriverRepository::class));
         $summary = [
-            'trips_count'      => $trips->count(),
+            'trips_count' => $trips->count(),
             'sum_virtual_fuel' => round((float) ($trips->sum('virtual_fuel_liters') ?? 0), 2),
         ];
 
         $html = view('admin.reports-pdf', [
             ...$filters,
-            'trips'       => $trips,
-            'summary'     => $summary,
+            'trips' => $trips,
+            'summary' => $summary,
             'generatedAt' => now(),
         ])->render();
 
-        $mpdf = new \Mpdf\Mpdf([
-            'mode'              => 'utf-8',
-            'format'            => 'A4-L',
-            'autoScriptToLang'  => true,
-            'autoLangToFont'    => true,
+        $mpdf = new Mpdf([
+            'mode' => 'utf-8',
+            'format' => 'A4-L',
+            'autoScriptToLang' => true,
+            'autoLangToFont' => true,
         ]);
         $mpdf->WriteHTML($html);
 
-        $fileName = 'fleet-report-' . $filters['period'] . '-' . now()->format('Ymd_His') . '.pdf';
+        $fileName = 'fleet-report-'.$filters['period'].'-'.now()->format('Ymd_His').'.pdf';
 
         return response($mpdf->Output('', 'S'), 200, [
-            'Content-Type'        => 'application/pdf',
-            'Content-Disposition' => 'attachment; filename="' . $fileName . '"',
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="'.$fileName.'"',
         ]);
     }
 
     public function approve(Request $request, Trip $trip): RedirectResponse
     {
         $request->validate(['note' => ['nullable', 'string', 'max:1000']]);
+
         return $this->review($request, $trip, 'approved', 'تمت الموافقة على الرحلة بنجاح.');
     }
 
     public function reject(Request $request, Trip $trip): RedirectResponse
     {
         $request->validate(['note' => ['nullable', 'string', 'max:1000']]);
+
         return $this->review($request, $trip, 'rejected', 'تم رفض الرحلة.');
     }
 
@@ -394,6 +420,7 @@ class AdminAuthController extends Controller
             ['note' => ['required', 'string', 'max:1000']],
             ['note.required' => 'يجب إدخال نص السؤال المطلوب من السائق قبل إرسال طلب التوضيح.']
         );
+
         return $this->review($request, $trip, 'needs_clarification', 'تم إرسال طلب التوضيح إلى السائق.');
     }
 
@@ -408,14 +435,14 @@ class AdminAuthController extends Controller
     {
         $updatePayload = [
             'review_status' => $status,
-            'reviewed_at'   => now(),
-            'reviewed_by'   => Auth::guard('admin')->id() ?? 'admin',
+            'reviewed_at' => now(),
+            'reviewed_by' => Auth::guard('admin')->id() ?? 'admin',
         ];
 
         if ($request->has('note')) {
             $newNote = $request->input('note');
             if ($newNote && $trip->review_note && $trip->clarification_response) {
-                $newNote = "الإجراء النهائي: " . $newNote . "\n---\nسؤال التوضيح: " . $trip->review_note;
+                $newNote = 'الإجراء النهائي: '.$newNote."\n---\nسؤال التوضيح: ".$trip->review_note;
             }
             $updatePayload['review_note'] = $newNote ?: null;
         }
@@ -425,11 +452,11 @@ class AdminAuthController extends Controller
         AuditLog::query()->create([
             'event_type' => 'trip.reviewed',
             'entity_type' => 'trip',
-            'entity_id'  => $trip->id,
-            'actor'      => Auth::guard('admin')->id() ?? 'admin',
-            'payload'    => [
+            'entity_id' => $trip->id,
+            'actor' => Auth::guard('admin')->id() ?? 'admin',
+            'payload' => [
                 'review_status' => $status,
-                'note'          => $request->has('note') ? $request->input('note') : '(unchanged)',
+                'note' => $request->has('note') ? $request->input('note') : '(unchanged)',
             ],
         ]);
 
@@ -453,10 +480,11 @@ class AdminAuthController extends Controller
     private function periodRange(string $period): array
     {
         $now = now();
+
         return match ($period) {
-            'weekly'  => [$now->copy()->subWeek(), $now],
+            'weekly' => [$now->copy()->subWeek(), $now],
             'monthly' => [$now->copy()->subMonth(), $now],
-            default   => [$now->copy()->subDay(), $now],
+            default => [$now->copy()->subDay(), $now],
         };
     }
 
@@ -491,11 +519,11 @@ class AdminAuthController extends Controller
         }
 
         return [[
-            'period'        => $period,
-            'driverSearch'  => $driverSearch,
+            'period' => $period,
+            'driverSearch' => $driverSearch,
             'vehicleSearch' => $vehicleSearch,
-            'from'          => $from,
-            'to'            => $to,
+            'from' => $from,
+            'to' => $to,
         ], $trips];
     }
 
@@ -510,14 +538,14 @@ class AdminAuthController extends Controller
         return $driverRepository
             ->search($q, $limit)
             ->map(fn (array $driver): object => (object) [
-                'id'               => $driver['oracle_id'] ?? null,
+                'id' => $driver['oracle_id'] ?? null,
                 'oracle_driver_id' => $driver['oracle_id'] ?? null,
-                'name'             => $driver['name'] ?? null,
-                'phone'            => $driver['phone'] ?? null,
-                'employee_number'  => $driver['employee_number'] ?? null,
-                'active'           => true,
-                'updated_at'       => null,
-                'trips_count'      => (int) ($tripCounts[$driver['oracle_id'] ?? ''] ?? 0),
+                'name' => $driver['name'] ?? null,
+                'phone' => $driver['phone'] ?? null,
+                'employee_number' => $driver['employee_number'] ?? null,
+                'active' => true,
+                'updated_at' => null,
+                'trips_count' => (int) ($tripCounts[$driver['oracle_id'] ?? ''] ?? 0),
             ]);
     }
 
@@ -532,17 +560,17 @@ class AdminAuthController extends Controller
         return $vehicleRepository
             ->search($q, $limit)
             ->map(fn (array $vehicle): object => (object) [
-                'id'                    => $vehicle['oracle_id'] ?? $vehicle['plate_number'] ?? null,
-                'oracle_vehicle_id'     => $vehicle['oracle_id'] ?? null,
-                'plate_number'          => $vehicle['plate_number'] ?? null,
-                'name'                  => $vehicle['name'] ?? null,
-                'vehicle_type'          => $vehicle['vehicle_type'] ?? null,
-                'engine_capacity'       => null,
-                'fuel_rate_per_km'      => null,
+                'id' => $vehicle['oracle_id'] ?? $vehicle['plate_number'] ?? null,
+                'oracle_vehicle_id' => $vehicle['oracle_id'] ?? null,
+                'plate_number' => $vehicle['plate_number'] ?? null,
+                'name' => $vehicle['name'] ?? null,
+                'vehicle_type' => $vehicle['vehicle_type'] ?? null,
+                'engine_capacity' => null,
+                'fuel_rate_per_km' => null,
                 'idle_fuel_rate_per_hour' => null,
-                'odometer_enabled'      => false,
-                'active'                => true,
-                'trips_count'           => (int) ($tripCounts[$vehicle['plate_number'] ?? ''] ?? 0),
+                'odometer_enabled' => false,
+                'active' => true,
+                'trips_count' => (int) ($tripCounts[$vehicle['plate_number'] ?? ''] ?? 0),
             ]);
     }
 
@@ -570,8 +598,8 @@ class AdminAuthController extends Controller
             }
 
             $updates = array_filter([
-                'driver_name'            => $trip->driver_name ?: ($driver['name'] ?? null),
-                'driver_phone'           => $trip->driver_phone ?: ($driver['phone'] ?? null),
+                'driver_name' => $trip->driver_name ?: ($driver['name'] ?? null),
+                'driver_phone' => $trip->driver_phone ?: ($driver['phone'] ?? null),
                 'driver_employee_number' => $trip->driver_employee_number ?: ($driver['employee_number'] ?? null),
             ], fn ($value): bool => $value !== null && $value !== '');
 
@@ -616,11 +644,17 @@ class AdminAuthController extends Controller
 
         return [
             'accepted_segments' => $coordinates === [] ? [] : [$coordinates],
+            'gap_connectors' => [],
+            'recorded_start' => $coordinates[0] ?? null,
+            'recorded_end' => $coordinates === [] ? null : $coordinates[array_key_last($coordinates)],
             'distance_km' => round($distanceKm, 3),
             'raw_distance_km' => round($distanceKm, 3),
             'duration_minutes' => $duration,
             'reported_duration_minutes' => $duration,
             'rejected_points' => 0,
+            'collapsed_points' => 0,
+            'rejection_counts' => [],
+            'collapsed_counts' => [],
             'quality_flags' => [],
         ];
     }

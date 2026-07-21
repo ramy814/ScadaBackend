@@ -9,7 +9,11 @@ use DateTimeInterface;
 
 class VirtualFuelService
 {
+    private const LITERS_PER_KILOMETER = 0.12;
+
     private const MAX_ACCURACY_METERS = 50.0;
+
+    private const MIN_QUALITY_DATA_COVERAGE = 0.8;
 
     private const MAX_SPEED_METERS_PER_SECOND = 55.0;
 
@@ -46,7 +50,29 @@ class VirtualFuelService
             return null;
         }
 
-        return round(((float) $metrics['distance_km']) * 0.12, 3);
+        return $this->estimateProvisionalFromMetrics($metrics);
+    }
+
+    public function estimateProvisionalFromMetrics(array $metrics): ?float
+    {
+        if (array_intersect(
+            ['no_gps_points', 'no_valid_points', 'invalid_duration'],
+            $metrics['quality_flags'] ?? [],
+        )) {
+            return null;
+        }
+
+        $distanceKm = $metrics['distance_km'] ?? null;
+        if (! is_numeric($distanceKm) || (float) $distanceKm < 0) {
+            return null;
+        }
+
+        return round(((float) $distanceKm) * self::LITERS_PER_KILOMETER, 3);
+    }
+
+    public function litersPerKilometer(): float
+    {
+        return self::LITERS_PER_KILOMETER;
     }
 
     public function estimateLegacyLiters(Trip $trip): float
@@ -75,7 +101,20 @@ class VirtualFuelService
             return (int) $stop->started_at->diffInMinutes($stop->ended_at);
         });
 
-        return round(($distanceMeters / 1000 * 0.12) + ($idleMinutes / 60), 3);
+        return round(
+            ($distanceMeters / 1000 * self::LITERS_PER_KILOMETER)
+            + ($idleMinutes / 60),
+            3,
+        );
+    }
+
+    public function hasSufficientQualityData(array $metrics): bool
+    {
+        $sampleCount = (int) ($metrics['sample_count'] ?? 0);
+        $qualitySampleCount = (int) ($metrics['quality_sample_count'] ?? 0);
+
+        return $sampleCount > 0
+            && ($qualitySampleCount / $sampleCount) >= self::MIN_QUALITY_DATA_COVERAGE;
     }
 
     public function metrics(Trip $trip): array
@@ -109,15 +148,30 @@ class VirtualFuelService
         $distanceMeters = 0.0;
         $rawDistanceMeters = 0.0;
         $rejected = 0;
+        $collapsed = 0;
+        $rejectionCounts = [];
+        $collapsedCounts = [];
         $sampleCount = 0;
+        $qualitySampleCount = 0;
         $acceptedPoints = 0;
         $flags = [];
         $previousRaw = null;
         $lastEligible = null;
         $distanceAnchor = null;
         $acceptedSegments = [];
+        $gapConnectors = [];
+        $recordedStart = null;
+        $recordedEnd = null;
         $startTimestamp = $startedAt?->getTimestamp();
         $endTimestamp = $endedAt?->getTimestamp();
+        $reject = static function (string $reason) use (&$rejected, &$rejectionCounts): void {
+            $rejected++;
+            $rejectionCounts[$reason] = ($rejectionCounts[$reason] ?? 0) + 1;
+        };
+        $collapse = static function (string $reason) use (&$collapsed, &$collapsedCounts): void {
+            $collapsed++;
+            $collapsedCounts[$reason] = ($collapsedCounts[$reason] ?? 0) + 1;
+        };
         $markCoverageGap = static function (int $seconds) use (&$flags): void {
             if ($seconds > self::MAX_SEGMENT_GAP_SECONDS) {
                 $flags['tracking_gap'] = true;
@@ -129,9 +183,15 @@ class VirtualFuelService
 
         foreach ($points as $point) {
             $sampleCount++;
+            $accuracy = is_array($point)
+                ? ($point['accuracy'] ?? null)
+                : ($point->accuracy ?? null);
+            if (is_numeric($accuracy) && is_finite((float) $accuracy) && (float) $accuracy > 0) {
+                $qualitySampleCount++;
+            }
             $current = $this->point($point);
             if ($current === null) {
-                $rejected++;
+                $reject('invalid_point');
                 $flags['invalid_point'] = true;
 
                 continue;
@@ -146,10 +206,13 @@ class VirtualFuelService
                 );
             }
             $previousRaw = $current;
+            $recordedStart ??= $this->coordinate($current);
+            $recordedEnd = $this->coordinate($current);
 
             if (! $current['client_is_valid']) {
-                $rejected++;
-                $flags[$this->clientQualityFlag($current['quality_reason'])] = true;
+                $qualityFlag = $this->clientQualityFlag($current['quality_reason']);
+                $reject($qualityFlag);
+                $flags[$qualityFlag] = true;
 
                 continue;
             }
@@ -157,7 +220,7 @@ class VirtualFuelService
                 $age = $current['recorded_timestamp'] - $current['timestamp'];
                 if ($age > self::MAX_POSITION_AGE_SECONDS ||
                     $age < -self::FUTURE_POSITION_TOLERANCE_SECONDS) {
-                    $rejected++;
+                    $reject('stale_or_future_timestamp');
                     $flags['stale_or_future_timestamp'] = true;
 
                     continue;
@@ -166,21 +229,21 @@ class VirtualFuelService
 
             if ($current['accuracy'] <= 0 ||
                 $current['accuracy'] > self::MAX_ACCURACY_METERS) {
-                $rejected++;
+                $reject('poor_accuracy');
                 $flags['poor_accuracy'] = true;
 
                 continue;
             }
             if ($current['speed'] !== null &&
                 $current['speed'] > self::MAX_SPEED_METERS_PER_SECOND) {
-                $rejected++;
+                $reject('impossible_speed');
                 $flags['impossible_speed'] = true;
 
                 continue;
             }
             if (($startTimestamp !== null && $current['timestamp'] < $startTimestamp) ||
                 ($endTimestamp !== null && $current['timestamp'] > $endTimestamp)) {
-                $rejected++;
+                $reject('point_outside_trip_time');
                 $flags['point_outside_trip_time'] = true;
 
                 continue;
@@ -189,9 +252,14 @@ class VirtualFuelService
             $coverageGapSeconds = $lastEligible === null
                 ? ($startTimestamp === null ? 0 : $current['timestamp'] - $startTimestamp)
                 : $current['timestamp'] - $lastEligible['timestamp'];
-            if ($lastEligible !== null && $coverageGapSeconds <= 0) {
-                $rejected++;
+            if ($lastEligible !== null && $coverageGapSeconds < 0) {
+                $reject('out_of_order_time');
                 $flags['out_of_order_time'] = true;
+
+                continue;
+            }
+            if ($lastEligible !== null && $coverageGapSeconds === 0) {
+                $collapse('duplicate_timestamp');
 
                 continue;
             }
@@ -204,6 +272,17 @@ class VirtualFuelService
                 $coverageGapSeconds > self::MAX_SEGMENT_GAP_SECONDS) {
                 $distanceAnchor = $current;
                 if ($includeSegments) {
+                    if ($acceptedSegments !== []) {
+                        $previousSegment = $acceptedSegments[array_key_last($acceptedSegments)];
+                        $previousCoordinate = $previousSegment[array_key_last($previousSegment)] ?? null;
+                        if ($previousCoordinate !== null) {
+                            $gapConnectors[] = [
+                                'from' => $previousCoordinate,
+                                'to' => $this->coordinate($current),
+                                'seconds' => $coverageGapSeconds,
+                            ];
+                        }
+                    }
                     $acceptedSegments[] = [$this->coordinate($current)];
                 }
 
@@ -223,13 +302,13 @@ class VirtualFuelService
                 min(self::MAX_ACCURACY_METERS * 2, $uncertainty),
             );
             if ($segmentMeters <= $noiseRadius) {
-                $rejected++;
+                $collapse('gps_noise');
                 $flags['gps_noise'] = true;
 
                 continue;
             }
             if ($segmentMeters / $seconds > self::MAX_SPEED_METERS_PER_SECOND) {
-                $rejected++;
+                $reject('gps_jump');
                 $flags['gps_jump'] = true;
 
                 continue;
@@ -282,11 +361,19 @@ class VirtualFuelService
             'duration_minutes' => $trustedDuration,
             'reported_duration_minutes' => $reportedDuration,
             'rejected_points' => $rejected,
+            'collapsed_points' => $collapsed,
+            'rejection_counts' => $rejectionCounts,
+            'collapsed_counts' => $collapsedCounts,
             'quality_flags' => array_keys($flags),
+            'sample_count' => $sampleCount,
+            'quality_sample_count' => $qualitySampleCount,
         ];
         if ($includeSegments) {
             $metrics['accepted_segments'] = $acceptedSegments;
+            $metrics['gap_connectors'] = $gapConnectors;
         }
+        $metrics['recorded_start'] = $recordedStart;
+        $metrics['recorded_end'] = $recordedEnd;
 
         return $metrics;
     }

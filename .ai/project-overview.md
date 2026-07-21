@@ -11,6 +11,8 @@ The Fleet Management System is an enterprise application designed for Gaza Munic
 4. **Oracle Database**: The source of truth for backend/dashboard data, municipality assets, employees, SSO, trips, and the integrated wells and valves modules.
 5. **Mobile Local Storage**: Driver/field apps may use local SQLite for offline-first capture before syncing to Oracle-backed APIs.
 
+The Fleet admin area also monitors driver-app adoption at `/admin/driver-apps`. The page combines historical trip users with authenticated app-presence records so management can distinguish current, outdated, and not-yet-reporting installations and inspect their current Oracle vehicle assignments.
+
 ## Architectural Principles
 - **Offline-First Resilience**: Drivers often operate in areas without network coverage. All driver-facing endpoints are designed to accept batches of data out-of-order and resolve them without requiring constant connectivity.
 - **Idempotency**: All trip data and GPS batches use unique identifiers (`local_id` for trips, `sequence_number` for points) to prevent duplicates during intermittent network retries.
@@ -38,8 +40,9 @@ The Fleet Management System is an enterprise application designed for Gaza Munic
 3. As the driver moves, GPS points are batched and uploaded to the server whenever the internet is available.
 4. The driver ends the trip. The mobile app sends a confirmation payload with a checksum.
 5. The backend verifies the checksum and marks the trip as `confirmed`.
-6. An administrator logs into the dashboard via SSO.
-7. The administrator reviews the trip path on a map, checks the points, and approves/rejects the trip.
+6. Confirmation persists the trusted distance and duration, calculates official fuel when quality permits, and returns a driver-facing summary. The driver app caches the summary and shows distance, fuel, and duration per trip.
+7. An administrator logs into the dashboard via SSO.
+8. The administrator reviews the trip path on a map, checks the points, and approves/rejects the trip.
 
 ## Integrated Field Modules
 - **Wells**: Has its own wells, teams, inspectors, readings, diesel inventories, and notifications context under `.ai/modules/wells/`.

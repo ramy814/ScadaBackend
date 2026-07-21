@@ -178,7 +178,7 @@ class TripSyncService
     {
         static $cache = [];
 
-        $trip = new Trip();
+        $trip = new Trip;
         $table = $trip->getTable();
         $connection = $trip->getConnectionName() ?? config('database.default');
         $cacheKey = $connection.'.'.$table.'.'.$column;
@@ -438,20 +438,34 @@ SQL,
             $serverChecksum,
         );
 
+        $metrics = $isComplete ? $this->fuel->metrics($trip) : null;
+        $usesFilteredDistance = $metrics !== null && (
+            (int) ($trip->quality_version ?? 0) >= 2
+            || $this->fuel->hasSufficientQualityData($metrics)
+        );
+
         $trip->update([
-            'status'               => $isComplete ? 'confirmed' : 'uploaded',
-            'confirmed_at'         => $isComplete ? now() : null,
-            'virtual_fuel_liters'  => $isComplete
-                ? $this->fuel->estimateLiters($trip)
+            'status' => $isComplete ? 'confirmed' : 'uploaded',
+            'confirmed_at' => $isComplete ? now() : null,
+            'distance_km' => $isComplete
+                ? ($usesFilteredDistance
+                    ? $metrics['distance_km']
+                    : $metrics['raw_distance_km'])
                 : null,
+            'duration_minutes' => $isComplete
+                ? $metrics['duration_minutes']
+                : null,
+            'virtual_fuel_liters' => $isComplete && $usesFilteredDistance
+                ? $this->fuel->estimateFromMetrics($trip, $metrics)
+                : ($isComplete ? $this->fuel->estimateLegacyLiters($trip) : null),
         ]);
 
         Log::info('driver.trip_sync.confirm', [
-            'trip_id'         => $trip->id,
-            'expected'        => $expected,
-            'received'        => $pointsReceived,
-            'is_complete'     => $isComplete,
-            'checksum_match'  => $checksum === $serverChecksum,
+            'trip_id' => $trip->id,
+            'expected' => $expected,
+            'received' => $pointsReceived,
+            'is_complete' => $isComplete,
+            'checksum_match' => $checksum === $serverChecksum,
         ]);
 
         return $trip->fresh();

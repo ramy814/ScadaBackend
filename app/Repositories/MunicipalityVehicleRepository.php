@@ -159,9 +159,9 @@ class MunicipalityVehicleRepository
                 ->where(function ($query) use ($driverPhoneColumn, $variants, $last9): void {
                     // البحث الدقيق الذي يستخدم الفهارس بشكل مباشر
                     $query->whereIn('d.'.$driverPhoneColumn, $variants->all());
-                    
+
                     if ($last9) {
-                        // استبدال REGEXP_REPLACE و SUBSTR المكلفة جداً بـ LIKE الذي يعد أسرع بكثير 
+                        // استبدال REGEXP_REPLACE و SUBSTR المكلفة جداً بـ LIKE الذي يعد أسرع بكثير
                         $query->orWhere('d.'.$driverPhoneColumn, 'LIKE', '%'.$last9.'%');
                     }
                 })
@@ -220,6 +220,46 @@ class MunicipalityVehicleRepository
                 ]);
         } catch (QueryException $e) {
             $this->logOracleReadFailure('find_by_driver_oracle_id', $e);
+
+            return collect();
+        }
+    }
+
+    public function findManyByDriverOracleIds(array $oracleDriverIds): Collection
+    {
+        $ids = collect($oracleDriverIds)
+            ->filter(fn ($id): bool => filled($id))
+            ->map(fn ($id): string => (string) $id)
+            ->unique()
+            ->values();
+
+        if ($ids->isEmpty() || ! $this->readiness->available()) {
+            return collect();
+        }
+
+        $table = $this->vehiclesTable();
+        $columns = $this->vehicleColumns();
+
+        try {
+            return DB::connection('oracle')
+                ->table($table.' as t')
+                ->whereIn('t.'.$columns['beneficiary_id'], $ids->all())
+                ->whereNotNull('t.'.$columns['plate'])
+                ->selectRaw(sprintf(
+                    't.%s as oracle_driver_id, t.%s as oracle_id, t.%s as plate_number, t.%s as name%s',
+                    $columns['beneficiary_id'],
+                    $columns['id'],
+                    $columns['plate'],
+                    $columns['name'],
+                    filled($columns['type'] ?? null)
+                        ? ', t.'.$columns['type'].' as vehicle_type'
+                        : '',
+                ))
+                ->get()
+                ->map(fn ($row): array => (array) $row)
+                ->groupBy(fn (array $vehicle): string => (string) $vehicle['oracle_driver_id']);
+        } catch (QueryException $e) {
+            $this->logOracleReadFailure('find_many_by_driver_oracle_ids', $e);
 
             return collect();
         }

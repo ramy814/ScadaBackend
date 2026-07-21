@@ -1,9 +1,12 @@
 <?php
 
-use App\Http\Controllers\AdminAuthController;
 use App\Http\Controllers\AdminAllowlistController;
+use App\Http\Controllers\AdminAuthController;
+use App\Http\Controllers\DriverAppUsageController;
 use App\Http\Controllers\PortalController;
 use App\Http\Controllers\SystemPermissionController;
+use Illuminate\Contracts\Auth\StatefulGuard;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
 // ─── Redirect root to admin dashboard (which will redirect to login if unauthenticated) ───
@@ -11,8 +14,8 @@ use Illuminate\Support\Facades\Route;
 if (config('app.env') === 'local') {
     Route::get('/admin/dev-login', function () {
         $userId = config('mog-helpers.local_admin_user_id');
-        $guard = \Illuminate\Support\Facades\Auth::guard('admin');
-        if ($guard instanceof \Illuminate\Contracts\Auth\StatefulGuard) {
+        $guard = Auth::guard('admin');
+        if ($guard instanceof StatefulGuard) {
             $guard->loginUsingId($userId);
         }
 
@@ -43,6 +46,7 @@ Route::middleware(['auth:admin', 'admin.allowlisted'])->group(function () {
     // ─── Fleet: vehicle tracking dashboard ───────────────────────────────────
     Route::middleware('system.access:fleet')->group(function () {
         Route::get('/admin/dashboard', [AdminAuthController::class, 'dashboard'])->name('admin.dashboard');
+        Route::get('/admin/driver-apps', [DriverAppUsageController::class, 'index'])->name('admin.driver-apps');
         Route::get('/admin/trips/{trip}', [AdminAuthController::class, 'showTrip'])->name('admin.trips.show');
         Route::post('/admin/trips/{trip}/approve', [AdminAuthController::class, 'approve'])->name('admin.trips.approve');
         Route::post('/admin/trips/{trip}/reject', [AdminAuthController::class, 'reject'])->name('admin.trips.reject');

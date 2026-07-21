@@ -1,5 +1,56 @@
 # Changelog & Recent Actions
 
+## [2026-07-21] Presence Reporting From The Authenticated Main Screen
+
+- Driver release `1.0.20+21` now calls `AppPresenceService` whenever an authenticated `DriverAppShell` opens and whenever the app resumes, covering drivers whose login session is retained.
+- Kept the sync coordinator attempt as a fallback; the service-level six-hour throttle and pending flag prevent duplicate traffic while still retrying failed reports.
+- Advanced the default approved release to version `1.0.20`, build `21`.
+- Production diagnosis rule: unauthenticated `POST /api/driver/app-presence` should reach authentication; HTTP 404 means the backend route has not been deployed and no client-side trigger can register the installation.
+
+## [2026-07-21] Driver App Adoption And Version Monitoring
+
+- Added `DRIVER_APP_INSTALLATIONS`, keyed by the authenticated Oracle driver and a random per-installation UUID, to record app version/build, Android installer store, install/update times, and first/last presence.
+- Added authenticated `POST /api/driver/app-presence`; it never trusts a client-supplied driver identity and contains no GPS location.
+- Added `/admin/driver-apps` with search and filters for current/outdated/unreported versions, installation source, and recent activity. It combines telemetry with historical trip drivers so older app users remain visible before they upgrade.
+- Current vehicle assignments come from `MunicipalityVehicleRepository`; the latest trip vehicle is display-only fallback context when a live assignment is unavailable.
+- The approved release is configurable through `DRIVER_APP_LATEST_VERSION`, `DRIVER_APP_LATEST_BUILD`, and `DRIVER_APP_RECENT_DAYS`; defaults are `1.0.19`, build `20`, and 14 days.
+- Driver release `1.0.19+20` reports best-effort presence after pending trip upload on startup/connectivity recovery and every six hours, persists retry state locally, and throttles unchanged-build reports. Presence failure never delays trip synchronization.
+
+## [2026-07-21] Driver GPS Readiness And Trip Summaries
+
+- Driver app release `1.0.18+19` now requires precise Android location and two fresh fixes at `<= 50m` before creating a trip.
+- The driver provider stream remains roughly two seconds, but duplicate timestamps are skipped, movement is persisted after 8 meters, stationary heartbeats every 20 seconds, and repeated rejected diagnostics every 30 seconds.
+- New confirmed trips persist `TRIPS.DISTANCE_KM` and `TRIPS.DURATION_MINUTES`; virtual fuel continues to use the filtered-distance policy.
+- Driver confirm/index/reconcile payloads expose distance, duration, fuel, filtered/provisional flags, and quality flags. The Flutter app caches these values for offline trip history.
+- The driver active-trip and history screens show distance, estimated diesel, and duration without introducing a map or network dependency during a trip.
+
+## [2026-07-21] Honest GPS Point Classification And Gap Display
+
+- Split genuinely rejected trip points from harmless sampling compression: duplicate timestamps and stationary GPS noise are now counted as collapsed samples rather than invalid points.
+- Stopped labeling equal timestamps as out-of-order; only a timestamp that actually moves backward receives that warning.
+- Added per-reason rejection counts to trip details and clarified that no raw sample is deleted.
+- Kept distance and fuel conservative, while rendering gaps between trusted segments as labeled amber dashed connectors that are explicitly excluded from both calculations.
+- Anchored map start/end markers to the first and last recorded valid coordinates rather than the first and last surviving calculation vertices.
+
+## [2026-07-21] Provisional Fuel For Trips With Missing Values
+
+- Added a read-only fallback fuel estimate to trip details when the stored `virtual_fuel_liters` value is missing and a filtered GPS distance is available.
+- The fallback uses the existing `0.12 liters/km` policy and remains visible even when coverage warnings prevent the value from being formally stored or approved.
+- Labeled fallback values as provisional for review and displayed the calculation formula; no trip row, GPS point, report total, or stored fuel value is modified.
+
+## [2026-07-21] Recorded And Filtered Trip Distances
+
+- Made every trip detail page show the original recorded GPS distance and, when supported by the data, a separate filtered distance.
+- Enabled quality filtering for legacy trips when at least 80% of their GPS samples contain usable accuracy metadata; older trips below that threshold continue to show only the recorded route and distance.
+- Switched the trip map to accepted GPS segments whenever filtering is available, including eligible legacy trips, without deleting or updating any stored trip point, distance, or fuel value.
+- Kept legacy fuel values on their original policy and limited the change to read-time distance analysis and presentation.
+
+## [2026-07-21] Legacy Trip Map Copy Cleanup
+
+- Removed the technical “previous version / new rules” notice from legacy trip maps; older trips now show their recorded GPS route without an implementation-version warning.
+- Made the route legend and empty state accurately distinguish between recorded legacy points and accepted quality-v2 points.
+- Preserved all original trip coordinates and legacy calculation behavior; this is a presentation-only clarification.
+
 ## [2026-07-19] GeoServer Map Click Data Restored
 
 - Passed `mapFeaturesUrl` to the dedicated valves map and registered click lookup only while the mutually exclusive GeoServer mode is active.

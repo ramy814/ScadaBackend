@@ -29,6 +29,25 @@ The application calculates fuel usage not by physical sensors, but by estimating
 This is stored in `virtual_fuel_liters`.
 It is calculated by the `VirtualFuelService` at the moment the trip is `confirmed`.
 
+For a complete quality-v2 upload, confirmation also stores:
+- `distance_km`: filtered GPS distance only.
+- `duration_minutes`: trusted trip duration capped by the 12-hour policy.
+
+The driver API exposes these persisted values after upload. If official fuel is withheld but a positive filtered distance remains usable, `DriverTripSummaryService` may expose `distance × 0.12 liters/km` with `fuel_is_provisional = true`; it must not persist that fallback as official fuel. No-valid-point trips return unavailable fuel rather than an invented zero.
+
+The trip details page may calculate a read-only provisional value when
+`virtual_fuel_liters` is null and a filtered GPS distance is available. This
+fallback uses `filtered distance × 0.12 liters/km`, is labeled as an estimate
+for review, and must not overwrite the stored trip value or be included in
+approved report totals automatically.
+
 ## 5. Audit Immutability
 Once a trip is `approved` or `rejected`, its `review_status` cannot be altered. It is locked forever.
 The `audit_logs` table must never have rows updated or deleted. It is append-only.
+
+## 6. Driver App Version Status
+
+- The configured numeric build is authoritative for update status; human-readable version text is display-only.
+- `build_number >= DRIVER_APP_LATEST_BUILD` is current, a smaller reported build is outdated, and no presence record is `not_reported`.
+- A historical-trip driver with no presence record must remain visible. `not_reported` means the new telemetry has not arrived, not proof that the app is uninstalled.
+- “Updated from store” requires both a current build and a recognized Android installer-store identifier. Do not infer a store update from the version number alone.

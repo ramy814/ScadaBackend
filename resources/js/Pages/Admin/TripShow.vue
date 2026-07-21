@@ -14,18 +14,39 @@
     <!-- Stats -->
     <div class="stats-grid-5">
       <div class="stat-card"><div class="label">النقاط</div><div class="value" :style="pointsColor">{{ trip.points_received }} / {{ trip.points_expected }}</div></div>
-      <div class="stat-card"><div class="label">{{ qualityVersion >= 2 ? 'المسافة المنقّاة' : 'المسافة التقريبية' }}</div><div class="value">{{ distanceKm }} <span class="unit">كم</span></div></div>
+      <div class="stat-card"><div class="label">المسافة المسجّلة</div><div class="value">{{ recordedDistanceKm }} <span class="unit">كم</span></div></div>
+      <div v-if="hasFilteredDistance" class="stat-card filtered-distance-card"><div class="label">المسافة المنقّاة</div><div class="value">{{ filteredDistanceKm }} <span class="unit">كم</span></div></div>
       <div class="stat-card"><div class="label">{{ qualityVersion >= 2 ? 'المدة المعتمدة' : 'مدة الرحلة' }}</div><div class="value">{{ tripDurationMinutes ?? '-' }} <span class="unit">دقيقة</span></div></div>
       <div class="stat-card"><div class="label">وقت الانتظار</div><div class="value" :style="totalWait > 0 ? 'color:var(--warn)' : ''">{{ totalWait > 0 ? totalWait + ' دقيقة' : 'لا يوجد' }}</div></div>
-      <div class="stat-card"><div class="label">{{ qualityVersion >= 2 ? 'الوقود التقديري المنقّى' : 'الوقود الافتراضي' }}</div><div class="value">{{ estimatedFuelLiters ?? '-' }} <span class="unit">لتر</span></div></div>
+      <div class="stat-card">
+        <div class="label">{{ fuelEstimateIsProvisional ? 'الوقود الافتراضي التقديري' : qualityVersion >= 2 ? 'الوقود التقديري المنقّى' : 'الوقود الافتراضي' }}</div>
+        <div class="value">{{ estimatedFuelLiters ?? '-' }} <span class="unit">لتر</span></div>
+        <div v-if="fuelEstimateIsProvisional" class="stat-hint">محسوب من المسافة المنقّاة للمراجعة</div>
+      </div>
     </div>
 
-    <div v-if="qualityMessages.length" class="alert-box" style="border-right:4px solid var(--warn);margin-bottom:24px;">
-      <strong style="display:block;color:var(--warn);margin-bottom:6px;">تنبيه جودة البيانات</strong>
-      <div>{{ qualityMessages.join('، ') }}</div>
+    <div v-if="fuelEstimateIsProvisional" class="alert-box provisional-fuel-note">
+      <strong>احتساب الوقود الافتراضي:</strong>
+      {{ filteredDistanceKm }} كم × {{ fuelRatePerKm }} لتر/كم = {{ estimatedFuelLiters }} لتر.
+      هذه قيمة تقديرية للمراجعة بسبب عدم وجود قيمة وقود مخزنة، ولم يتم تعديل سجل الرحلة.
+    </div>
+
+    <div v-if="qualityVersion < 2 && hasFilteredDistance" class="alert-box filtering-note">
+      حُسبت المسافة المنقّاة لهذه الرحلة القديمة لأن بيانات دقة GPS متوفرة بشكل كافٍ. بقيت النقاط والمسافة الأصلية والوقود المخزن دون تعديل.
+    </div>
+    <div v-else-if="!hasFilteredDistance" class="alert-box filtering-note">
+      تُعرض المسافة المسجّلة فقط لأن بيانات دقة GPS غير كافية لاستخراج مسافة منقّاة موثوقة.
+    </div>
+
+    <div v-if="qualityMessages.length || rejectedPoints || collapsedPoints" class="alert-box" style="border-right:4px solid var(--warn);margin-bottom:24px;">
+      <strong style="display:block;color:var(--warn);margin-bottom:6px;">معالجة جودة البيانات</strong>
+      <div v-if="qualityMessages.length">{{ qualityMessages.join('، ') }}</div>
       <div style="font-size:12px;color:var(--text-secondary);margin-top:6px;">
         القيم الخام للتدقيق: {{ rawDistanceKm }} كم، {{ reportedTripDurationMinutes ?? '-' }} دقيقة.
-        استُبعدت {{ rejectedPoints }} نقطة من الحساب فقط، ولم تُحذف من السجل.
+        {{ qualityProcessingText }}
+      </div>
+      <div v-if="rejectionSummary.length" style="font-size:12px;color:var(--text-secondary);margin-top:4px;">
+        أسباب الاستبعاد الفعلي: {{ rejectionSummary.join('، ') }}.
       </div>
     </div>
 
@@ -87,7 +108,7 @@
       <div class="panel-header map-panel-header">
         <div>
           <div>مسار الرحلة</div>
-          <div class="map-panel-subtitle">{{ qualityVersion >= 2 ? 'عرض مقاطع GPS المقبولة دون وصل فجوات التتبع' : 'عرض نقاط GPS الأصلية بالترتيب الزمني' }}</div>
+          <div class="map-panel-subtitle">{{ hasFilteredDistance ? 'عرض مقاطع GPS المقبولة دون وصل فجوات التتبع' : 'عرض نقاط GPS الأصلية بالترتيب الزمني' }}</div>
         </div>
         <div class="map-header-actions">
           <span class="badge neutral">{{ pointsCount }} نقطة مسجلة</span>
@@ -106,11 +127,20 @@
           <span class="map-legend-route" aria-hidden="true"></span>
           <div>
             <span>المسار الفعلي</span>
-            <strong>حسب نقاط GPS الموثوقة</strong>
+            <strong>{{ hasFilteredDistance ? 'حسب نقاط GPS المقبولة' : 'حسب نقاط GPS المسجلة' }}</strong>
+          </div>
+        </div>
+        <div v-if="gapConnectors.length" class="map-legend-item route">
+          <span class="map-legend-route gap" aria-hidden="true"></span>
+          <div>
+            <span>فجوة في التتبع</span>
+            <strong>للعرض فقط وغير محتسبة</strong>
           </div>
         </div>
       </div>
-      <div class="map-integrity-note">{{ qualityVersion >= 2 ? 'المسار المعروض منقّى للحساب؛ تبقى العينات الخام محفوظة للتدقيق.' : 'هذه رحلة من إصدار سابق؛ تُعرض بياناتها الأصلية دون تطبيق قواعد النسخة الجديدة.' }}</div>
+      <div v-if="hasFilteredDistance" class="map-integrity-note">
+        الأزرق هو المسار المحتسب، والخط البرتقالي المتقطع يوضح فجوات GPS ولا يدخل في المسافة أو الوقود. تبقى جميع العينات الخام محفوظة للتدقيق.
+      </div>
       <div class="map-stage">
         <div ref="mapEl" class="trip-map" aria-label="خريطة مسار الرحلة"></div>
         <div class="map-floating-panel">
@@ -120,7 +150,9 @@
             <strong>الأسهم توضح اتجاه السير</strong>
           </div>
         </div>
-        <div v-if="!mappedSegments.length" class="map-empty-state">لا توجد نقاط GPS موثوقة كافية لعرض مسار هذه الرحلة.</div>
+        <div v-if="!mappedSegments.length" class="map-empty-state">
+          {{ hasFilteredDistance ? 'لا توجد نقاط GPS مقبولة كافية لعرض مسار هذه الرحلة.' : 'لا توجد نقاط GPS مسجلة كافية لعرض مسار هذه الرحلة.' }}
+        </div>
         <button v-if="mappedSegments.length" type="button" class="map-fit-button" @click="fitRouteBounds">
           عرض المسار كاملاً
         </button>
@@ -269,16 +301,26 @@ const page = usePage();
 const props = defineProps({
   trip: { type: Object, required: true },
   qualityVersion: { type: Number, default: 0 },
+  hasFilteredDistance: { type: Boolean, default: false },
   pointsCount: { type: Number, default: 0 },
   mappedSegments: { type: Array, default: () => [] },
+  gapConnectors: { type: Array, default: () => [] },
+  recordedStart: { type: Object, default: null },
+  recordedEnd: { type: Object, default: null },
   distanceKm: Number,
+  filteredDistanceKm: Number,
+  recordedDistanceKm: Number,
   rawDistanceKm: Number,
   stopsMinutes: Number,
   tripDurationMinutes: Number,
   reportedTripDurationMinutes: Number,
   qualityFlags: { type: Array, default: () => [] },
   rejectedPoints: { type: Number, default: 0 },
+  collapsedPoints: { type: Number, default: 0 },
+  rejectionCounts: { type: Object, default: () => ({}) },
   estimatedFuelLiters: Number,
+  fuelEstimateIsProvisional: { type: Boolean, default: false },
+  fuelRatePerKm: { type: Number, default: 0.12 },
 });
 
 const mapEl = ref(null);
@@ -300,6 +342,7 @@ const qualityLabels = {
   point_outside_trip_time: 'نقاط خارج زمن الرحلة',
   out_of_order_time: 'توقيت نقاط غير مرتب',
   tracking_gap: 'انقطاع طويل في التتبع',
+  tracking_coverage_gap: 'فجوة تتبع شديدة تمنع اعتماد الوقود',
   gps_noise: 'اهتزاز GPS أثناء الوقوف',
   gps_jump: 'قفزات GPS مستبعدة',
   invalid_duration: 'مدة غير صحيحة',
@@ -316,6 +359,34 @@ const qualityLabels = {
 const qualityMessages = computed(() =>
   props.qualityFlags.map(flag => qualityLabels[flag] ?? flag)
 );
+
+const rejectionLabels = {
+  invalid_point: 'إحداثيات غير صالحة',
+  mocked_location: 'موقع وهمي',
+  stale_or_future_timestamp: 'وقت GPS غير صالح',
+  poor_accuracy: 'دقة أضعف من 50م',
+  impossible_speed: 'سرعة غير منطقية',
+  point_outside_trip_time: 'خارج زمن الرحلة',
+  out_of_order_time: 'وقت راجع فعلياً',
+  gps_jump: 'قفزة مكانية غير منطقية',
+  client_rejected: 'مرفوضة من فحص الهاتف',
+};
+const rejectionSummary = computed(() =>
+  Object.entries(props.rejectionCounts)
+    .filter(([, count]) => Number(count) > 0)
+    .map(([reason, count]) => `${rejectionLabels[reason] ?? reason}: ${count}`)
+);
+const qualityProcessingText = computed(() => {
+  const parts = [];
+  if (props.rejectedPoints > 0) {
+    parts.push(`استُبعدت ${props.rejectedPoints} نقطة غير موثوقة من الحساب`);
+  }
+  if (props.collapsedPoints > 0) {
+    parts.push(`اختُزلت ${props.collapsedPoints} عينة مكررة أو ساكنة دون اعتبارها تالفة`);
+  }
+  if (!parts.length) return 'لم تُستبعد أو تُختزل أي نقطة.';
+  return `${parts.join('، ')}، ولم تُحذف أي عينة من السجل.`;
+});
 
 const pointsColor = computed(() => {
   if (!props.trip.points_expected) return '';
@@ -496,11 +567,35 @@ onMounted(async () => {
       }).addTo(group);
     });
 
-    const start = segments[0]?.[0];
+    props.gapConnectors.forEach((connector) => {
+      if (!connector?.from || !connector?.to) return;
+      const gapPoints = [
+        [connector.from.lat, connector.from.lng],
+        [connector.to.lat, connector.to.lng],
+      ];
+      bounds.extend(gapPoints);
+      const minutes = Math.max(1, Math.round((connector.seconds ?? 0) / 60));
+      L.polyline(gapPoints, {
+        ...routeStyle,
+        color: '#d97706',
+        weight: 4,
+        opacity: 0.9,
+        dashArray: '10 12',
+      })
+        .bindTooltip(`فجوة GPS قرابة ${minutes} دقيقة — غير محتسبة`)
+        .addTo(group);
+    });
+
+    const start = props.recordedStart
+      ? [props.recordedStart.lat, props.recordedStart.lng]
+      : segments[0]?.[0];
     const lastSegment = segments[segments.length - 1];
-    const end = lastSegment?.[lastSegment.length - 1];
+    const end = props.recordedEnd
+      ? [props.recordedEnd.lat, props.recordedEnd.lng]
+      : lastSegment?.[lastSegment.length - 1];
 
     if (start && end) {
+      bounds.extend([start, end]);
       L.circleMarker(start, { ...markerStyle, fillColor: '#059669' })
         .bindTooltip('بداية الرحلة', {
           permanent: true,
@@ -508,7 +603,7 @@ onMounted(async () => {
           offset: [0, 14],
           className: 'trip-map-tooltip trip-map-tooltip-start',
         })
-        .bindPopup('أول نقطة GPS موثوقة')
+        .bindPopup('أول نقطة GPS مسجلة')
         .addTo(group);
       L.circleMarker(end, { ...markerStyle, fillColor: '#dc2626' })
         .bindTooltip('نهاية الرحلة', {
@@ -517,7 +612,7 @@ onMounted(async () => {
           offset: [0, -14],
           className: 'trip-map-tooltip trip-map-tooltip-end',
         })
-        .bindPopup('آخر نقطة GPS موثوقة')
+        .bindPopup('آخر نقطة GPS مسجلة')
         .addTo(group);
     }
 
@@ -542,10 +637,15 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.stats-grid-5 { display:grid; grid-template-columns:repeat(5,1fr); gap:16px; margin-bottom:24px; }
+.stats-grid-5 { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:16px; margin-bottom:24px; }
 .stat-card { background:var(--surface); border-radius:var(--radius-lg); padding:20px; box-shadow:var(--shadow-md); }
 .stat-card .label { font-size:13px; color:var(--text-secondary); font-weight:600; }
 .stat-card .value { font-size:26px; font-weight:800; margin-top:8px; }
+.filtered-distance-card { border:1px solid color-mix(in srgb,var(--ok) 32%,transparent); }
+.filtered-distance-card .value { color:var(--ok); }
+.filtering-note { margin-top:-8px; margin-bottom:24px; border-right:4px solid var(--brand); }
+.provisional-fuel-note { margin-top:-8px; margin-bottom:24px; border-right:4px solid var(--warn); }
+.stat-hint { margin-top:6px; color:var(--warn); font-size:11px; font-weight:700; }
 .unit { font-size:14px; color:var(--text-secondary); }
 
 .two-cols { display:grid; grid-template-columns:1.3fr 1fr; gap:24px; margin-bottom:24px; }
@@ -562,7 +662,7 @@ onBeforeUnmount(() => {
 .map-direction-key i.outbound { background:#2563eb; }
 .map-direction-key i.return { background:#ea580c; }
 .map-direction-key strong { color:var(--text-primary); font-size:10px; }
-.map-legend { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; padding:14px 24px; background:var(--surface-strong); border-bottom:1px solid var(--stroke); }
+.map-legend { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; padding:14px 24px; background:var(--surface-strong); border-bottom:1px solid var(--stroke); }
 .map-legend-item { display:flex; align-items:center; gap:10px; min-width:0; }
 .map-legend-item > div { display:flex; flex-direction:column; min-width:0; }
 .map-legend-item span:not(.map-legend-marker):not(.map-legend-route) { color:var(--text-secondary); font-size:11px; font-weight:600; }
@@ -571,6 +671,7 @@ onBeforeUnmount(() => {
 .map-legend-marker.start { background:#059669; }
 .map-legend-marker.end { background:#dc2626; }
 .map-legend-route { width:34px; height:6px; border-radius:999px; background:#2563eb; box-shadow:0 0 0 3px #fff, 0 0 0 4px rgba(15,23,42,0.12); flex:0 0 auto; }
+.map-legend-route.gap { height:4px; border-radius:0; background:repeating-linear-gradient(90deg,#d97706 0 8px,transparent 8px 13px); box-shadow:none; }
 .map-integrity-note { padding:9px 24px; border-bottom:1px solid var(--stroke); background:var(--surface-strong); color:var(--text-secondary); font-size:12px; font-weight:600; }
 .map-stage { position:relative; }
 .trip-map { height:500px; width:100%; z-index:1; background:#e8eef5; }

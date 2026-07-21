@@ -34,6 +34,8 @@ The core entity representing a single vehicle journey.
 - `server_checksum`: The SHA256 checksum calculated by the server to verify integrity.
 - `wait_minutes`: The total number of minutes the vehicle was waiting during the trip.
 - `virtual_fuel_liters`: Estimated fuel consumption calculated from GPS data.
+- `distance_km`: Server-confirmed trip distance. Quality-v2 trips store filtered distance; legacy confirmation uses the legacy/recorded policy when quality metadata is insufficient.
+- `duration_minutes`: Server-confirmed trusted duration, capped by the trip-duration guardrail.
 
 ### `trip_points`
 Individual GPS coordinates forming the path of a trip.
@@ -73,6 +75,17 @@ Temporary table for handling SMS OTP authentication.
 - `code`: The 6-digit OTP.
 - `expires_at`: Expiration timestamp.
 - `used_at`: When the code was consumed.
+
+### `driver_app_installations`
+
+Tracks adoption of the Android driver app without relying on mutable Oracle driver data for history.
+- Unique identity: `(oracle_driver_id, device_id)`, where `device_id` is a random UUID created once by that app installation.
+- Driver snapshot: `driver_name`, `driver_phone`, and `driver_employee_number`, derived only from the authenticated `Beneficiary`.
+- Release data: `app_version`, numeric `build_number`, and `package_name`.
+- Installation provenance: nullable `installer_store`; recognized Android store package IDs are store installs and other non-empty IDs are external installs.
+- Android package times: nullable `installed_at` and `app_updated_at`.
+- Activity times: immutable `first_seen_at` and refreshed `last_seen_at`.
+- This table stores no GPS coordinates. Current vehicle assignment is read live through `MunicipalityVehicleRepository`; the dashboard may show a latest-trip vehicle snapshot only as fallback context.
 
 ## Oracle Driver & Vehicle Source Tables (CONTROL_UNIT)
 

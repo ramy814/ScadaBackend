@@ -46,6 +46,7 @@ class TripDataQualityTest extends TestCase
         self::assertContains('gps_jump', $metrics['quality_flags']);
         self::assertContains('tracking_gap', $metrics['quality_flags']);
         self::assertCount(2, $metrics['accepted_segments']);
+        self::assertCount(1, $metrics['gap_connectors']);
     }
 
     public function test_it_caps_duration_and_requires_exact_checksum_integrity(): void
@@ -87,6 +88,79 @@ class TripDataQualityTest extends TestCase
 
         self::assertSame(0.0, $metrics['distance_km']);
         self::assertContains('gps_noise', $metrics['quality_flags']);
+        self::assertSame(0, $metrics['rejected_points']);
+        self::assertSame(2, $metrics['collapsed_points']);
+    }
+
+    public function test_duplicate_timestamps_are_collapsed_instead_of_reported_as_out_of_order(): void
+    {
+        $points = [
+            $this->point(31.5000000, 34.4500000, 5, '08:00:00'),
+            $this->point(31.5000000, 34.4500000, 5, '08:00:00'),
+            $this->point(31.5009000, 34.4500000, 5, '08:00:10'),
+        ];
+
+        $metrics = (new VirtualFuelService)->metricsFromPoints(
+            $points,
+            new DateTimeImmutable('2026-07-19T08:00:00Z'),
+            new DateTimeImmutable('2026-07-19T08:01:00Z'),
+        );
+
+        self::assertSame(0, $metrics['rejected_points']);
+        self::assertSame(1, $metrics['collapsed_points']);
+        self::assertSame(1, $metrics['collapsed_counts']['duplicate_timestamp']);
+        self::assertNotContains('out_of_order_time', $metrics['quality_flags']);
+    }
+
+    public function test_it_can_filter_legacy_trips_when_accuracy_metadata_is_sufficient(): void
+    {
+        $fuel = new VirtualFuelService;
+        $metrics = $fuel->metricsFromPoints(
+            [
+                $this->point(31.5000000, 34.4500000, 5, '08:00:00'),
+                $this->point(31.5009000, 34.4500000, 5, '08:00:10'),
+                $this->point(31.5018000, 34.4500000, 5, '08:00:20'),
+                $this->point(31.5027000, 34.4500000, 5, '08:00:30'),
+                $this->point(31.5036000, 34.4500000, 5, '08:00:40'),
+            ],
+            new DateTimeImmutable('2026-07-19T08:00:00Z'),
+            new DateTimeImmutable('2026-07-19T08:01:00Z'),
+        );
+
+        self::assertSame(5, $metrics['quality_sample_count']);
+        self::assertTrue($fuel->hasSufficientQualityData($metrics));
+    }
+
+    public function test_it_keeps_legacy_trips_raw_when_accuracy_metadata_is_insufficient(): void
+    {
+        $fuel = new VirtualFuelService;
+        $points = [
+            $this->point(31.5000000, 34.4500000, 5, '08:00:00'),
+            $this->point(31.5009000, 34.4500000, 5, '08:00:10'),
+            $this->point(31.5018000, 34.4500000, 5, '08:00:20'),
+            $this->point(31.5027000, 34.4500000, 5, '08:00:30'),
+            $this->point(31.5036000, 34.4500000, 5, '08:00:40'),
+        ];
+        $points[4]['accuracy'] = null;
+
+        $metrics = $fuel->metricsFromPoints(
+            $points,
+            new DateTimeImmutable('2026-07-19T08:00:00Z'),
+            new DateTimeImmutable('2026-07-19T08:01:00Z'),
+        );
+
+        self::assertSame(4, $metrics['quality_sample_count']);
+        self::assertTrue($fuel->hasSufficientQualityData($metrics));
+
+        $points[3]['accuracy'] = null;
+        $metrics = $fuel->metricsFromPoints(
+            $points,
+            new DateTimeImmutable('2026-07-19T08:00:00Z'),
+            new DateTimeImmutable('2026-07-19T08:01:00Z'),
+        );
+
+        self::assertSame(3, $metrics['quality_sample_count']);
+        self::assertFalse($fuel->hasSufficientQualityData($metrics));
     }
 
     public function test_stationary_heartbeats_do_not_create_a_tracking_gap(): void
@@ -145,6 +219,29 @@ class TripDataQualityTest extends TestCase
         self::assertContains('tracking_gap', $metrics['quality_flags']);
         self::assertContains('tracking_coverage_gap', $metrics['quality_flags']);
         self::assertNull($fuel->estimateFromMetrics($trip, $metrics));
+    }
+
+    public function test_it_provides_a_review_only_fuel_estimate_when_quality_policy_withholds_it(): void
+    {
+        $fuel = new VirtualFuelService;
+        $metrics = [
+            'distance_km' => 4.37,
+            'quality_flags' => ['tracking_coverage_gap'],
+        ];
+
+        self::assertNull($fuel->estimateFromMetrics(new Trip, $metrics));
+        self::assertSame(0.524, $fuel->estimateProvisionalFromMetrics($metrics));
+        self::assertSame(0.12, $fuel->litersPerKilometer());
+    }
+
+    public function test_it_does_not_invent_provisional_fuel_without_valid_gps_points(): void
+    {
+        $fuel = new VirtualFuelService;
+
+        self::assertNull($fuel->estimateProvisionalFromMetrics([
+            'distance_km' => 0,
+            'quality_flags' => ['no_valid_points'],
+        ]));
     }
 
     public function test_it_matches_the_mobile_canonical_checksum_fixture(): void

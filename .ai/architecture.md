@@ -45,3 +45,11 @@ Once a trip is `confirmed` by the system, it enters the administrative review pi
 - **Repositories**: StudlyCase with `Repository` suffix (`MunicipalityVehicleRepository`).
 - **Vue Components**: StudlyCase (`TripShow.vue`, `Dashboard.vue`).
 - **API Endpoints**: Kebab-case plural (`/api/mission-types`).
+
+## 7. Driver App Usage Monitoring
+
+- `DriverAppPresenceController` validates and delegates authenticated telemetry to `DriverAppUsageService`.
+- `DriverAppInstallationRepository` owns queries for `driver_app_installations`.
+- `TripRepository::latestUsageByDriver()` supplies legacy users who have trips but no new telemetry.
+- `MunicipalityVehicleRepository::findManyByDriverOracleIds()` supplies live Oracle vehicle assignments in one query.
+- `DriverAppUsageController` renders `Admin/DriverApps`; it must not duplicate classification or merge logic.

@@ -5,9 +5,35 @@ namespace App\Repositories;
 use App\Models\Trip;
 use DateTimeInterface;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 
 class TripRepository
 {
+    public function latestUsageByDriver(): Collection
+    {
+        $ranked = Trip::query()
+            ->select([
+                'oracle_driver_id',
+                'driver_name',
+                'driver_phone',
+                'driver_employee_number',
+                'oracle_vehicle_id',
+                'vehicle_plate',
+                'vehicle_name',
+                'vehicle_type',
+                'started_at',
+            ])
+            ->selectRaw(
+                'ROW_NUMBER() OVER (PARTITION BY oracle_driver_id ORDER BY started_at DESC, id DESC) AS usage_rank'
+            )
+            ->whereNotNull('oracle_driver_id');
+
+        return Trip::query()
+            ->fromSub($ranked, 'latest_driver_trip')
+            ->where('usage_rank', 1)
+            ->get();
+    }
+
     public function paginateForDashboard(
         DateTimeInterface $from,
         DateTimeInterface $to,

@@ -2,7 +2,9 @@
 
 namespace App\Http\Middleware;
 
+use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
@@ -34,7 +36,7 @@ class HandleInertiaRequests extends Middleware
 
         return array_merge(parent::share($request), [
             'flash' => [
-                'ok'    => fn () => $request->session()->get('ok'),
+                'ok' => fn () => $request->session()->get('ok'),
                 'error' => fn () => $request->session()->get('error'),
             ],
             'auth' => [
@@ -50,23 +52,24 @@ class HandleInertiaRequests extends Middleware
                     ),
             ],
             'urls' => [
-                'portal'       => route('portal'),
-                'dashboard'    => route('admin.dashboard'),
-                'locations'    => route('admin.locations'),
+                'portal' => route('portal'),
+                'dashboard' => route('admin.dashboard'),
+                'driverApps' => route('admin.driver-apps'),
+                'locations' => route('admin.locations'),
                 'missionTypes' => route('admin.mission-types'),
-                'reports'      => route('admin.reports'),
-                'reportsCsv'   => route('admin.reports.csv'),
-                'reportsPdf'   => route('admin.reports.pdf'),
-                'logout'       => route('logout'),
-                'trips_base'   => url('/admin/trips'),
-                'permissions'  => \Illuminate\Support\Facades\Route::has('portal.permissions') ? route('portal.permissions') : null,
-                'allowlist'    => \Illuminate\Support\Facades\Route::has('admin.allowlist') ? route('admin.allowlist') : null,
-                'logs'         => $logsUrl,
+                'reports' => route('admin.reports'),
+                'reportsCsv' => route('admin.reports.csv'),
+                'reportsPdf' => route('admin.reports.pdf'),
+                'logout' => route('logout'),
+                'trips_base' => url('/admin/trips'),
+                'permissions' => Route::has('portal.permissions') ? route('portal.permissions') : null,
+                'allowlist' => Route::has('admin.allowlist') ? route('admin.allowlist') : null,
+                'logs' => $logsUrl,
             ],
             'system' => [
-                'last_update' => fn () => file_exists(base_path('.git/FETCH_HEAD')) 
-                    ? \Carbon\Carbon::createFromTimestamp(filemtime(base_path('.git/FETCH_HEAD')))->locale('ar')->diffForHumans()
-                    : (file_exists(base_path('.git/HEAD')) ? \Carbon\Carbon::createFromTimestamp(filemtime(base_path('.git/HEAD')))->locale('ar')->diffForHumans() : 'غير متوفر'),
+                'last_update' => fn () => file_exists(base_path('.git/FETCH_HEAD'))
+                    ? Carbon::createFromTimestamp(filemtime(base_path('.git/FETCH_HEAD')))->locale('ar')->diffForHumans()
+                    : (file_exists(base_path('.git/HEAD')) ? Carbon::createFromTimestamp(filemtime(base_path('.git/HEAD')))->locale('ar')->diffForHumans() : 'غير متوفر'),
             ],
         ]);
     }

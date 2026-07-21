@@ -21,6 +21,7 @@ app/
 │   └── MunicipalityVehicleRepository.php # Only place where Oracle is queried
 ├── Services/                 # Business Logic layer
 │   ├── TripSyncService.php   # Idempotency, snapshots, point batching
+│   ├── DriverAppUsageService.php # Driver/version/store adoption overview
 │   ├── VirtualFuelService.php# Estimates fuel usage based on GPS
 │   └── AdminTripReviewService.php # Handles approve/reject/clarify logic
 └── Providers/
@@ -59,3 +60,10 @@ The valves module uses dedicated namespaces and tables separate from wells:
 - Services: `App\Services\Valves\*`
 
 Do not reuse wells `Team` or `Inspector` classes for valves features.
+
+## Driver App Usage Monitoring
+
+- API: `POST /api/driver/app-presence` → `Api/DriverAppPresenceController`.
+- Admin: `GET /admin/driver-apps` → `DriverAppUsageController` → `Admin/DriverApps.vue`.
+- Managed data: `DriverAppInstallation` through `DriverAppInstallationRepository`.
+- Release policy: `config/driver_app.php`; change the configured version/build for every published Android release.
