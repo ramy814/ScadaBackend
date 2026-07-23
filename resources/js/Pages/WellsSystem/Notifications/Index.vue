@@ -3,6 +3,7 @@ import { ref, watch } from 'vue'
 import { router } from '@inertiajs/vue3'
 import AppLayout from '../../../WellsSystem/Layouts/AppLayout.vue'
 import Pagination from '../../../WellsSystem/Components/Shared/Pagination.vue'
+import MediaThumbnails from '../../../WellsSystem/Components/Shared/MediaThumbnails.vue'
 
 const props = defineProps({
     notifications: { type: Object, default: () => ({ data: [], links: [] }) },
@@ -175,6 +176,10 @@ function formatDate(dateStr) {
                                         <p v-if="notif.MESSAGE" style="color: var(--color-text-secondary); font-size: 0.9rem; margin-bottom: 8px;">
                                             {{ notif.MESSAGE }}
                                         </p>
+                                        <MediaThumbnails
+                                            v-if="notif.MEDIA?.length"
+                                            :media="notif.MEDIA"
+                                        />
                                     </div>
                                     <!-- زر تم القراءة -->
                                     <button

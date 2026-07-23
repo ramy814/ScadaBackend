@@ -40,12 +40,15 @@ class WellService
     public function createWell(array $data): Well
     {
         return DB::transaction(function () use ($data): Well {
-            $generatorIds = $this->extractGeneratorIds($data);
+            $generatorAssignments = $this->extractGeneratorAssignments($data);
             $media = $this->extractMedia($data);
             $well = $this->wellRepository->create($data);
 
-            if ($generatorIds !== null) {
-                $this->generatorRepository->syncWellGenerators((int) $well->getKey(), $generatorIds);
+            if ($generatorAssignments !== null) {
+                $this->generatorRepository->syncWellGenerators(
+                    (int) $well->getKey(),
+                    $generatorAssignments,
+                );
             }
 
             $this->wellMediaService->storeMany((int) $well->getKey(), $media);
@@ -57,21 +60,12 @@ class WellService
     public function updateWell(int $id, array $data): Well
     {
         return DB::transaction(function () use ($id, &$data): Well {
-            $well = $this->wellRepository->findOrFail($id);
-            $hasTransactions = $well->readings()->exists() || $well->dieselInventories()->exists();
-
-            if ($hasTransactions) {
-                unset($data['NAME'], $data['QUARTER_OID']);
-            }
-
-            unset($data['WELL_NUM']);
-
-            $generatorIds = $this->extractGeneratorIds($data);
+            $generatorAssignments = $this->extractGeneratorAssignments($data);
             $media = $this->extractMedia($data);
             $updatedWell = $this->wellRepository->update($id, $data);
 
-            if ($generatorIds !== null) {
-                $this->generatorRepository->syncWellGenerators($id, $generatorIds);
+            if ($generatorAssignments !== null) {
+                $this->generatorRepository->syncWellGenerators($id, $generatorAssignments);
             }
 
             $this->wellMediaService->storeMany($id, $media);
@@ -141,7 +135,7 @@ class WellService
         $this->generatorRepository->syncWellGenerators($wellId, $generatorIds);
     }
 
-    private function extractGeneratorIds(array &$data): ?array
+    private function extractGeneratorAssignments(array &$data): ?array
     {
         $hasLowercaseKey = array_key_exists('generators', $data);
         $hasUppercaseKey = array_key_exists('GENERATORS', $data);
@@ -150,25 +144,62 @@ class WellService
             return null;
         }
 
-        $generatorIds = $data['generators'] ?? $data['GENERATORS'] ?? [];
+        $generatorAssignments = $data['generators'] ?? $data['GENERATORS'] ?? [];
         unset($data['generators']);
         unset($data['GENERATORS']);
 
-        return collect($generatorIds)
-            ->map(function ($generator) {
+        return collect($generatorAssignments)
+            ->map(function (mixed $generator): array {
                 if (is_array($generator)) {
-                    return $generator['GENERATOR_OID'] ?? $generator['generator_oid'] ?? $generator['OID'] ?? $generator['oid'] ?? null;
+                    return [
+                        'GENERATOR_OID' => $generator['GENERATOR_OID']
+                            ?? $generator['generator_oid']
+                            ?? $generator['OID']
+                            ?? $generator['oid']
+                            ?? null,
+                        'FUEL_CONSUMPTION_LPH' => $generator['FUEL_CONSUMPTION_LPH']
+                            ?? $generator['fuel_consumption_lph']
+                            ?? null,
+                        'CONSUMPTION_TOLERANCE_LPH' => $generator['CONSUMPTION_TOLERANCE_LPH']
+                            ?? $generator['consumption_tolerance_lph']
+                            ?? null,
+                    ];
                 }
 
                 if (is_object($generator)) {
-                    return $generator->GENERATOR_OID ?? $generator->generator_oid ?? $generator->OID ?? $generator->oid ?? null;
+                    return [
+                        'GENERATOR_OID' => $generator->GENERATOR_OID
+                            ?? $generator->generator_oid
+                            ?? $generator->OID
+                            ?? $generator->oid
+                            ?? null,
+                        'FUEL_CONSUMPTION_LPH' => $generator->FUEL_CONSUMPTION_LPH
+                            ?? $generator->fuel_consumption_lph
+                            ?? null,
+                        'CONSUMPTION_TOLERANCE_LPH' => $generator->CONSUMPTION_TOLERANCE_LPH
+                            ?? $generator->consumption_tolerance_lph
+                            ?? null,
+                    ];
                 }
 
-                return $generator;
+                return [
+                    'GENERATOR_OID' => $generator,
+                    'FUEL_CONSUMPTION_LPH' => null,
+                    'CONSUMPTION_TOLERANCE_LPH' => null,
+                ];
             })
-            ->filter(fn ($id): bool => $id !== null && $id !== '')
-            ->map(fn ($id): int => (int) $id)
-            ->unique()
+            ->filter(fn (array $assignment): bool => $assignment['GENERATOR_OID'] !== null
+                && $assignment['GENERATOR_OID'] !== '')
+            ->map(fn (array $assignment): array => [
+                'GENERATOR_OID' => (int) $assignment['GENERATOR_OID'],
+                'FUEL_CONSUMPTION_LPH' => $this->nullableFloat(
+                    $assignment['FUEL_CONSUMPTION_LPH'],
+                ),
+                'CONSUMPTION_TOLERANCE_LPH' => $this->nullableFloat(
+                    $assignment['CONSUMPTION_TOLERANCE_LPH'],
+                ),
+            ])
+            ->unique('GENERATOR_OID')
             ->values()
             ->all();
     }
@@ -188,7 +219,41 @@ class WellService
 
     public function getWellsForMap(): Collection
     {
-        return $this->wellRepository->getActiveWells();
+        $wells = $this->wellRepository->getWellsForMap();
+        $generatorIds = $wells
+            ->flatMap(fn (Well $well) => $well->generators->pluck('generator_oid'))
+            ->filter()
+            ->map(fn (mixed $generatorId): int => (int) $generatorId)
+            ->unique()
+            ->values()
+            ->all();
+        $generators = collect($this->generatorRepository->getGeneratorsByIds($generatorIds))
+            ->keyBy(fn (object $generator): int => (int) $generator->OID);
+
+        $wells->each(function (Well $well) use ($generators): void {
+            $mapGenerators = $well->generators
+                ->map(function ($assignment) use ($generators): ?array {
+                    $generatorId = (int) $assignment->getAttribute('generator_oid');
+                    $generator = $generators->get($generatorId);
+
+                    if (! $generator) {
+                        return null;
+                    }
+
+                    return [
+                        'oid' => $generatorId,
+                        'number' => $generator->GENERATOR_NUM ?? null,
+                        'name' => $generator->NAME ?? null,
+                    ];
+                })
+                ->filter()
+                ->values()
+                ->all();
+
+            $well->setAttribute('MAP_GENERATORS', $mapGenerators);
+        });
+
+        return $wells;
     }
 
     public function getQuarters(): array

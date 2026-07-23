@@ -8,13 +8,12 @@ import Pagination from '../../../WellsSystem/Components/Shared/Pagination.vue'
 
 const props = defineProps({
     wells: { type: Object, default: () => ({ data: [], links: [] }) },
-    quarters: { type: Array, default: () => [] },
     filters: { type: Object, default: () => ({}) },
     generators: { type: Object, default: () => ({}) },
 })
 
 const search = ref(props.filters?.search || '')
-const quarterOid = ref(props.filters?.quarter_oid || '')
+const damageStatus = ref(props.filters?.damage_status || '')
 const isActive = ref(props.filters?.is_active || '')
 
 const showDeleteModal = ref(false)
@@ -28,18 +27,35 @@ function wellNumber(well) {
     return well.SOURCE_WELL_CODE || well.WELL_NUM || '-'
 }
 
-function wellGeneratorsNumber(well) {
-    if (!well.generators || well.generators.length === 0) return '-';
-    const nums = well.generators
-        .map(g => props.generators[g.GENERATOR_OID]?.GENERATOR_NUM || '-')
-        .filter(n => n !== '-');
-    return nums.length > 0 ? nums.join('، ') : '-';
+function wellGenerators(well) {
+    const assignments = well.GENERATORS || well.generators || []
+
+    return assignments.map((assignment) => {
+        const oid = assignment.GENERATOR_OID ?? assignment.generator_oid
+        const generator = props.generators[oid] || props.generators[String(oid)]
+
+        return {
+            oid,
+            number: generator?.GENERATOR_NUM || 'غير متوفر',
+            name: generator?.NAME || '',
+        }
+    })
+}
+
+function pumpTypeClass(type) {
+    const normalizedType = type === 'centrifugal' ? 'vertical' : type
+
+    return normalizedType === 'submersible'
+        ? 'pump-type-submersible'
+        : normalizedType === 'vertical'
+            ? 'pump-type-vertical'
+            : 'pump-type-unknown'
 }
 
 function applyFilters() {
     router.get('/wells/wells', {
         search: search.value,
-        quarter_oid: quarterOid.value,
+        damage_status: damageStatus.value,
         is_active: isActive.value,
     }, {
         preserveState: true,
@@ -55,13 +71,13 @@ watch(search, () => {
     }, 400)
 })
 
-watch([quarterOid, isActive], () => {
+watch([damageStatus, isActive], () => {
     applyFilters()
 })
 
 function clearFilters() {
     search.value = ''
-    quarterOid.value = ''
+    damageStatus.value = ''
     isActive.value = ''
     applyFilters()
 }
@@ -106,12 +122,13 @@ function deleteWell() {
                             <input v-model="search" type="text" class="form-input" placeholder="ابحث باسم البئر أو رقمه...">
                         </div>
                         <div class="form-group" style="flex: 1; min-width: 180px; margin-bottom: 0;">
-                            <label class="form-label">المنطقة</label>
-                            <select v-model="quarterOid" class="form-select">
-                                <option value="">كل المناطق</option>
-                                <option v-for="quarter in quarters" :key="quarter.OID" :value="quarter.OID">
-                                    {{ quarter.NAME }}
-                                </option>
+                            <label class="form-label">حالة الضرر</label>
+                            <select v-model="damageStatus" class="form-select">
+                                <option value="">كل حالات الضرر</option>
+                                <option value="سليمة">سليمة</option>
+                                <option value="متضررة">متضررة</option>
+                                <option value="أعيد تأهيلها">أعيد تأهيلها</option>
+                                <option value="مدمرة">مدمرة</option>
                             </select>
                         </div>
                         <div class="form-group" style="flex: 1; min-width: 150px; margin-bottom: 0;">
@@ -140,6 +157,7 @@ function deleteWell() {
                                     <th>#</th>
                                     <th>رقم البئر</th>
                                     <th>اسم البئر</th>
+                                    <th>المولد</th>
                                     <th>المنطقة</th>
                                     <th>نوع المضخة</th>
                                     <th>السعة</th>
@@ -151,15 +169,27 @@ function deleteWell() {
                                 <tr v-for="(well, index) in wells.data" :key="well.OID">
                                     <td>{{ (wells.current_page - 1) * wells.per_page + index + 1 || index + 1 }}</td>
                                     <td class="font-bold">{{ wellNumber(well) }}</td>
-                                    <td class="font-bold">
-                                        {{ well.NAME }}
-                                        <span class="badge badge-good" v-if="wellGeneratorsNumber(well) !== '-'" style="margin-right: 8px; font-size: 0.8em; vertical-align: middle;">
-                                            {{ wellGeneratorsNumber(well) }}
-                                        </span>
+                                    <td class="font-bold">{{ well.NAME }}</td>
+                                    <td class="diesel-generator-cell">
+                                        <div v-if="wellGenerators(well).length" class="well-generators">
+                                            <div
+                                                v-for="generator in wellGenerators(well)"
+                                                :key="generator.oid"
+                                                class="diesel-generator"
+                                            >
+                                                <span class="diesel-generator-number" dir="ltr">
+                                                    {{ generator.number }}
+                                                </span>
+                                                <span v-if="generator.name" class="diesel-generator-name">
+                                                    {{ generator.name }}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <span v-else>-</span>
                                     </td>
                                     <td>{{ well.QUARTER_NAME || '-' }}</td>
                                     <td>
-                                        <span class="badge badge-active">
+                                        <span :class="['badge', 'pump-type-badge', pumpTypeClass(well.PUMP_TYPE)]">
                                             {{ pumpTypeLabels[well.PUMP_TYPE] || well.PUMP_TYPE }}
                                         </span>
                                     </td>

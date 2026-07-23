@@ -13,6 +13,13 @@ The Fleet Management System is an enterprise application designed for Gaza Munic
 
 The Fleet admin area also monitors driver-app adoption at `/admin/driver-apps`. The page combines historical trip users with authenticated app-presence records so management can distinguish current, outdated, and not-yet-reporting installations and inspect their current Oracle vehicle assignments.
 
+## Current Driver App Release And Presence Contract
+
+- Current approved Android release: `1.0.20+21` (`versionName 1.0.20`, `versionCode 21`).
+- Presence is triggered primarily when an authenticated driver main shell opens or resumes; it must not depend on OTP login because sessions are retained locally.
+- The backend endpoint is `POST /api/driver/app-presence`, and the admin screen is `/admin/driver-apps`.
+- Production must deploy the endpoint and `driver_app_installations` migration before distributing the matching app. An unauthenticated production probe returning HTTP 404 proves the route is missing; a deployed protected route should reach authentication instead.
+
 ## Architectural Principles
 - **Offline-First Resilience**: Drivers often operate in areas without network coverage. All driver-facing endpoints are designed to accept batches of data out-of-order and resolve them without requiring constant connectivity.
 - **Idempotency**: All trip data and GPS batches use unique identifiers (`local_id` for trips, `sequence_number` for points) to prevent duplicates during intermittent network retries.

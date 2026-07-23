@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\LocationLookupController;
 use App\Http\Controllers\Api\MissionTypeLookupController;
 use App\Http\Controllers\Api\TripSyncController;
 use App\Http\Controllers\Api\VehicleLookupController;
+use App\Http\Controllers\Api\Wells\ActivityMediaController;
 use App\Http\Controllers\Api\Wells\SyncController;
 use Illuminate\Support\Facades\Route;
 
@@ -46,6 +47,7 @@ Route::prefix('wells')->group(function (): void {
         Route::post('/readings/sync', [SyncController::class, 'syncReadings']);
         Route::post('/diesel-inventories/sync', [SyncController::class, 'syncDiesel']);
         Route::post('/notifications/sync', [SyncController::class, 'syncNotifications']);
+        Route::post('/activity-media/sync', [ActivityMediaController::class, 'store']);
         Route::get('/sync/history', [SyncController::class, 'history']);
     });
 });

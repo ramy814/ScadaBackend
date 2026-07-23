@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Models\Wells;
 
+use App\Services\Wells\ActivityMediaService;
+use App\Traits\Wells\UppercaseKeys;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use App\Traits\Wells\UppercaseKeys;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class WellNotification extends Model
 {
@@ -15,6 +17,7 @@ class WellNotification extends Model
     protected $connection = 'oracle';
 
     protected $table = 'well_notifications';
+
     protected $primaryKey = 'oid';
 
     protected $fillable = [
@@ -24,6 +27,7 @@ class WellNotification extends Model
         'MESSAGE',
         'IS_READ',
         'READ_AT',
+        'CLIENT_LOCAL_ID',
     ];
 
     protected function casts(): array
@@ -47,5 +51,14 @@ class WellNotification extends Model
     public function inspector(): BelongsTo
     {
         return $this->belongsTo(Inspector::class, 'inspector_oid', 'oid');
+    }
+
+    public function media(): HasMany
+    {
+        return $this->hasMany(
+            WellActivityMedia::class,
+            'activity_oid',
+            'oid',
+        )->where('ACTIVITY_TYPE', ActivityMediaService::TYPE_NOTIFICATION);
     }
 }

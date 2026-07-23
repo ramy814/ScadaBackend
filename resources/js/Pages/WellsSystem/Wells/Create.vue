@@ -11,7 +11,7 @@ const props = defineProps({
 })
 
 function generatorOid(generator) {
-    return Number(generator?.OID ?? generator?.oid)
+    return Number(generator?.GENERATOR_OID ?? generator?.generator_oid ?? generator?.OID ?? generator?.oid)
 }
 
 function generatorName(generator) {
@@ -29,7 +29,8 @@ function generatorDetails(oid) {
             name: `مولد #${oid}`,
             number: 'غير متوفر',
             currentReading: null,
-            gallons: null,
+            lastFuelLiters: null,
+            fuelConsumption: null,
         }
     }
 
@@ -37,7 +38,8 @@ function generatorDetails(oid) {
         name: generator.NAME ?? generator.name ?? `مولد #${oid}`,
         number: generator.GENERATOR_NUM ?? generator.generator_num ?? 'غير متوفر',
         currentReading: generator.CURRENT_READING ?? generator.current_reading ?? null,
-        gallons: generator.GALLONS ?? generator.gallons ?? null,
+        lastFuelLiters: generator.GALLONS ?? generator.gallons ?? null,
+        fuelConsumption: generator.FUEL_CONSUMPTION ?? generator.fuel_consumption ?? null,
     }
 }
 
@@ -58,8 +60,6 @@ const form = reactive({
     QUARTER_OID: '',
     DAMAGE_STATUS: '',
     OPERATIONAL_STATUS: '',
-    INSTALLATION_DATE: '',
-    LAST_MAINTENANCE_DATE: '',
     // بيانات البئر والمضخة
     WELL_DEPTH: '',
     PUMP_TYPE: 'submersible',
@@ -108,11 +108,15 @@ const generatorOptions = computed(() => {
     }))
 })
 
-function addGenerator(generatorOid) {
-    const oid = Number(generatorOid)
+function addGenerator(selectedOid) {
+    const oid = Number(selectedOid)
 
-    if (Number.isFinite(oid) && !form.generators.includes(oid)) {
-        form.generators.push(oid)
+    if (Number.isFinite(oid) && !form.generators.some(generator => generatorOid(generator) === oid)) {
+        form.generators.push({
+            GENERATOR_OID: oid,
+            FUEL_CONSUMPTION_LPH: generatorDetails(oid).fuelConsumption ?? '',
+            CONSUMPTION_TOLERANCE_LPH: 0,
+        })
     }
 }
 
@@ -129,7 +133,7 @@ function getGeneratorName(oid) {
 function submit() {
     router.post('/wells/wells', {
         ...form,
-        generators: [...form.generators],
+        generators: form.generators.map(generator => ({ ...generator })),
         media: newMedia.value,
     }, {
         forceFormData: true,
@@ -222,7 +226,7 @@ function initMap() {
                             </div>
                         </div>
 
-                        <!-- الصف الثاني: حالة الضرر، الحالة التشغيلية، تاريخ التركيب -->
+                        <!-- الصف الثاني: حالة الضرر، الحالة التشغيلية، التفعيل -->
                         <div class="form-row">
                             <div class="form-group">
                                 <label class="form-label">حالة الضرر</label>
@@ -242,18 +246,6 @@ function initMap() {
                                     <option value="متوقف">متوقف</option>
                                     <option value="تحت الصيانة">تحت الصيانة</option>
                                 </select>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">تاريخ التركيب</label>
-                                <input v-model="form.INSTALLATION_DATE" type="date" class="form-input">
-                            </div>
-                        </div>
-
-                        <!-- الصف الثالث: آخر صيانة وتفعيل البئر -->
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label class="form-label">آخر صيانة</label>
-                                <input v-model="form.LAST_MAINTENANCE_DATE" type="date" class="form-input">
                             </div>
                             <div class="form-group">
                                 <label class="form-label">حالة التفعيل (IS_ACTIVE)</label>
@@ -280,8 +272,8 @@ function initMap() {
                             <div class="form-group">
                                 <label class="form-label">نوع المضخة *</label>
                                 <select v-model="form.PUMP_TYPE" class="form-select" required>
-                                    <option value="submersible">غاطس (Submersible)</option>
-                                    <option value="vertical">رأسي (Vertical)</option>
+                                    <option value="submersible">غاطس</option>
+                                    <option value="vertical">رأسي</option>
                                 </select>
                             </div>
                             <div class="form-group">
@@ -338,11 +330,15 @@ function initMap() {
                         </div>
 
                         <div v-if="form.generators.length" class="generators-list">
-                            <div v-for="(genOid, index) in form.generators" :key="genOid" class="generator-item">
+                            <div
+                                v-for="(generator, index) in form.generators"
+                                :key="generator.GENERATOR_OID"
+                                class="generator-item"
+                            >
                                 <div class="generator-card-header">
                                     <div>
                                         <span class="generator-card-label">اسم المولد</span>
-                                        <strong class="generator-card-title">{{ generatorDetails(genOid).name }}</strong>
+                                        <strong class="generator-card-title">{{ generatorDetails(generator.GENERATOR_OID).name }}</strong>
                                     </div>
                                     <button type="button" class="btn btn-sm btn-danger" @click="removeGenerator(index)">✕</button>
                                 </div>
@@ -350,15 +346,49 @@ function initMap() {
                                 <div class="generator-card-grid">
                                     <div class="generator-card-metric">
                                         <span>رقم المولد</span>
-                                        <strong>{{ generatorDetails(genOid).number }}</strong>
+                                        <strong>{{ generatorDetails(generator.GENERATOR_OID).number }}</strong>
                                     </div>
                                     <div class="generator-card-metric">
-                                        <span>قراءة العداد</span>
-                                        <strong>{{ formatGeneratorValue(generatorDetails(genOid).currentReading) }}</strong>
+                                        <span>آخر قراءة لعداد المولد (ساعة)</span>
+                                        <strong>{{ formatGeneratorValue(generatorDetails(generator.GENERATOR_OID).currentReading) }}</strong>
                                     </div>
                                     <div class="generator-card-metric">
-                                        <span>كمية السولار</span>
-                                        <strong>{{ formatGeneratorValue(generatorDetails(genOid).gallons) }} جالون</strong>
+                                        <span>آخر كمية تعبئة سولار (لتر)</span>
+                                        <strong>{{ formatGeneratorValue(generatorDetails(generator.GENERATOR_OID).lastFuelLiters) }}</strong>
+                                    </div>
+                                    <div class="generator-card-metric">
+                                        <label :for="`generator-consumption-${index}`">معدل استهلاك المولد (لتر/ساعة)</label>
+                                        <input
+                                            :id="`generator-consumption-${index}`"
+                                            v-model="generator.FUEL_CONSUMPTION_LPH"
+                                            type="number"
+                                            min="0"
+                                            step="0.01"
+                                            class="form-input"
+                                        >
+                                        <span
+                                            v-if="errors[`generators.${index}.FUEL_CONSUMPTION_LPH`]"
+                                            class="form-error"
+                                        >
+                                            {{ errors[`generators.${index}.FUEL_CONSUMPTION_LPH`] }}
+                                        </span>
+                                    </div>
+                                    <div class="generator-card-metric">
+                                        <label :for="`generator-tolerance-${index}`">فرق استهلاك المولد المسموح (لتر/ساعة)</label>
+                                        <input
+                                            :id="`generator-tolerance-${index}`"
+                                            v-model="generator.CONSUMPTION_TOLERANCE_LPH"
+                                            type="number"
+                                            min="0"
+                                            step="0.01"
+                                            class="form-input"
+                                        >
+                                        <span
+                                            v-if="errors[`generators.${index}.CONSUMPTION_TOLERANCE_LPH`]"
+                                            class="form-error"
+                                        >
+                                            {{ errors[`generators.${index}.CONSUMPTION_TOLERANCE_LPH`] }}
+                                        </span>
                                     </div>
                                 </div>
                             </div>

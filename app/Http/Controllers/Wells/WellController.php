@@ -25,11 +25,11 @@ class WellController extends Controller
 
     public function index(Request $request): Response
     {
-        $filters = $request->only(['search', 'quarter_oid', 'is_active']);
+        $filters = $request->only(['search', 'damage_status', 'is_active']);
 
         $paginatedWells = $this->wellService->getPaginatedWells(15, $filters);
         $generatorOids = collect($paginatedWells->items())
-            ->flatMap(fn ($well) => $well->generators->pluck('GENERATOR_OID'))
+            ->flatMap(fn ($well) => $well->generators->pluck('generator_oid'))
             ->unique()
             ->filter()
             ->values()
@@ -44,7 +44,6 @@ class WellController extends Controller
         return Inertia::render('WellsSystem/Wells/Index', [
             'wells' => $paginatedWells,
             'filters' => $filters,
-            'quarters' => $this->wellService->getQuarters(),
             'generators' => $generators,
         ]);
     }
@@ -78,11 +77,9 @@ class WellController extends Controller
     public function edit(int $well): Response
     {
         $wellModel = $this->wellService->getWell($well);
-        $hasTransactions = $wellModel->readings()->exists() || $wellModel->dieselInventories()->exists();
 
         return Inertia::render('WellsSystem/Wells/Edit', [
             'well' => $wellModel,
-            'hasTransactions' => $hasTransactions,
             'quarters' => $this->wellService->getQuarters(),
             'generators' => $this->generatorService->getActiveGenerators(),
         ]);

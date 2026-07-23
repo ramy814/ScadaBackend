@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Wells;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Wells\DieselInventoryReportRequest;
 use App\Services\Wells\DieselInventoryService;
 use App\Services\Wells\InspectorService;
 use App\Services\Wells\WellService;
-use Illuminate\Http\Request;
+use Illuminate\Http\Response as HttpResponse;
+use Illuminate\Support\Arr;
 use Inertia\Inertia;
 use Inertia\Response;
 use Mpdf\Mpdf;
@@ -21,23 +23,36 @@ class DieselInventoryController extends Controller
         private readonly InspectorService $inspectorService,
     ) {}
 
-    public function index(Request $request): Response
+    public function index(DieselInventoryReportRequest $request): Response
     {
-        $filters = $this->inventoryFilters($request);
+        $filters = $this->reportFilters($request);
 
         return Inertia::render('WellsSystem/DieselInventories/Index', [
-            'inventories' => $this->dieselInventoryService->getPaginatedInventories(15, $filters),
+            'internalReport' => $this->dieselInventoryService->getInternalTankReport($filters),
+            'externalReport' => $this->dieselInventoryService->getInventoryReport($filters),
+            'columnSets' => $this->dieselInventoryService->getReportColumns(),
+            'unclassifiedWellCount' => $this->dieselInventoryService->getUnclassifiedWellCount(),
+            'urls' => [
+                'index' => route('wells.diesel-inventories.index', [], false),
+                'reportPdf' => route('wells.diesel-inventories.report.pdf', [], false),
+                'reportExcel' => route('wells.diesel-inventories.report.excel', [], false),
+                'wells' => route('wells.wells.index', [], false),
+            ],
             'wells' => $this->wellService->getActiveWells(),
             'inspectors' => $this->inspectorService->getAllInspectors(),
             'filters' => $filters,
-            'statistics' => $this->dieselInventoryService->getStatistics(),
         ]);
     }
 
-    public function reportPdf(Request $request)
+    public function reportPdf(DieselInventoryReportRequest $request): HttpResponse
     {
+        $reportType = $this->reportType($request);
         $html = view('wells.diesel-inventory-report', [
-            'report' => $this->dieselInventoryService->getInventoryReport($this->inventoryFilters($request)),
+            'report' => $this->dieselInventoryService->getExportReport(
+                $reportType,
+                $this->reportFilters($request),
+                $request->validated('columns', []),
+            ),
             'format' => 'pdf',
         ])->render();
         $mpdf = new Mpdf([
@@ -55,36 +70,60 @@ class DieselInventoryController extends Controller
 
         return response($mpdf->Output('', 'S'), 200, [
             'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'attachment; filename="'.$this->reportFileName('pdf').'"',
+            'Content-Disposition' => 'attachment; filename="'.$this->reportFileName('pdf', $reportType).'"',
         ]);
     }
 
-    public function reportExcel(Request $request)
+    public function reportExcel(DieselInventoryReportRequest $request): HttpResponse
     {
+        $reportType = $this->reportType($request);
         $html = view('wells.diesel-inventory-report', [
-            'report' => $this->dieselInventoryService->getInventoryReport($this->inventoryFilters($request)),
+            'report' => $this->dieselInventoryService->getExportReport(
+                $reportType,
+                $this->reportFilters($request),
+                $request->validated('columns', []),
+            ),
             'format' => 'excel',
         ])->render();
 
         return response("\xEF\xBB\xBF".$html, 200, [
             'Content-Type' => 'application/vnd.ms-excel; charset=UTF-8',
-            'Content-Disposition' => 'attachment; filename="'.$this->reportFileName('xls').'"',
+            'Content-Disposition' => 'attachment; filename="'.$this->reportFileName('xls', $reportType).'"',
         ]);
     }
 
-    private function inventoryFilters(Request $request): array
+    private function reportFilters(DieselInventoryReportRequest $request): array
     {
-        return $request->validate([
-            'well_oid' => ['nullable', 'integer'],
-            'inspector_oid' => ['nullable', 'integer'],
-            'generator_oid' => ['nullable', 'integer'],
-            'date_from' => ['nullable', 'date'],
-            'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
+        return Arr::only($request->validated(), [
+            'well_oid',
+            'inspector_oid',
+            'generator_oid',
+            'date_from',
+            'date_to',
+            'tank_group',
+            'external_view',
         ]);
     }
 
-    private function reportFileName(string $extension): string
+    private function reportType(DieselInventoryReportRequest $request): string
     {
-        return 'wells-diesel-inventory-report-'.now()->format('Ymd_His').'.'.$extension;
+        $validated = $request->validated();
+
+        if (! empty($validated['report_type'])) {
+            return $validated['report_type'];
+        }
+
+        if (($validated['tank_group'] ?? null) === 'internal') {
+            return 'internal';
+        }
+
+        return ($validated['external_view'] ?? null) === 'inventory'
+            ? 'external_inventory'
+            : 'external_results';
+    }
+
+    private function reportFileName(string $extension, string $reportType): string
+    {
+        return 'wells-diesel-'.$reportType.'-'.now()->format('Ymd_His').'.'.$extension;
     }
 }

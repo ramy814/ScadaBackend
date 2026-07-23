@@ -1,6 +1,6 @@
 <script setup>
-import { ref, reactive } from 'vue'
-import { router } from '@inertiajs/vue3'
+import { ref } from 'vue'
+import { router, useForm } from '@inertiajs/vue3'
 import AppLayout from '../../../WellsSystem/Layouts/AppLayout.vue'
 import Modal from '../../../WellsSystem/Components/Shared/Modal.vue'
 import Pagination from '../../../WellsSystem/Components/Shared/Pagination.vue'
@@ -14,15 +14,13 @@ const editingType = ref(null)
 const showDeleteModal = ref(false)
 const typeToDelete = ref(null)
 
-const form = reactive({
+const form = useForm({
     NAME: '',
-    EMOJI: '🔔',
+    ICON: 'bell',
     COLOR: '#3b82f6',
     PRIORITY: 1,
     IS_ACTIVE: true,
 })
-
-const errors = ref({})
 
 const emojiOptions = [
     { value: 'danger', icon: '●', label: 'خطر' },
@@ -48,23 +46,23 @@ const colorOptions = [
 
 function openCreateModal() {
     editingType.value = null
-    form.NAME = ''
-    form.EMOJI = 'bell'
+    form.reset()
+    form.clearErrors()
+    form.ICON = 'bell'
     form.COLOR = '#3b82f6'
     form.PRIORITY = props.types.data ? props.types.data.length + 1 : 1
     form.IS_ACTIVE = true
-    errors.value = {}
     showModal.value = true
 }
 
 function openEditModal(type) {
     editingType.value = type
     form.NAME = type.NAME
-    form.EMOJI = normalizeIcon(type.ICON || type.EMOJI)
+    form.ICON = normalizeIcon(type.ICON || type.EMOJI)
     form.COLOR = type.COLOR || '#3b82f6'
     form.PRIORITY = type.PRIORITY
     form.IS_ACTIVE = isActive(type.IS_ACTIVE)
-    errors.value = {}
+    form.clearErrors()
     showModal.value = true
 }
 
@@ -85,31 +83,24 @@ function iconLabel(value) {
 }
 
 function submitForm() {
-    const payload = {
-        NAME: form.NAME,
-        ICON: form.EMOJI,
-        EMOJI: form.EMOJI,
-        COLOR: form.COLOR,
-        PRIORITY: form.PRIORITY,
-        IS_ACTIVE: form.IS_ACTIVE ? 1 : 0,
-    }
+    form.transform((data) => ({
+        ...data,
+        EMOJI: data.ICON,
+        IS_ACTIVE: data.IS_ACTIVE ? 1 : 0,
+    }))
 
     if (editingType.value) {
-        router.put(`/wells/notification-types/${editingType.value.OID}`, payload, {
-            preserveState: false,
-            onError: (err) => { errors.value = err },
+        form.put(`/wells/notification-types/${editingType.value.OID}`, {
+            preserveScroll: true,
             onSuccess: () => {
                 showModal.value = false
-                router.reload({ only: ['types'], preserveState: false })
             },
         })
     } else {
-        router.post('/wells/notification-types', payload, {
-            preserveState: false,
-            onError: (err) => { errors.value = err },
+        form.post('/wells/notification-types', {
+            preserveScroll: true,
             onSuccess: () => {
                 showModal.value = false
-                router.reload({ only: ['types'], preserveState: false })
             },
         })
     }
@@ -186,33 +177,31 @@ function deleteType() {
                                     </td>
                                     <td>
                                         <span
-                                            v-if="!type.CAN_MODIFY"
+                                            v-if="!type.CAN_DELETE"
                                             class="badge"
                                             style="background: rgba(245,158,11,0.15); color: #f59e0b; border: 1px solid rgba(245,158,11,0.3);"
                                         >
-                                            🔒 مستخدم
+                                            مرتبط بإشعارات
                                         </span>
                                         <span v-else class="badge" style="background: rgba(16,185,129,0.1); color: #10b981; border: 1px solid rgba(16,185,129,0.3);">
-                                            ✓ حر
+                                            غير مستخدم
                                         </span>
                                     </td>
                                     <td>
                                         <div class="btn-group">
                                             <button
                                                 class="btn btn-sm btn-secondary"
-                                                :disabled="!type.CAN_MODIFY"
-                                                :style="!type.CAN_MODIFY ? 'opacity: 0.4; cursor: not-allowed;' : ''"
-                                                :title="!type.CAN_MODIFY ? 'لا يمكن التعديل - النوع مستخدم' : 'تعديل'"
-                                                @click="type.CAN_MODIFY && openEditModal(type)"
+                                                title="تعديل نوع الإشعار"
+                                                @click="openEditModal(type)"
                                             >
                                                 ✏️
                                             </button>
                                             <button
                                                 class="btn btn-sm btn-danger"
-                                                :disabled="!type.CAN_MODIFY"
-                                                :style="!type.CAN_MODIFY ? 'opacity: 0.4; cursor: not-allowed;' : ''"
-                                                :title="!type.CAN_MODIFY ? 'لا يمكن الحذف - النوع مستخدم' : 'حذف'"
-                                                @click="type.CAN_MODIFY && confirmDelete(type)"
+                                                :disabled="!type.CAN_DELETE"
+                                                :style="!type.CAN_DELETE ? 'opacity: 0.4; cursor: not-allowed;' : ''"
+                                                :title="!type.CAN_DELETE ? 'لا يمكن الحذف - النوع مرتبط بإشعارات' : 'حذف'"
+                                                @click="type.CAN_DELETE && confirmDelete(type)"
                                             >
                                                 🗑️
                                             </button>
@@ -237,23 +226,23 @@ function deleteType() {
                     <div class="form-group">
                         <label class="form-label">اسم نوع الإشعار *</label>
                         <input v-model="form.NAME" type="text" class="form-input" placeholder="مثال: انخفاض وقود حاد">
-                        <span v-if="errors.NAME" class="form-error">{{ errors.NAME }}</span>
+                        <span v-if="form.errors.NAME" class="form-error">{{ form.errors.NAME }}</span>
                     </div>
 
                     <div class="form-group">
-                        <label class="form-label">الأيقونة (Emoji)</label>
+                        <label class="form-label">الأيقونة</label>
                         <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px;">
                             <button
                                 v-for="opt in emojiOptions"
                                 :key="opt.value"
                                 type="button"
-                                @click="form.EMOJI = opt.value"
+                                @click="form.ICON = opt.value"
                                 :title="opt.label"
                                 :style="{
                                     width: '40px',
                                     height: '40px',
                                     borderRadius: '8px',
-                                    border: form.EMOJI === opt.value ? '2px solid var(--color-accent)' : '2px solid transparent',
+                                    border: form.ICON === opt.value ? '2px solid var(--color-accent)' : '2px solid transparent',
                                     background: 'var(--color-bg-input)',
                                     color: 'var(--color-text-primary)',
                                     fontSize: '1.1rem',
@@ -265,7 +254,8 @@ function deleteType() {
                                 }"
                             >{{ opt.icon }}</button>
                         </div>
-                        <input v-model="form.EMOJI" type="text" class="form-input" readonly>
+                        <input v-model="form.ICON" type="text" class="form-input" readonly>
+                        <span v-if="form.errors.ICON" class="form-error">{{ form.errors.ICON }}</span>
                     </div>
 
                     <div class="form-group">
@@ -288,13 +278,14 @@ function deleteType() {
                                 }"
                             ></button>
                         </div>
+                        <span v-if="form.errors.COLOR" class="form-error">{{ form.errors.COLOR }}</span>
                     </div>
 
                     <div class="form-row">
                         <div class="form-group">
                             <label class="form-label">الأولوية *</label>
                             <input v-model.number="form.PRIORITY" type="number" min="1" max="100" class="form-input" placeholder="1">
-                            <span v-if="errors.PRIORITY" class="form-error">{{ errors.PRIORITY }}</span>
+                            <span v-if="form.errors.PRIORITY" class="form-error">{{ form.errors.PRIORITY }}</span>
                         </div>
                         <div class="form-group" style="display: flex; align-items: flex-end; padding-bottom: 4px;">
                             <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
@@ -307,8 +298,8 @@ function deleteType() {
 
                 <template #footer>
                     <button class="btn btn-secondary" @click="showModal = false">إلغاء</button>
-                    <button class="btn btn-primary" @click="submitForm">
-                        {{ editingType ? 'حفظ التعديلات' : 'إضافة' }}
+                    <button class="btn btn-primary" :disabled="form.processing" @click="submitForm">
+                        {{ form.processing ? 'جاري الحفظ...' : (editingType ? 'حفظ التعديلات' : 'إضافة') }}
                     </button>
                 </template>
             </Modal>

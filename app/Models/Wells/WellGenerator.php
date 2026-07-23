@@ -22,6 +22,8 @@ class WellGenerator extends Pivot
     protected $fillable = [
         'WELL_OID',
         'GENERATOR_OID',
+        'FUEL_CONSUMPTION_LPH',
+        'CONSUMPTION_TOLERANCE_LPH',
         'CREATED_AT',
     ];
 
@@ -30,6 +32,8 @@ class WellGenerator extends Pivot
         return [
             'WELL_OID' => 'integer',
             'GENERATOR_OID' => 'integer',
+            'FUEL_CONSUMPTION_LPH' => 'decimal:2',
+            'CONSUMPTION_TOLERANCE_LPH' => 'decimal:2',
             'CREATED_AT' => 'datetime',
         ];
     }

@@ -28,6 +28,7 @@ class DieselInventory extends Model
         'LONGITUDE',
         'NOTES',
         'SYNCED_AT',
+        'CLIENT_LOCAL_ID',
     ];
 
     protected function casts(): array

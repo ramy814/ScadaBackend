@@ -16,6 +16,11 @@ Request → Controller → Service → Repository → Model → Database
 - Do not create or look for a second Flutter app under this backend repository.
 - `GET /api/wells/sync/wells` delegates to `WellService`; inspector/team filtering belongs in `WellRepository`, and previous diesel inventory lookup belongs in `DieselInventoryRepository`.
 - Oracle date values in mobile JSON must be normalized explicitly (for example through Carbon) because OCI8 may return them as strings even when the Eloquent model declares a datetime cast.
+- Mobile well readings carry the inspector-selected business date in `READING_DATE`. Preserve that value during sync; never replace it with `now()`, `SYNCED_AT`, or `CREATED_AT`.
+- Every new diesel inventory requires a non-negative numeric `GENERATOR_HOURS_READING` and `DIESEL_HEIGHT_CM`. Enforce this in both Flutter form validation and the nested `/api/wells/diesel-inventories/sync` payload validation.
+- Reading and notification sync responses include `synced_records` entries mapping the mobile `local_id` to the new Oracle `oid`. The Flutter app uses this mapping to upload queued activity images after their parent row exists.
+- `WELL_READINGS`, `WELL_NOTIFICATIONS`, and `DIESEL_INVENTORIES` persist the mobile UUID as unique nullable `CLIENT_LOCAL_ID`. Sync retries must resolve the existing row by this key and authenticated inspector rather than insert another row.
+- Activity images use private local storage and the idempotent client photo UUID in `WELL_ACTIVITY_MEDIA.CLIENT_LOCAL_ID`. Never expose `FILE_PATH`; dashboard images are served through the authenticated Wells route.
 
 ## Rules
 1. **Controllers** are thin — only delegate to services
@@ -44,6 +49,7 @@ app/
 │   │       ├── AuthController.php
 │   │       ├── SyncController.php
 │   │       ├── ReadingController.php
+│   │       ├── ActivityMediaController.php
 │   │       └── DieselInventoryController.php
 │   ├── Middleware/
 │   │   └── HandleInertiaRequests.php
@@ -61,6 +67,7 @@ app/
 │   ├── Team.php
 │   ├── Inspector.php
 │   ├── WellReading.php
+│   ├── WellActivityMedia.php
 │   ├── DieselInventory.php
 │   ├── NotificationType.php
 │   ├── WellNotification.php
@@ -71,6 +78,7 @@ app/
 ├── Repositories/
 │   ├── WellRepository.php
 │   ├── WellMediaRepository.php
+│   ├── ActivityMediaRepository.php
 │   ├── TeamRepository.php
 │   ├── InspectorRepository.php
 │   ├── ReadingRepository.php
@@ -81,6 +89,7 @@ app/
 └── Services/
     ├── WellService.php
     ├── WellMediaService.php
+    ├── ActivityMediaService.php
     ├── TeamService.php
     ├── InspectorService.php
     ├── ReadingService.php
@@ -103,23 +112,86 @@ These endpoints are served by this unified backend and consumed by `/Volumes/Sec
 
 | Method | Endpoint | Auth | Purpose |
 |--------|----------|------|---------|
-| POST | `/api/auth/login` | No | Inspector login |
-| POST | `/api/auth/logout` | Yes | Inspector logout |
-| GET | `/api/sync/wells` | Yes | Get wells for inspector's team |
-| GET | `/api/sync/generators` | Yes | Get generators for team wells |
-| GET | `/api/sync/quarters` | Yes | Get area lookup |
-| POST | `/api/readings/sync` | Yes | Batch upload readings |
-| POST | `/api/diesel-inventories/sync` | Yes | Batch upload diesel inventory reports |
+| POST | `/api/wells/auth/login` | No | Inspector login |
+| GET | `/api/wells/sync/wells` | Yes | Get wells for inspector's team |
+| GET | `/api/wells/sync/notification-types` | Yes | Get active notification types |
+| POST | `/api/wells/readings/sync` | Yes | Batch upload readings |
+| POST | `/api/wells/diesel-inventories/sync` | Yes | Batch upload diesel inventory reports |
+| POST | `/api/wells/notifications/sync` | Yes | Batch upload field notifications |
+| POST | `/api/wells/activity-media/sync` | Yes | Upload up to 4 compressed images for one synced reading or notification |
+| GET | `/api/wells/sync/history` | Yes | Download recent readings, inventories, and notifications |
+
+## Activity Image Contract
+- Multipart fields are `activity_type` (`reading` or `notification`), `activity_oid`, `photo_local_ids[]`, and `photos[]`.
+- Each request accepts 1–4 JPEG/PNG/WebP files, each no larger than 2 MB. The mobile target is 1.75 MB per file to remain safely below PHP request limits.
+- The authenticated inspector must own the parent reading/notification. Do not trust an inspector ID from the payload.
+- `CLIENT_LOCAL_ID` is unique and makes a retry return the existing media row without creating a duplicate file.
+- Store files on Laravel's private `local` disk under `wells/activity-media/{type}/{oid}`. Admin display uses `GET /wells/activity-media/{media}` behind `auth:admin` and `system.access:wells`.
+- Media URLs returned to Inertia must be relative (`/wells/activity-media/{oid}`), never tied to `APP_URL`, localhost, or a development port.
+- Reading and notification repository results eager-load `media`. The Wells dashboard, readings index, and notifications index render thumbnails with a full-image link.
+- Production readiness probe: unauthenticated `POST /api/wells/activity-media/sync` must reach Sanctum and return `401`. HTTP `404` means the media API code is not deployed, so mobile retries cannot upload images.
+
+## Diesel Inventory Input Contract
+- Every `inventories[]` item must include `WELL_OID`, `INVENTORY_DATE`, `GENERATOR_HOURS_READING`, and `DIESEL_HEIGHT_CM`.
+- Generator hours and diesel height must be numeric and at least zero. Zero represents a valid counter/empty-tank reading and must not be rejected as an empty value.
+- Do not restore `?? null` fallbacks for these two fields in new sync writes. Historical Oracle rows may remain nullable for backward compatibility, but current mobile/API submissions may not omit them.
+
+## Reading Date Contract
+- The Flutter form defaults `READING_DATE` to today and permits today through 7 calendar days earlier, inclusive.
+- `READING_DATE` means when the field reading was taken. `CREATED_AT` means when the server row was created and `SYNCED_AT` means when mobile synchronization occurred.
+- Reading lists, recent-reading ordering, "today" statistics, date filters, and production reports must query `READING_DATE`, with `OID` as the tie-breaker when two readings share a timestamp.
+- The mobile app sends the selected date in both its local SQLite row and sync payload. Offline synchronization must retain that original date.
+- Dashboard reading tables display both `READING_DATE` as **تاريخ القراءة** and `CREATED_AT` as **تاريخ إدخال السجل**. Do not collapse them into one ambiguous "التاريخ" column.
+
+## Reading Production Report Contract
+- PDF and Excel exports use the same `ReadingService::getProductionReport()` data and the shared `wells.readings-report` view.
+- `ReadingRepository::getReportReadings()` returns at most one row per `WELL_OID`.
+- Apply well, inspector, quality, `date_from`, and `date_to` filters first, then select the latest matching reading for each well by `READING_DATE DESC, OID DESC`.
+- A reading newer than `date_to` must not suppress the latest reading that is inside the selected period.
+- `getPreviousReading()` continues to resolve the immediately preceding chronological reading from full history for operating-hours and production calculations; the previous reading is not restricted to the export date range.
+- Apply the export limit only after the one-row-per-well selection.
+
+## Wells Management Screen Contract
+- `WellController::index()` accepts `search`, `damage_status`, and `is_active`; the list does not use `quarter_oid` as a filter.
+- `WellRepository::paginate()` owns the `DAMAGE_STATUS` predicate and continues to eager-load generator assignments.
+- The index controller resolves assigned generator metadata through `GeneratorService`; Vue displays generator number and name in a dedicated column.
+- `WellService::updateWell()` currently permits `WELL_NUM`, `NAME`, and `QUARTER_OID` updates even when transactions exist. Deletion protection for wells with readings or diesel inventories remains unchanged.
+- Eloquent hydrates `WELL_GENERATORS.GENERATOR_OID` internally as lowercase `generator_oid`; controller/service PHP code must read the lowercase attribute before generator metadata is serialized as uppercase for Vue.
+- The general create/edit form omits installation and last-maintenance dates. Generator cards use hour/liter labels for the latest external generator values.
+
+## Notification Type Management Contract
+
+- `/wells/notification-types` supports creating, editing, and deleting notification types through `NotificationTypeController` → `NotificationTypeService` → `NotificationTypeRepository`.
+- A referenced notification type remains editable so administrators can correct its name, icon, color, priority, or active state without breaking existing notifications.
+- A referenced type cannot be deleted. The paginated Inertia payload exposes `CAN_DELETE`; this flag must never disable the edit action.
+- Store/update validation belongs in `StoreNotificationTypeRequest` and `UpdateNotificationTypeRequest`.
+- `ICON` and the legacy compatibility value `EMOJI` use approved ASCII codes, never raw emoji.
+
+## Wells Map Contract
+- `WellRepository::getWellsForMap()` is the map data source and returns active and inactive wells with quarter names and generator assignments. Do not reuse the active-only selector for the administrative map.
+- `WellService::getWellsForMap()` resolves assigned generator metadata through `GeneratorRepository` and exposes it as `MAP_GENERATORS`; Vue must not query Oracle or infer generator numbers.
+- The map uses the installed Leaflet package with OpenStreetMap tiles and starts over Gaza.
+- Operational-status and damage-status layer filters intersect. The inactive-record toggle is independent and is enabled by default so inactive wells remain discoverable.
+- Marker color represents operational status, the small marker dot represents damage status, and inactive records receive a separate visual treatment.
+- Clicking a well selects its marker, changes the well-name label color, and opens the theme-aware RTL detail card.
+- The popup shows generator number instead of the power-source label. Never label the `solar` power source as diesel or **سولار** on this map.
 
 ## Diesel Inventory Report
 - Dashboard routes:
+  - `GET /wells/diesel-inventories`
   - `GET /wells/diesel-inventories/report/pdf`
   - `GET /wells/diesel-inventories/report/excel`
-- `DieselInventoryController` only validates filters and renders the export response.
-- `DieselInventoryService::getInventoryReport()` owns calculations and report row assembly.
-- `DieselInventoryRepository` loads filtered/current and preceding inventory data.
-- `GeneratorRepository` resolves assigned generator metadata and approved deliveries from `G_STORE`.
-- `resources/views/wells/diesel-inventory-report.blade.php` is shared by PDF and Excel exports.
+- `DieselInventoryReportRequest` validates all screen/export filters, `report_type`, and `columns[]`; controllers contain no calculations.
+- `DieselInventoryService::getInternalTankReport()` owns `Daily Tank` fill-to-fill calculations.
+- `DieselInventoryService::getInventoryReport()` owns classified external-tank inventory/result rows and geometric balance calculations.
+- `DieselInventoryRepository` loads external inventories and their immediately preceding historical row. A classified external well has a non-null `TANK_SHAPE` other than `Daily Tank`.
+- `GeneratorRepository` resolves per-well generator settings, approved deliveries, and `Daily Tank` fuel-program entries from `G_STORE`. Every `FUEL_LOG_DETAILS` generator join requires `ASSET_TYPE = 401`.
+- Internal rate: `approved fill liters / (current fill meter - immediately previous approved fill meter)`.
+- External rate: `(previous geometric balance + approved supply - current geometric balance) / operating hours`.
+- Meter differences must be positive and cannot exceed elapsed calendar hours plus the one-hour meter/date precision allowance. Reverse, repeated-time, impossible, or negative-balance results are `invalid`, never `high`.
+- Consumption is `high` only when the actual rate is greater than `WELL_GENERATORS.FUEL_CONSUMPTION_LPH + CONSUMPTION_TOLERANCE_LPH`. A null configured rate falls back to `G_STORE.GENERATOR.FUEL_CONSUMPTION`; tolerance defaults to zero.
+- The Inertia page receives `internalReport`, `externalReport`, `columnSets`, and `unclassifiedWellCount`. Column keys are selected from the service allowlist and the same selection drives the screen, Excel, and PDF.
+- `resources/views/wells/diesel-inventory-report.blade.php` is the shared dynamic RTL PDF/Excel template.
 
 ## Frontend Structure
 ```

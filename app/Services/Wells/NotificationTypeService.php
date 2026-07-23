@@ -6,15 +6,14 @@ namespace App\Services\Wells;
 
 use App\Models\Wells\NotificationType;
 use App\Repositories\Wells\NotificationTypeRepository;
-use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Collection;
 
 class NotificationTypeService
 {
     public function __construct(
         private readonly NotificationTypeRepository $repository
-    ) {
-    }
+    ) {}
 
     public function getAllTypes(): Collection
     {
@@ -23,7 +22,14 @@ class NotificationTypeService
 
     public function getPaginatedTypes(int $perPage = 20): LengthAwarePaginator
     {
-        return $this->repository->paginate($perPage);
+        return $this->repository->paginate($perPage)->through(function (
+            NotificationType $type
+        ): array {
+            $data = $type->toArray();
+            $data['CAN_DELETE'] = ! $type->hasBeenUsed();
+
+            return $data;
+        });
     }
 
     public function getActiveTypes(): Collection
@@ -48,10 +54,5 @@ class NotificationTypeService
         }
 
         return $this->repository->delete($id);
-    }
-
-    public function canModify(int $id): bool
-    {
-        return !$this->repository->hasNotifications($id);
     }
 }

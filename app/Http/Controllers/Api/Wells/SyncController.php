@@ -41,13 +41,38 @@ class SyncController extends Controller
     {
         $request->validate([
             'readings' => ['required', 'array'],
+            'readings.*.LOCAL_ID' => ['nullable', 'string', 'max:64'],
         ]);
 
         $syncedIds = [];
+        $syncedRecords = [];
         $inspector = $request->user();
 
-        DB::transaction(function () use ($request, $inspector, &$syncedIds) {
+        DB::transaction(function () use (
+            $request,
+            $inspector,
+            &$syncedIds,
+            &$syncedRecords,
+        ) {
             foreach ($request->readings as $readingData) {
+                $localId = $this->payloadValue($readingData, ['LOCAL_ID', 'local_id']);
+                $reading = $localId === null
+                    ? null
+                    : WellReading::query()
+                        ->where('CLIENT_LOCAL_ID', $localId)
+                        ->where('INSPECTOR_OID', $inspector->oid)
+                        ->first();
+
+                if ($reading !== null) {
+                    $syncedIds[] = $localId;
+                    $syncedRecords[] = [
+                        'local_id' => $localId,
+                        'oid' => $reading->getKey(),
+                    ];
+
+                    continue;
+                }
+
                 $generatorHours = $this->payloadValue($readingData, [
                     'GENERATOR_HOURS_READING',
                     'generator_hours_reading',
@@ -74,18 +99,23 @@ class SyncController extends Controller
                 $reading->salinity = null;
                 $reading->quality = null;
                 $reading->synced_at = now();
+                $reading->client_local_id = $localId;
 
                 $reading->save();
 
-                $localId = $this->payloadValue($readingData, ['LOCAL_ID', 'local_id']);
                 if ($localId !== null) {
                     $syncedIds[] = $localId;
+                    $syncedRecords[] = [
+                        'local_id' => $localId,
+                        'oid' => $reading->getKey(),
+                    ];
                 }
             }
         });
 
         return response()->json([
             'synced_ids' => $syncedIds,
+            'synced_records' => $syncedRecords,
         ]);
     }
 
@@ -95,7 +125,12 @@ class SyncController extends Controller
     public function syncDiesel(Request $request): JsonResponse
     {
         $request->validate([
-            'inventories' => ['required', 'array'],
+            'inventories' => ['required', 'array', 'min:1'],
+            'inventories.*.WELL_OID' => ['required', 'integer'],
+            'inventories.*.INVENTORY_DATE' => ['required', 'date'],
+            'inventories.*.GENERATOR_HOURS_READING' => ['required', 'numeric', 'min:0'],
+            'inventories.*.DIESEL_HEIGHT_CM' => ['required', 'numeric', 'min:0'],
+            'inventories.*.LOCAL_ID' => ['nullable', 'string', 'max:64'],
         ]);
 
         $syncedIds = [];
@@ -103,9 +138,23 @@ class SyncController extends Controller
 
         DB::transaction(function () use ($request, $inspector, &$syncedIds) {
             foreach ($request->inventories as $invData) {
+                $localId = $invData['LOCAL_ID'] ?? null;
+                $inventory = $localId === null
+                    ? null
+                    : DieselInventory::query()
+                        ->where('CLIENT_LOCAL_ID', $localId)
+                        ->where('INSPECTOR_OID', $inspector->oid)
+                        ->first();
+
+                if ($inventory !== null) {
+                    $syncedIds[] = $localId;
+
+                    continue;
+                }
+
                 $well = Well::find($invData['WELL_OID']);
                 $availableFuel = $well
-                    ? $this->fuelCalculator->litersForWell($well, $invData['DIESEL_HEIGHT_CM'] ?? null)
+                    ? $this->fuelCalculator->litersForWell($well, $invData['DIESEL_HEIGHT_CM'])
                     : null;
 
                 $inventory = new DieselInventory;
@@ -115,16 +164,17 @@ class SyncController extends Controller
                 $inventory->available_fuel_liters = $availableFuel ?? ($invData['AVAILABLE_FUEL_LITERS'] ?? null);
 
                 $inventory->generator_oid = $invData['GENERATOR_OID'] ?? null;
-                $inventory->generator_hours_reading = $invData['GENERATOR_HOURS_READING'] ?? null;
-                $inventory->diesel_height_cm = $invData['DIESEL_HEIGHT_CM'] ?? null;
+                $inventory->generator_hours_reading = $invData['GENERATOR_HOURS_READING'];
+                $inventory->diesel_height_cm = $invData['DIESEL_HEIGHT_CM'];
                 $inventory->latitude = $invData['LATITUDE'] ?? null;
                 $inventory->longitude = $invData['LONGITUDE'] ?? null;
                 $inventory->synced_at = now();
+                $inventory->client_local_id = $localId;
 
                 $inventory->save();
 
-                if (isset($invData['LOCAL_ID'])) {
-                    $syncedIds[] = $invData['LOCAL_ID'];
+                if ($localId !== null) {
+                    $syncedIds[] = $localId;
                 }
             }
         });
@@ -160,30 +210,61 @@ class SyncController extends Controller
     {
         $request->validate([
             'notifications' => ['required', 'array'],
+            'notifications.*.LOCAL_ID' => ['nullable', 'string', 'max:64'],
         ]);
 
         $syncedIds = [];
+        $syncedRecords = [];
         $inspector = $request->user();
 
-        DB::transaction(function () use ($request, $inspector, &$syncedIds) {
+        DB::transaction(function () use (
+            $request,
+            $inspector,
+            &$syncedIds,
+            &$syncedRecords,
+        ) {
             foreach ($request->notifications as $notifData) {
+                $localId = $notifData['LOCAL_ID'] ?? null;
+                $notification = $localId === null
+                    ? null
+                    : WellNotification::query()
+                        ->where('CLIENT_LOCAL_ID', $localId)
+                        ->where('INSPECTOR_OID', $inspector->oid)
+                        ->first();
+
+                if ($notification !== null) {
+                    $syncedIds[] = $localId;
+                    $syncedRecords[] = [
+                        'local_id' => $localId,
+                        'oid' => $notification->getKey(),
+                    ];
+
+                    continue;
+                }
+
                 $notification = new WellNotification;
                 $notification->well_oid = $notifData['WELL_OID'];
                 $notification->notification_type_oid = $notifData['NOTIFICATION_TYPE_OID'];
                 $notification->inspector_oid = $inspector->oid;
                 $notification->message = $notifData['MESSAGE'];
                 $notification->is_read = false; // Initially unread for admins
+                $notification->client_local_id = $localId;
 
                 $notification->save();
 
-                if (isset($notifData['LOCAL_ID'])) {
-                    $syncedIds[] = $notifData['LOCAL_ID'];
+                if ($localId !== null) {
+                    $syncedIds[] = $localId;
+                    $syncedRecords[] = [
+                        'local_id' => $localId,
+                        'oid' => $notification->getKey(),
+                    ];
                 }
             }
         });
 
         return response()->json([
             'synced_ids' => $syncedIds,
+            'synced_records' => $syncedRecords,
         ]);
     }
 

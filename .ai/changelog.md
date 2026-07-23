@@ -1,5 +1,100 @@
 # Changelog & Recent Actions
 
+## [2026-07-23] Diesel Inventory Tank Classification And Consumption Checks
+
+- Split the Wells diesel inventory page into **مولدات خزان داخلي** (`Daily Tank`) and **مولدات خزان خارجي**. The external section contains separate inventory and calculated-results tabs.
+- Internal-tank consumption now uses consecutive approved fuel-program fills: `APPROVED_GALLONS ÷ generator meter-hours difference`.
+- External-tank results retain the geometric balance formula: `(previous balance + approved supply - current balance) ÷ operating hours`.
+- Added per-well generator settings for the approved consumption rate and allowed rate difference in `WELL_GENERATORS`, including editable fields in the Wells create/edit generator cards.
+- Added normal, high, unavailable, and invalid consumption states. Reverse/zero/impossible meter intervals and negative balance results are never mislabeled as high consumption.
+- Restricted fuel-program joins to `FUEL_LOG_DETAILS.ASSET_TYPE = 401`, excluded canceled fills, and kept missing intermediate readings in the chronological sequence so they cannot be skipped to manufacture a rate.
+- Excluded wells with no `TANK_SHAPE` from both classified groups and added a dashboard warning linking administrators to complete the 71 currently unclassified well records.
+- Added an allowlisted column chooser shared by the on-screen table, Excel, and PDF exports. PDF and Excel now use one dynamic RTL report template.
+- Applied Oracle migration `2026_07_23_000019`, verified live results (299 approved internal fills and 14 classified external inventories), visually verified the generated PDF, and passed the Wells test suite and Vite production build.
+
+## [2026-07-23] Editable Notification Types
+
+- Enabled administrators to edit notification types even after they have been used by field notifications.
+- Kept deletion protection for types that are still referenced, separating `CAN_DELETE` from edit availability in the Vue contract.
+- Editing supports the type name, safe icon code, theme color, priority, and active state with Arabic validation errors and a visible saving state.
+- Moved notification-type validation into dedicated Form Requests and retained ASCII icon codes for Oracle compatibility.
+
+## [2026-07-23] Reading Reports Latest Row Per Well
+
+- Fixed duplicate wells in both PDF and Excel production reports by selecting only the latest matching reading per `WELL_OID`.
+- The selection applies all report filters first, then orders each well's matching readings by `READING_DATE DESC, OID DESC`.
+- Kept the immediately preceding historical reading available outside the selected report period for operating-hours and production calculations.
+- Verified the live Oracle report changed from 221 reading rows across 26 wells to exactly 26 unique well rows with zero duplicates.
+- Added SQLite regression coverage for multiple readings on the same date, deterministic OID tie-breaking, and a newer reading outside the selected period.
+
+## [2026-07-23] Wells Photo Sync Recovery And Parent Idempotency
+
+- Diagnosed production image upload failure: `/api/wells/activity-media/sync` returned `404` while reading sync remained available, proving the APK feature was ahead of the deployed production backend.
+- Recovered the two queued inspector images, attached them to reading `266`, verified both private files, and confirmed the main dashboard payload now contains their relative URLs.
+- Fixed activity media URLs to use same-origin relative paths instead of the local `APP_URL`.
+- Made mobile compression enforce the 1.75 MB target, including recompression of already queued oversized files, while preserving pixel dimensions.
+- Changed media synchronization to upload and confirm each photo independently so one oversized/failed image cannot reject the full group.
+- Added unique `CLIENT_LOCAL_ID` columns to readings, signals, and diesel inventories; retries now return the existing Oracle row/OID instead of duplicating parent records.
+- Migrated the new Oracle columns, restored and cleared the current device queue through the updated local API, rebuilt the APK, and reinstalled the production-target build.
+
+## [2026-07-23] Wells Map Operational Layers And Popup Redesign
+
+- Changed the Wells administrative map source from active-only wells to all wells, preserving the independent ability to show or hide inactive records.
+- Added intersecting operational-status and damage-status layer controls with per-layer counts and quick **العاملة فقط** / **عرض الكل** actions.
+- Replaced Leaflet's default pin with a custom water-well marker: the primary color indicates operating state, a small dot indicates damage state, and selecting a marker changes the well-name label to the Wells accent color.
+- Rebuilt the well popup as a structured, theme-aware RTL card with activation, operation, damage, area, pump type, capacity, and assigned generator number.
+- Removed the misleading **سولار** power-source row from the map and resolved generator numbers through `WellService`/`GeneratorRepository` as `MAP_GENERATORS`.
+- Switched the page from runtime CDN assets to the locally installed Leaflet package and added regression coverage for inactive-map records and generator resolution.
+
+## [2026-07-23] Required Diesel Meter And Height Readings
+
+- Made generator operating-hours reading and diesel height mandatory in the Flutter diesel inventory form.
+- Replaced the optional hints/validators with required non-negative numeric validation while preserving zero as a valid value.
+- Parsed both values only after successful form validation and always stored them in the new local inventory and synchronization payload.
+- Added matching nested API validation for every inventory item so older or alternate clients cannot submit either value as missing, null, non-numeric, or negative.
+- Added Flutter and Laravel regression tests and updated the Wells AI contracts for mobile entry, API validation, and legacy nullable database rows.
+
+## [2026-07-23] Wells Generator Resolution And Editable Well Number
+
+- Fixed the Wells list generator lookup to read the Oracle-hydrated lowercase `generator_oid` pivot attribute before resolving `G_STORE.GENERATOR` metadata.
+- The generator column now receives the real generator number and Arabic name for assigned wells instead of showing `غير متوفر`.
+- Temporarily enabled editing and persistence of `WELL_NUM` alongside `NAME` and `QUARTER_OID` until the Wells workflow is approved.
+- Added regression coverage for generator-ID resolution and editable well identity fields.
+
+## [2026-07-23] Wells Reading And Signal Photo Attachments
+
+- Added camera/gallery attachments to the Flutter reading and signal forms, with up to four images per record and previews/removal before save.
+- Added local high-quality compression that preserves pixel dimensions, targets 1.75 MB, avoids replacing a small original with a larger compressed copy, and queues private files offline.
+- Extended reading and notification sync responses with local-ID-to-Oracle-OID mappings so images upload only after their parent record exists.
+- Added idempotent multipart image synchronization using a unique client photo UUID; partial failures retain only the unconfirmed photos for automatic retry.
+- Created and migrated Oracle `WELL_ACTIVITY_MEDIA`, storing files on Laravel's private local disk and verifying the authenticated inspector owns the parent activity.
+- Added authorized image thumbnails/full-image links to the main Wells dashboard, readings index, and notifications index.
+- Included pending images in Flutter synchronization counts and cleaned queued files when an unsynced parent/draft is removed.
+- Verified Flutter tests and Android debug build, Laravel unit tests, Oracle migration, Pint, and the Vite production build.
+
+## [2026-07-23] Wells List, Editing, And Generator Labels
+
+- Added a dedicated generator column to the Wells management list, using the established diesel-inventory presentation: LTR generator number with the Arabic generator name below it.
+- Replaced the quarter filter with a damage-status filter while retaining the quarter as a visible table column.
+- Visually separated submersible (**غاطس**) and vertical (**رأسي**) pump types with distinct blue-family badges and kept legacy centrifugal values mapped to the vertical label.
+- Temporarily allowed administrators to edit the well name and quarter even when readings or diesel inventories exist. The well number remains locked, and wells with transactions still cannot be deleted.
+- Removed installation date and last-maintenance date from the general create/edit section without clearing historical database values.
+- Renamed generator-card values to **آخر قراءة لعداد المولد (ساعة)** and **آخر كمية تعبئة سولار (لتر)**, removing the incorrect gallon display unit.
+
+## [2026-07-23] Wells Reading Date And Shared Recent-Records Design
+
+- Added an inspector-selectable well-reading date in Flutter, defaulting to today and limited to today through 7 calendar days earlier.
+- Kept the selected value in `READING_DATE` through local SQLite storage and synchronization. Reading chronology, dashboard today counts, filters, recent rows, and reports use `READING_DATE`, not record creation or synchronization timestamps.
+- Redesigned the Flutter latest-three reading and diesel sections as one legible theme-aware activity panel with relative day labels, exact dates, sync state, and compact primary metrics. Route well selection resolves once in the reading controller so the block appears reliably.
+- Simplified Flutter well cards by removing pump-type, power-source, and capacity tags. Cards now show the latest reading as today/yesterday/elapsed days and use a restrained teal completion border/glow when today's reading exists.
+- Reading saves now attempt immediate pending-data synchronization when online, refresh the app's home data, and close the reading screen after success. Offline or delayed uploads remain safely queued in SQLite for automatic retry.
+- Diesel inventory saves keep the established behavior: remain on the selected well, clear the entry fields, and reload the latest three local inventories.
+- Added explicit **تاريخ القراءة** (`READING_DATE`) and **تاريخ إدخال السجل** (`CREATED_AT`) columns to the readings page and the main dashboard's recent-readings table.
+- Added a 10-second partial auto-refresh to the Wells main dashboard and readings index so newly synchronized rows appear without manually reloading the page.
+- Changed the main dashboard's latest-submitted readings card to order by `CREATED_AT` and then `OID`, ensuring newly received backdated readings appear immediately while all reading-date metrics, filters, and reports continue to use `READING_DATE`.
+- Added visible pagination to the readings index, retained active filters across page links, continued row numbering across pages, and ordered rows by `CREATED_AT DESC, OID DESC`.
+- Updated Wells AI documentation to reflect the unified `/api/wells/*` routes, the active backend location, the reading-date contract, daily well-card status, and the shared latest-activity design.
+
 ## [2026-07-21] Presence Reporting From The Authenticated Main Screen
 
 - Driver release `1.0.20+21` now calls `AppPresenceService` whenever an authenticated `DriverAppShell` opens and whenever the app resumes, covering drivers whose login session is retained.

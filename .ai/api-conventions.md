@@ -46,12 +46,15 @@ return response()->json($trip);
 
 ### Driver App Presence
 
+- Current client contract version: driver app `1.0.20+21`; authoritative release defaults are in `config/driver_app.php`.
 - `POST /api/driver/app-presence` is authenticated with the existing driver Sanctum token.
 - Payload: `device_id` (random installation UUID), `app_version`, `build_number`, `package_name`, optional `installer_store`, `installed_at`, and `app_updated_at`.
 - Driver identity and snapshots always come from the authenticated `Beneficiary`; never accept a driver ID, name, phone, or vehicle assignment from this payload.
 - The endpoint is idempotent for `(oracle_driver_id, device_id)` and refreshes `last_seen_at`.
 - The response uses `DriverAppPresenceResource` and includes the configured current release plus `update_required`.
 - Presence is operational telemetry only. It contains no GPS coordinates and a failure must never block trip sync.
+- The primary client trigger is authenticated `DriverAppShell` creation/app resume, not OTP verification. This covers persisted sessions.
+- Deployment diagnostic: an unauthenticated request should reach the authentication layer. HTTP 404 means this route is absent from the deployed backend, so no client retry can create a dashboard record.
 
 ### 4. `POST /api/trips/{local_id}/clarification-response` (Clarification)
 - **Purpose**: Allows the driver to respond to a clarification request sent by the admin.

@@ -51,3 +51,13 @@ The `audit_logs` table must never have rows updated or deleted. It is append-onl
 - `build_number >= DRIVER_APP_LATEST_BUILD` is current, a smaller reported build is outdated, and no presence record is `not_reported`.
 - A historical-trip driver with no presence record must remain visible. `not_reported` means the new telemetry has not arrived, not proof that the app is uninstalled.
 - “Updated from store” requires both a current build and a recognized Android installer-store identifier. Do not infer a store update from the version number alone.
+- `not_reported` is not proof that the driver failed to update: first confirm the production presence endpoint is deployed. If `/api/driver/app-presence` returns 404, every installation will remain unreported regardless of its local version.
+
+## 7. Wells Diesel Consumption Status
+
+- `Daily Tank` wells use approved fuel-program fills; classified non-Daily tanks use field inventory geometry. Wells without `TANK_SHAPE` belong to neither report until classified.
+- Generator fuel rows require `G_STORE.FUEL_LOG_DETAILS.ASSET_TYPE = 401`; `ASSET_OID` alone is not unique across asset types.
+- Internal actual rate is approved liters divided by the positive difference between consecutive fill meter readings.
+- External actual rate is `(previous geometric balance + approved supply - current geometric balance) / positive operating hours`.
+- The alert threshold is the well-generator approved rate plus its allowed difference. Actual rate greater than the threshold is high; equal or lower is normal.
+- Missing inputs produce unavailable results. Reverse/zero/impossible meters, non-increasing fill times, and negative consumption produce invalid results. Invalid data must never be displayed as high consumption.

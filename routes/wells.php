@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Wells\ActivityMediaController;
 use App\Http\Controllers\Wells\DashboardController;
 use App\Http\Controllers\Wells\DieselInventoryController;
 use App\Http\Controllers\Wells\InspectorController;
@@ -16,6 +17,8 @@ Route::middleware(['web', 'auth:admin', 'system.access:wells'])->prefix('wells')
 
     Route::resource('wells', WellController::class)->names('wells.wells');
     Route::get('/media/{media}', [WellMediaController::class, 'show'])->name('wells.media.show');
+    Route::get('/activity-media/{media}', [ActivityMediaController::class, 'show'])
+        ->name('wells.activity-media.show');
     Route::delete('/wells/{well}/media/{media}', [WellMediaController::class, 'destroy'])->name('wells.media.destroy');
     Route::get('/wells-map', [WellController::class, 'map'])->name('wells.wells.map');
 

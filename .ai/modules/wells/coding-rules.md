@@ -63,12 +63,56 @@ Source path: `/Volumes/SecondDrive/Wells/wells_app`.
 - Arabic RTL layout
 - ScreenUtil for responsive sizing
 - Keep API URLs, JSON keys, and auth behavior compatible with this unified backend project.
+- Keep the selected reading date in `READING_DATE`; do not substitute the local insert time or server sync time.
+- Well-reading date selection is inclusive from today through 7 calendar days earlier. Future dates and older dates are invalid in the mobile form.
+- Diesel inventory generator hours and diesel height are required. Validate trimmed input as a non-negative number, parse with `double.parse` only after form validation, and always include both values in the local row and sync payload.
+- Use the shared `RecentActivityPanel` for the latest three readings and diesel inventories, retaining the module accent, relative day, exact date, sync status, and compact metrics.
+- Activity images must be picked/compressed before the parent form save, persisted outside temporary picker storage, and represented by `activity_photos` SQLite rows. Keep original pixel dimensions and target 1.75 MB without replacing a smaller supported original with a larger compressed copy.
+- Upload a reading/signal image only after the parent sync response maps its local UUID to an Oracle OID. A media failure must not discard the parent record or other unconfirmed images.
+- Re-check queued image bytes before upload, recompress any file above the 1.75 MB mobile target without changing pixel dimensions, and upload photos independently so one rejection does not block its siblings.
 
 ### Never
 - Make network calls without checking connectivity
 - Block UI during network operations
 - Store sensitive data in plain SharedPreferences (use for non-sensitive only)
 - Do not assume the old standalone `wells-backend` is still the production API target.
+
+## Reading Date Semantics
+- Use `READING_DATE` for chronological reading queries, dashboard "today" counts, filters, previous/current reading calculations, and reports.
+- Use `CREATED_AT` only for row-creation auditing and `SYNCED_AT` only for synchronization auditing.
+- Never reorder a reading feed by `CREATED_AT` when the requested meaning is the field reading date.
+- Dashboard reading surfaces must label and display both values separately: `READING_DATE` as **تاريخ القراءة** and `CREATED_AT` as **تاريخ إدخال السجل**.
+- Production-report queries must return only the latest filtered reading per `WELL_OID`, ordered by `READING_DATE DESC, OID DESC` within each well.
+- Apply all report filters inside the newer-reading exclusion query as well as the outer query. Otherwise a newer row outside the selected period, inspector, or quality filter can incorrectly remove the valid report row.
+- PDF and Excel must continue to share the same service result; never deduplicate independently in Blade or in one export controller method.
+
+## Diesel Inventory Validation
+- Validate every `inventories.*.GENERATOR_HOURS_READING` and `inventories.*.DIESEL_HEIGHT_CM` as `required`, `numeric`, and `min:0` at the API boundary.
+- Do not silently coerce a missing generator reading or diesel height to null. Historical null rows remain readable, but new Flutter/API submissions must contain both values.
+- Treat numeric zero as valid; do not use truthiness checks for these fields.
+
+## Diesel Inventory Reporting
+- Keep tank classification, calculations, status evaluation, and report-column allowlists in `DieselInventoryService`; controllers only pass validated filters and render.
+- `Daily Tank` means `UPPER(TRIM(TANK_SHAPE)) = 'DAILY TANK'`. External reports require a non-null classified shape other than `Daily Tank`; never silently place an unclassified well in the external group.
+- Always constrain `G_STORE.FUEL_LOG_DETAILS` generator joins with `ASSET_TYPE = 401` and exclude canceled fuel logs.
+- Apply the requested date range outside the analytic `LAG` query. Keep missing/malformed intermediate meter readings in sequence and return unavailable; never jump over them.
+- Mark reverse/zero/impossible meter differences, non-increasing timestamps, and negative calculated consumption as invalid. Do not let them trigger a high-consumption alert.
+- A high alert requires `actual > approved rate + allowed difference`; equality remains normal.
+- Store the approved rate and allowed difference on `WELL_GENERATORS`, because a well can have multiple generators. Preserve these settings when synchronizing assignments.
+- Accept report columns only through the service's fixed metadata registry. Never interpolate request-provided database column names into SQL or a report.
+
+## Wells Management UI Rules
+- The Wells list filter contract is `search`, `damage_status`, and `is_active`; do not restore the quarter filter unless explicitly requested.
+- Render assigned generators in their own column using the generator number as non-wrapping LTR text and the Arabic name beneath it.
+- Distinguish `submersible` (**غاطس**) and `vertical` (**رأسي**) with separate blue-family badges; normalize legacy `centrifugal` to the vertical presentation.
+- `WELL_NUM`, `NAME`, and `QUARTER_OID` are temporarily editable even when transactions exist, while deletion protection remains enforced.
+- Read the internal Oracle Eloquent pivot attribute as lowercase `generator_oid`; use uppercase `GENERATOR_OID` only after `UppercaseKeys` serializes data for Vue.
+- Do not expose `INSTALLATION_DATE` or `LAST_MAINTENANCE_DATE` in the general Wells form.
+- The external generator `GALLONS` value is displayed operationally as **آخر كمية تعبئة سولار (لتر)**; never append a gallon unit in the Wells UI.
+- The administrative Wells map must include inactive records and expose explicit operational-status, damage-status, and inactive-record controls.
+- Use the custom water-well SVG marker. Its main color communicates operation, its small dot communicates damage, and its well-name label changes to the Wells accent when selected.
+- Map popups must use theme variables and structured RTL fields. Show `MAP_GENERATORS.*.NUMBER`; do not show the power-source value as **سولار**.
+- Import the installed `leaflet` package and stylesheet dynamically; do not add a runtime CDN dependency for the Wells map.
 
 ## Oracle SQL Rules
 - Always use UPPERCASE for table and column names
@@ -81,6 +125,7 @@ Source path: `/Volumes/SecondDrive/Wells/wells_app`.
 - **Property Access in Logic**: Because Oracle PDO returns column keys in lowercase but the model defines casts in UPPERCASE, `$model->IS_ACTIVE` might return `null`. In `Services` and `Controllers`, always fallback to lowercase access: `empty($model->is_active ?? $model->IS_ACTIVE)`.
 - **JSON API Responses**: The Flutter app (`wells_app`) expects strictly lowercase keys in JSON responses (`oid`, `name`, `phone`, `team_oid`). Never send uppercase keys or nested object arrays if the Flutter model expects flat lowercase properties. Explicitly format the `response()->json()` in the controllers to match the client's models.
 - **Notification Type Icons**: Do not store raw emoji in Oracle for notification type icons; the current Oracle charset may persist them as `??`. Store safe ASCII codes in `ICON` (and mirror to `EMOJI` only for compatibility), then map codes to symbols in Vue.
+- **Notification Type Editing**: Referenced notification types remain editable. Only deletion is protected, and the UI must use `CAN_DELETE` exclusively for the delete action rather than locking the edit action.
 - **Oracle Boolean Values in Vue**: Oracle may return booleans as `"1"` / `"0"`. Vue must normalize these with explicit helpers, e.g. `value === true || value === 1 || value === '1'`; never rely on JavaScript truthiness because `"0"` is truthy.
 - **Oracle-only Dashboard Data**: Dashboard repositories that must read/write production data should use the `oracle` connection explicitly when there is any risk of default connection drift, especially for notification types and notifications.
 - **Primary Key After Oracle INSERT (CRITICAL)**: After calling `Model::create()` on an Oracle table, **never** access the primary key via `$model->OID` (uppercase). Oracle PDO returns the key in lowercase, so `$model->OID` returns `null`. Always use `$model->getKey()` to retrieve the newly created record's ID, regardless of how the primary key column is named in Oracle.
@@ -112,6 +157,15 @@ Source path: `/Volumes/SecondDrive/Wells/wells_app`.
 - Database access belongs in `WellMediaRepository`; controllers only delegate.
 - Serve images through the authenticated `wells.media.show` route. Never serialize or expose `WELL_MEDIA.FILE_PATH` as a public URL.
 - Validate uploads as JPG, PNG, or WebP with a maximum size of 2 MB per image.
+
+## Reading And Signal Images
+- Store activity images on the private `local` disk through `ActivityMediaService`; database access belongs in `ActivityMediaRepository`.
+- `CLIENT_LOCAL_ID` is a unique mobile-generated UUID. Always check it before writing a file so network retries cannot duplicate media.
+- Persist the parent mobile UUID in each activity table and return the existing parent OID on retry. Do not create a second reading/notification/inventory after a lost response.
+- Accept only `reading` and `notification` activity types, 1–4 matching files/UUIDs per request, and JPG/PNG/WebP files up to 2 MB each.
+- Resolve inspector identity only from Sanctum authentication and verify the authenticated inspector owns the parent activity before storage.
+- Serve media through authenticated `wells.activity-media.show`; never expose `WELL_ACTIVITY_MEDIA.FILE_PATH`.
+- Generate activity media URLs as relative same-origin routes; do not serialize an absolute localhost/`APP_URL` address.
   And in the Repository, replace `->sync($ids)` with manual raw SQL:
   ```php
   // WRONG ❌ — sync() fails on Oracle pivot tables

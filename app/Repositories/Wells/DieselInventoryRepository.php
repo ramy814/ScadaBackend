@@ -26,8 +26,11 @@ class DieselInventoryRepository
         return $query->paginate($perPage)->withQueryString();
     }
 
-    public function getReportInventories(array $filters = [], int $limit = 5000): Collection
-    {
+    public function getReportInventories(
+        array $filters = [],
+        int $limit = 5000,
+        string $tankGroup = 'external',
+    ): Collection {
         $query = $this->model
             ->with($this->reportRelations())
             ->orderBy('INVENTORY_DATE')
@@ -35,6 +38,7 @@ class DieselInventoryRepository
             ->orderBy('OID');
 
         $this->applyFilters($query, $filters);
+        $this->applyTankGroup($query, $tankGroup);
 
         return $query->limit($limit)->get();
     }
@@ -188,6 +192,15 @@ class DieselInventoryRepository
         ];
     }
 
+    public function countUnclassifiedWells(): int
+    {
+        return $this->model
+            ->getConnection()
+            ->table('WELLS')
+            ->whereNull('TANK_SHAPE')
+            ->count();
+    }
+
     private function applyFilters($query, array $filters): void
     {
         if (! empty($filters['well_oid'])) {
@@ -199,7 +212,13 @@ class DieselInventoryRepository
         }
 
         if (! empty($filters['generator_oid'])) {
-            $query->where('GENERATOR_OID', $filters['generator_oid']);
+            $generatorId = (int) $filters['generator_oid'];
+            $query->where(function ($generatorQuery) use ($generatorId): void {
+                $generatorQuery->where('GENERATOR_OID', $generatorId)
+                    ->orWhereHas('well.generators', function ($assignmentQuery) use ($generatorId): void {
+                        $assignmentQuery->where('GENERATOR_OID', $generatorId);
+                    });
+            });
         }
 
         if (! empty($filters['date_from'])) {
@@ -209,6 +228,21 @@ class DieselInventoryRepository
         if (! empty($filters['date_to'])) {
             $query->where('INVENTORY_DATE', '<=', Carbon::parse($filters['date_to'])->endOfDay());
         }
+    }
+
+    private function applyTankGroup($query, string $tankGroup): void
+    {
+        $query->whereHas('well', function ($wellQuery) use ($tankGroup): void {
+            if ($tankGroup === 'internal') {
+                $wellQuery->whereRaw("UPPER(TRIM(TANK_SHAPE)) = 'DAILY TANK'");
+
+                return;
+            }
+
+            $wellQuery
+                ->whereNotNull('TANK_SHAPE')
+                ->whereRaw("UPPER(TRIM(TANK_SHAPE)) <> 'DAILY TANK'");
+        });
     }
 
     private function reportRelations(): array

@@ -40,8 +40,8 @@ class WellRepository
             });
         }
 
-        if (! empty($filters['quarter_oid'])) {
-            $query->where('wells.QUARTER_OID', $filters['quarter_oid']);
+        if (! empty($filters['damage_status'])) {
+            $query->where('wells.DAMAGE_STATUS', $filters['damage_status']);
         }
 
         if (isset($filters['is_active']) && $filters['is_active'] !== '') {
@@ -103,6 +103,15 @@ class WellRepository
     {
         return $this->withSourceWellCode($this->model->newQuery())
             ->active()
+            ->orderBy('wells.NAME')
+            ->get();
+    }
+
+    public function getWellsForMap(): Collection
+    {
+        return $this->withSourceWellCode($this->model->newQuery())
+            ->with('generators')
+            ->orderByDesc('wells.IS_ACTIVE')
             ->orderBy('wells.NAME')
             ->get();
     }

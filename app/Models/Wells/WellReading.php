@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace App\Models\Wells;
 
+use App\Services\Wells\ActivityMediaService;
+use App\Traits\Wells\UppercaseKeys;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use App\Traits\Wells\UppercaseKeys;
 
 class WellReading extends Model
 {
@@ -30,6 +31,7 @@ class WellReading extends Model
         'LATITUDE',
         'LONGITUDE',
         'SYNCED_AT',
+        'CLIENT_LOCAL_ID',
     ];
 
     protected function casts(): array
@@ -62,5 +64,14 @@ class WellReading extends Model
     public function generatorLogs(): HasMany
     {
         return $this->hasMany(ReadingGeneratorLog::class, 'reading_oid', 'oid');
+    }
+
+    public function media(): HasMany
+    {
+        return $this->hasMany(
+            WellActivityMedia::class,
+            'activity_oid',
+            'oid',
+        )->where('ACTIVITY_TYPE', ActivityMediaService::TYPE_READING);
     }
 }

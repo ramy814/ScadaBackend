@@ -607,6 +607,48 @@ img {
     white-space: nowrap;
 }
 
+.well-generators {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.well-generators .diesel-generator + .diesel-generator {
+    padding-top: 8px;
+    border-top: 1px solid var(--color-border);
+}
+
+.pump-type-badge {
+    border: 1px solid transparent;
+    white-space: nowrap;
+}
+
+.pump-type-submersible {
+    color: #0369a1;
+    background: rgba(14, 165, 233, 0.14);
+    border-color: rgba(14, 165, 233, 0.28);
+}
+
+.pump-type-vertical {
+    color: #4f46e5;
+    background: rgba(99, 102, 241, 0.14);
+    border-color: rgba(99, 102, 241, 0.28);
+}
+
+.pump-type-unknown {
+    color: var(--color-text-secondary);
+    background: var(--color-bg-tertiary);
+    border-color: var(--color-border);
+}
+
+html[data-theme="dark"] .pump-type-submersible {
+    color: #7dd3fc;
+}
+
+html[data-theme="dark"] .pump-type-vertical {
+    color: #a5b4fc;
+}
+
 /* ---------- Forms ---------- */
 .form-group {
     margin-bottom: 20px;
@@ -1633,6 +1675,546 @@ img {
     border: 1px solid var(--color-border);
 }
 
+/* ---------- Wells Map ---------- */
+.wells-map-page {
+    --well-map-working: #059669;
+    --well-map-stopped: #dc2626;
+    --well-map-maintenance: #d97706;
+    --well-map-unknown: #64748b;
+    --well-map-safe: #10b981;
+    --well-map-damaged: #f59e0b;
+    --well-map-rehabilitated: #2563eb;
+    --well-map-destroyed: #ef4444;
+}
+
+.well-map-layers {
+    margin-bottom: 18px;
+}
+
+.well-map-layers-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 18px 20px;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.well-map-layers-header > div:first-child {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.well-map-layers-header strong {
+    color: var(--color-text-primary);
+    font-size: var(--font-size-base);
+}
+
+.well-map-layers-eyebrow {
+    color: var(--color-accent);
+    font-size: var(--font-size-xs);
+    font-weight: 800;
+}
+
+.well-map-layer-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.well-map-layer-groups {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr) minmax(220px, 0.7fr);
+    gap: 16px;
+    padding: 18px 20px;
+}
+
+.well-map-layer-group {
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+.well-map-layer-group legend {
+    width: 100%;
+    margin-bottom: 10px;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: 800;
+}
+
+.well-map-layer-option {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    min-height: 34px;
+    margin: 0 0 7px 7px;
+    padding: 6px 9px;
+    color: var(--color-text-primary);
+    background: var(--color-bg-input);
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.well-map-layer-option:hover {
+    border-color: var(--color-accent);
+    background: var(--color-bg-card-hover);
+}
+
+.well-map-layer-option input,
+.well-map-inactive-toggle input {
+    accent-color: var(--color-accent);
+}
+
+.well-map-layer-option small {
+    min-width: 22px;
+    padding: 1px 6px;
+    color: var(--color-text-secondary);
+    background: var(--color-bg-secondary);
+    border-radius: 999px;
+    text-align: center;
+}
+
+.well-map-layer-dot {
+    width: 10px;
+    height: 10px;
+    flex: 0 0 10px;
+    background: var(--well-map-unknown);
+    border-radius: 50%;
+    box-shadow: 0 0 0 3px rgba(100, 116, 139, 0.14);
+}
+
+.well-map-layer-dot.is-working {
+    background: var(--well-map-working);
+}
+
+.well-map-layer-dot.is-stopped {
+    background: var(--well-map-stopped);
+}
+
+.well-map-layer-dot.is-maintenance {
+    background: var(--well-map-maintenance);
+}
+
+.well-map-layer-dot.is-safe {
+    background: var(--well-map-safe);
+}
+
+.well-map-layer-dot.is-damaged {
+    background: var(--well-map-damaged);
+}
+
+.well-map-layer-dot.is-rehabilitated {
+    background: var(--well-map-rehabilitated);
+}
+
+.well-map-layer-dot.is-destroyed {
+    background: var(--well-map-destroyed);
+}
+
+.well-map-inactive-toggle {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    align-self: stretch;
+    min-height: 72px;
+    padding: 14px;
+    color: var(--color-text-primary);
+    background: linear-gradient(135deg, var(--color-accent-glow), var(--color-bg-input));
+    border: 1px solid rgba(37, 99, 235, 0.24);
+    border-radius: var(--border-radius-sm);
+    cursor: pointer;
+}
+
+.well-map-inactive-toggle > span {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.well-map-inactive-toggle small {
+    color: var(--color-text-secondary);
+}
+
+.well-map-card {
+    padding: 0;
+    overflow: hidden;
+}
+
+.wells-map-canvas {
+    width: 100%;
+    height: min(680px, calc(100vh - 245px));
+    min-height: 520px;
+    background: var(--color-bg-secondary);
+}
+
+.well-map-div-icon {
+    width: auto !important;
+    height: auto !important;
+    background: transparent !important;
+    border: 0 !important;
+}
+
+.well-map-marker {
+    --well-marker-color: var(--well-map-unknown);
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: max-content;
+    max-width: 180px;
+    transform-origin: 24px 42px;
+    transition: transform 160ms ease, filter 160ms ease;
+}
+
+.well-map-marker.is-working {
+    --well-marker-color: var(--well-map-working);
+}
+
+.well-map-marker.is-stopped {
+    --well-marker-color: var(--well-map-stopped);
+}
+
+.well-map-marker.is-maintenance {
+    --well-marker-color: var(--well-map-maintenance);
+}
+
+.well-map-marker:hover,
+.well-map-marker.is-selected {
+    transform: translateY(-2px) scale(1.04);
+    filter: drop-shadow(0 8px 14px rgba(15, 23, 42, 0.22));
+}
+
+.well-map-marker-symbol {
+    position: relative;
+    z-index: 2;
+    display: grid;
+    width: 44px;
+    height: 44px;
+    flex: 0 0 44px;
+    place-items: center;
+    color: #fff;
+    background: var(--well-marker-color);
+    border: 3px solid #fff;
+    border-radius: 50% 50% 50% 8px;
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.28);
+    transform: rotate(-45deg);
+}
+
+.well-map-marker-symbol svg {
+    width: 23px;
+    height: 23px;
+    fill: currentColor;
+    transform: rotate(45deg);
+}
+
+.well-map-marker-symbol .well-map-marker-wave {
+    fill: none;
+    stroke: var(--well-marker-color);
+    stroke-linecap: round;
+    stroke-width: 1.8;
+}
+
+.well-map-marker.is-record-inactive {
+    opacity: 0.72;
+}
+
+.well-map-marker.is-record-inactive .well-map-marker-symbol::after {
+    position: absolute;
+    top: -7px;
+    right: -7px;
+    display: grid;
+    width: 18px;
+    height: 18px;
+    place-items: center;
+    color: #fff;
+    background: #475569;
+    border: 2px solid #fff;
+    border-radius: 50%;
+    content: "×";
+    font-size: 12px;
+    font-style: normal;
+    font-weight: 900;
+    transform: rotate(45deg);
+}
+
+.well-map-damage-dot {
+    position: absolute;
+    right: -3px;
+    bottom: -3px;
+    width: 13px;
+    height: 13px;
+    background: var(--well-map-unknown);
+    border: 2px solid #fff;
+    border-radius: 50%;
+}
+
+.well-map-damage-dot.is-safe {
+    background: var(--well-map-safe);
+}
+
+.well-map-damage-dot.is-damaged {
+    background: var(--well-map-damaged);
+}
+
+.well-map-damage-dot.is-rehabilitated {
+    background: var(--well-map-rehabilitated);
+}
+
+.well-map-damage-dot.is-destroyed {
+    background: var(--well-map-destroyed);
+}
+
+.well-map-marker-label {
+    position: relative;
+    z-index: 1;
+    max-width: 145px;
+    margin-right: -8px;
+    padding: 7px 13px 7px 10px;
+    overflow: hidden;
+    color: var(--color-text-primary);
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: 9px 0 0 9px;
+    box-shadow: var(--shadow-sm);
+    font-family: var(--font-family);
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    transition: color 160ms ease, background 160ms ease, border-color 160ms ease;
+}
+
+.well-map-marker.is-selected .well-map-marker-label {
+    color: #fff;
+    background: var(--color-accent);
+    border-color: var(--color-accent);
+}
+
+.well-map-tooltip {
+    color: var(--color-text-primary) !important;
+    background: var(--color-bg-secondary) !important;
+    border: 1px solid var(--color-border) !important;
+    border-radius: 8px !important;
+    box-shadow: var(--shadow-md) !important;
+    font-family: var(--font-family) !important;
+    font-weight: 800 !important;
+}
+
+.well-map-popup .leaflet-popup-content-wrapper {
+    overflow: hidden;
+    background: var(--color-bg-secondary) !important;
+    border: 1px solid var(--color-border) !important;
+    border-radius: 16px !important;
+    box-shadow: var(--shadow-xl) !important;
+}
+
+.well-map-popup .leaflet-popup-content {
+    width: auto !important;
+    margin: 0 !important;
+}
+
+.well-map-popup .leaflet-popup-tip {
+    background: var(--color-bg-secondary) !important;
+    border-right: 1px solid var(--color-border);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.well-map-popup .leaflet-popup-close-button {
+    top: 9px !important;
+    right: auto !important;
+    left: 10px !important;
+    z-index: 4;
+    width: 28px !important;
+    height: 28px !important;
+    color: var(--color-text-secondary) !important;
+    background: var(--color-bg-input) !important;
+    border-radius: 50%;
+    font-size: 20px !important;
+    line-height: 26px !important;
+}
+
+.well-map-popup-card {
+    min-width: 300px;
+    direction: rtl;
+    color: var(--color-text-primary);
+    background: var(--color-bg-secondary);
+    font-family: var(--font-family);
+}
+
+.well-map-popup-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 18px 18px 14px;
+    background: linear-gradient(135deg, var(--color-accent-glow), transparent);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.well-map-popup-header h3 {
+    margin: 5px 0 0;
+    color: var(--color-accent);
+    font-size: 18px;
+    font-weight: 900;
+    line-height: 1.45;
+}
+
+.well-map-popup-number {
+    display: block;
+    color: var(--color-text-secondary);
+    font-size: 12px;
+    font-weight: 800;
+    text-align: right;
+}
+
+.well-map-popup-record-status {
+    flex: 0 0 auto;
+    margin-left: 34px;
+    padding: 4px 9px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 900;
+}
+
+.well-map-popup-record-status.is-active {
+    color: #047857;
+    background: rgba(16, 185, 129, 0.14);
+}
+
+.well-map-popup-record-status.is-inactive {
+    color: #b91c1c;
+    background: rgba(239, 68, 68, 0.14);
+}
+
+.well-map-popup-statuses {
+    display: flex;
+    gap: 7px;
+    padding: 12px 18px 0;
+}
+
+.well-map-popup-statuses span {
+    padding: 4px 9px;
+    color: var(--color-text-secondary);
+    background: var(--color-bg-input);
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 800;
+}
+
+.well-map-popup-statuses .is-working,
+.well-map-popup-statuses .is-safe {
+    color: #047857;
+    border-color: rgba(16, 185, 129, 0.3);
+    background: rgba(16, 185, 129, 0.12);
+}
+
+.well-map-popup-statuses .is-stopped,
+.well-map-popup-statuses .is-destroyed {
+    color: #b91c1c;
+    border-color: rgba(239, 68, 68, 0.3);
+    background: rgba(239, 68, 68, 0.12);
+}
+
+.well-map-popup-statuses .is-maintenance,
+.well-map-popup-statuses .is-damaged {
+    color: #b45309;
+    border-color: rgba(245, 158, 11, 0.3);
+    background: rgba(245, 158, 11, 0.12);
+}
+
+.well-map-popup-statuses .is-rehabilitated {
+    color: #1d4ed8;
+    border-color: rgba(37, 99, 235, 0.3);
+    background: rgba(37, 99, 235, 0.12);
+}
+
+.well-map-popup-details {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 9px;
+    margin: 0;
+    padding: 14px 18px;
+}
+
+.well-map-popup-details > div {
+    min-width: 0;
+    padding: 10px;
+    background: var(--color-bg-input);
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+}
+
+.well-map-popup-details > div.is-wide {
+    grid-column: 1 / -1;
+}
+
+.well-map-popup-details dt {
+    margin-bottom: 4px;
+    color: var(--color-text-secondary);
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.well-map-popup-details dd {
+    margin: 0;
+    color: var(--color-text-primary);
+    font-size: 13px;
+    font-weight: 900;
+    line-height: 1.5;
+}
+
+.well-map-popup-generator {
+    color: var(--color-accent) !important;
+    overflow-wrap: anywhere;
+    text-align: right;
+}
+
+.well-map-popup-action {
+    display: block;
+    margin: 0 18px 18px;
+    padding: 10px 14px;
+    color: #fff !important;
+    background: var(--color-accent);
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 900;
+    text-align: center;
+    text-decoration: none !important;
+    transition: background var(--transition-fast), transform var(--transition-fast);
+}
+
+.well-map-popup-action:hover {
+    background: var(--color-accent-hover);
+    transform: translateY(-1px);
+}
+
+html[data-theme="dark"] .well-map-popup-record-status.is-active,
+html[data-theme="dark"] .well-map-popup-statuses .is-working,
+html[data-theme="dark"] .well-map-popup-statuses .is-safe {
+    color: #6ee7b7;
+}
+
+html[data-theme="dark"] .well-map-popup-record-status.is-inactive,
+html[data-theme="dark"] .well-map-popup-statuses .is-stopped,
+html[data-theme="dark"] .well-map-popup-statuses .is-destroyed {
+    color: #fca5a5;
+}
+
+html[data-theme="dark"] .well-map-popup-statuses .is-maintenance,
+html[data-theme="dark"] .well-map-popup-statuses .is-damaged {
+    color: #fcd34d;
+}
+
+html[data-theme="dark"] .well-map-popup-statuses .is-rehabilitated {
+    color: #93c5fd;
+}
+
 /* ---------- Leaflet Overrides ---------- */
 .leaflet-popup-content-wrapper {
     background: var(--color-bg-secondary) !important;
@@ -1664,5 +2246,27 @@ img {
 
     .well-media-upload {
         grid-template-columns: 1fr;
+    }
+
+    .well-map-layers-header {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .well-map-layer-actions {
+        width: 100%;
+    }
+
+    .well-map-layer-actions .btn {
+        flex: 1;
+    }
+
+    .well-map-layer-groups {
+        grid-template-columns: 1fr;
+    }
+
+    .wells-map-canvas {
+        height: 620px;
+        min-height: 520px;
     }
 }
