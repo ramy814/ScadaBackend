@@ -83,8 +83,16 @@ function clearFilters() {
 }
 
 function confirmDelete(well) {
+    if (!well.CAN_DELETE) return
+
     wellToDelete.value = well
     showDeleteModal.value = true
+}
+
+function deletionReason(well) {
+    return well.DELETE_BLOCKERS?.length
+        ? `الحذف محمي لوجود: ${well.DELETE_BLOCKERS.join('، ')}`
+        : 'حذف البئر'
 }
 
 function deleteWell() {
@@ -208,10 +216,18 @@ function deleteWell() {
                                             <button class="btn btn-sm btn-secondary" @click="router.visit(`/wells/wells/${well.OID}/edit`)">
                                                 ✏️
                                             </button>
-                                            <button v-if="!well.HAS_TRANSACTIONS" class="btn btn-sm btn-danger" @click="confirmDelete(well)">
-                                                🗑️
+                                            <button
+                                                class="btn btn-sm btn-danger"
+                                                :disabled="!well.CAN_DELETE"
+                                                :title="deletionReason(well)"
+                                                @click="confirmDelete(well)"
+                                            >
+                                                {{ well.CAN_DELETE ? '🗑️' : '🔒' }}
                                             </button>
                                         </div>
+                                        <small v-if="!well.CAN_DELETE" class="form-hint">
+                                            {{ deletionReason(well) }}
+                                        </small>
                                     </td>
                                 </tr>
                                 <tr v-if="!wells.data || !wells.data.length">

@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Models\Wells;
 
+use App\Traits\Wells\UppercaseKeys;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Laravel\Sanctum\HasApiTokens;
-use App\Traits\Wells\UppercaseKeys;
 
 class Inspector extends Model
 {
@@ -50,6 +50,11 @@ class Inspector extends Model
     public function dieselInventories(): HasMany
     {
         return $this->hasMany(DieselInventory::class, 'INSPECTOR_OID', 'OID');
+    }
+
+    public function notifications(): HasMany
+    {
+        return $this->hasMany(WellNotification::class, 'inspector_oid', 'oid');
     }
 
     public function scopeActive($query)

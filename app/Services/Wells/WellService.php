@@ -10,8 +10,10 @@ use App\Repositories\Wells\GeneratorRepository;
 use App\Repositories\Wells\WellRepository;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use RuntimeException;
 
 class WellService
 {
@@ -29,7 +31,11 @@ class WellService
 
     public function getPaginatedWells(int $perPage = 15, array $filters = []): LengthAwarePaginator
     {
-        return $this->wellRepository->paginate($perPage, $filters);
+        $wells = $this->wellRepository->paginate($perPage, $filters);
+        $wells->getCollection()
+            ->each(fn (Well $well): Well => $this->applyDeletionState($well));
+
+        return $wells;
     }
 
     public function getWell(int $id): Well
@@ -76,14 +82,27 @@ class WellService
 
     public function deleteWell(int $id): bool
     {
-        $well = $this->wellRepository->findOrFail($id);
-        $hasTransactions = $well->readings()->exists() || $well->dieselInventories()->exists();
+        $well = $this->wellRepository->findForDeletion($id);
+        $blockers = $this->deletionBlockers($well);
 
-        if ($hasTransactions) {
-            throw new \Exception('لا يمكن حذف البئر لوجود قراءات أو جرد مرتبط به.');
+        if ($blockers !== []) {
+            throw new RuntimeException(
+                'لا يمكن حذف البئر لوجود سجلات مرتبطة به: '.implode('، ', $blockers).'. أزل الارتباطات غير التاريخية أو عطّل البئر.'
+            );
         }
 
-        return $this->wellRepository->delete($id);
+        try {
+            return $this->wellRepository->delete($id);
+        } catch (QueryException $exception) {
+            if (! str_contains($exception->getMessage(), 'ORA-02292')) {
+                throw $exception;
+            }
+
+            throw new RuntimeException(
+                'لا يمكن حذف البئر لأن قاعدة البيانات وجدت سجلات مرتبطة به.',
+                previous: $exception,
+            );
+        }
     }
 
     public function getActiveWells(): Collection
@@ -269,5 +288,37 @@ class WellService
     private function isoDate(mixed $value): ?string
     {
         return $value === null ? null : Carbon::parse($value)->toIso8601String();
+    }
+
+    private function applyDeletionState(Well $well): Well
+    {
+        $blockers = $this->deletionBlockers($well);
+        $well->setAttribute('CAN_DELETE', $blockers === []);
+        $well->setAttribute('DELETE_BLOCKERS', $blockers);
+
+        return $well;
+    }
+
+    /** @return array<int, string> */
+    private function deletionBlockers(Well $well): array
+    {
+        $relations = [
+            'readings_count' => 'قراءات آبار',
+            'diesel_inventories_count' => 'سجلات جرد سولار',
+            'notifications_count' => 'إشعارات',
+            'teams_count' => 'فرق ميدانية',
+            'generators_count' => 'مولدات',
+            'media_count' => 'صور',
+        ];
+
+        $blockers = [];
+        foreach ($relations as $attribute => $label) {
+            $count = (int) ($well->getAttribute($attribute) ?? 0);
+            if ($count > 0) {
+                $blockers[] = "{$label} ({$count})";
+            }
+        }
+
+        return $blockers;
     }
 }

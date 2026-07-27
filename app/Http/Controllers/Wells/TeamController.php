@@ -3,8 +3,8 @@
 declare(strict_types=1);
 
 namespace App\Http\Controllers\Wells;
-use App\Http\Controllers\Controller;
 
+use App\Http\Controllers\Controller;
 use App\Http\Requests\Wells\StoreTeamRequest;
 use App\Http\Requests\Wells\UpdateTeamRequest;
 use App\Services\Wells\TeamService;
@@ -12,14 +12,14 @@ use App\Services\Wells\WellService;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response;
+use RuntimeException;
 
 class TeamController extends Controller
 {
     public function __construct(
         private readonly TeamService $teamService,
         private readonly WellService $wellService,
-    ) {
-    }
+    ) {}
 
     public function index(): Response
     {
@@ -70,9 +70,14 @@ class TeamController extends Controller
 
     public function destroy(int $team): RedirectResponse
     {
-        $this->teamService->deleteTeam($team);
+        try {
+            $this->teamService->deleteTeam($team);
 
-        return redirect()->route('wells.teams.index')
-            ->with('success', 'تم حذف الفريق بنجاح');
+            return redirect()->route('wells.teams.index')
+                ->with('success', 'تم حذف الفريق بنجاح');
+        } catch (RuntimeException $exception) {
+            return redirect()->route('wells.teams.index')
+                ->with('error', $exception->getMessage());
+        }
     }
 }

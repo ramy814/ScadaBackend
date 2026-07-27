@@ -3,8 +3,8 @@
 declare(strict_types=1);
 
 namespace App\Http\Controllers\Wells;
-use App\Http\Controllers\Controller;
 
+use App\Http\Controllers\Controller;
 use App\Http\Requests\Wells\StoreInspectorRequest;
 use App\Http\Requests\Wells\UpdateInspectorRequest;
 use App\Services\Wells\InspectorService;
@@ -12,20 +12,20 @@ use App\Services\Wells\TeamService;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response;
+use RuntimeException;
 
 class InspectorController extends Controller
 {
     public function __construct(
         private readonly InspectorService $inspectorService,
         private readonly TeamService $teamService,
-    ) {
-    }
+    ) {}
 
     public function index(): Response
     {
         return Inertia::render('WellsSystem/Inspectors/Index', [
             'inspectors' => $this->inspectorService->getAllInspectors(),
-            'teams'      => $this->teamService->getActiveTeams(),
+            'teams' => $this->teamService->getActiveTeams(),
         ]);
     }
 
@@ -70,9 +70,14 @@ class InspectorController extends Controller
 
     public function destroy(int $inspector): RedirectResponse
     {
-        $this->inspectorService->deleteInspector($inspector);
+        try {
+            $this->inspectorService->deleteInspector($inspector);
 
-        return redirect()->route('wells.inspectors.index')
-            ->with('success', 'تم حذف المفتش بنجاح');
+            return redirect()->route('wells.inspectors.index')
+                ->with('success', 'تم حذف المفتش بنجاح');
+        } catch (RuntimeException $exception) {
+            return redirect()->route('wells.inspectors.index')
+                ->with('error', $exception->getMessage());
+        }
     }
 }

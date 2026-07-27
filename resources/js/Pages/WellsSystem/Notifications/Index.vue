@@ -176,10 +176,14 @@ function formatDate(dateStr) {
                                         <p v-if="notif.MESSAGE" style="color: var(--color-text-secondary); font-size: 0.9rem; margin-bottom: 8px;">
                                             {{ notif.MESSAGE }}
                                         </p>
-                                        <MediaThumbnails
-                                            v-if="notif.MEDIA?.length"
-                                            :media="notif.MEDIA"
-                                        />
+                                        <div v-if="notif.MEDIA?.length" class="notification-media-section">
+                                            <div class="notification-media-header">
+                                                <span>الصور المرفقة</span>
+                                                <span class="notification-media-count">{{ notif.MEDIA.length }}</span>
+                                            </div>
+                                            <MediaThumbnails :media="notif.MEDIA" variant="gallery" />
+                                            <small>اضغط على الصورة لعرضها بالحجم الكامل</small>
+                                        </div>
                                     </div>
                                     <!-- زر تم القراءة -->
                                     <button
@@ -239,3 +243,42 @@ function formatDate(dateStr) {
         </div>
     </AppLayout>
 </template>
+
+<style scoped>
+.notification-media-section {
+    margin-top: 12px;
+    padding: 12px;
+    border: 1px solid var(--color-border);
+    border-radius: 14px;
+    background: var(--color-bg-tertiary);
+}
+
+.notification-media-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    color: var(--color-text-primary);
+    font-size: 0.85rem;
+    font-weight: 700;
+}
+
+.notification-media-count {
+    display: inline-grid;
+    place-items: center;
+    min-width: 24px;
+    height: 22px;
+    padding-inline: 6px;
+    color: var(--color-accent);
+    font-size: 0.75rem;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+}
+
+.notification-media-section small {
+    display: block;
+    margin-top: 8px;
+    color: var(--color-text-muted);
+    font-size: 0.75rem;
+}
+</style>

@@ -14,6 +14,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
+use RuntimeException;
 
 class WellController extends Controller
 {
@@ -100,7 +101,7 @@ class WellController extends Controller
 
             return redirect()->route('wells.wells.index')
                 ->with('success', 'تم حذف البئر بنجاح');
-        } catch (\Exception $e) {
+        } catch (RuntimeException $e) {
             return redirect()->route('wells.wells.index')
                 ->with('error', $e->getMessage());
         }

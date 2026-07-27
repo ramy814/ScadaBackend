@@ -19,7 +19,7 @@ return new class extends Migration
 
         Schema::create('well_media', function (Blueprint $table) {
             $table->id('OID');
-            $table->foreignId('WELL_OID')->constrained('wells', 'OID')->cascadeOnDelete();
+            $table->foreignId('WELL_OID')->constrained('wells', 'OID');
             $table->string('CATEGORY', 50);
             $table->string('LABEL')->nullable();
             $table->string('FILE_PATH', 500);

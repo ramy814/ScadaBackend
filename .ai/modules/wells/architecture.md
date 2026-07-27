@@ -128,7 +128,7 @@ These endpoints are served by this unified backend and consumed by `/Volumes/Sec
 - `CLIENT_LOCAL_ID` is unique and makes a retry return the existing media row without creating a duplicate file.
 - Store files on Laravel's private `local` disk under `wells/activity-media/{type}/{oid}`. Admin display uses `GET /wells/activity-media/{media}` behind `auth:admin` and `system.access:wells`.
 - Media URLs returned to Inertia must be relative (`/wells/activity-media/{oid}`), never tied to `APP_URL`, localhost, or a development port.
-- Reading and notification repository results eager-load `media`. The Wells dashboard, readings index, and notifications index render thumbnails with a full-image link.
+- Reading and notification repository results eager-load `media`. The Wells dashboard and readings index use compact thumbnails. The notifications index renders a labeled attachment gallery and opens images in a same-page lightbox with previous/next, close, counter, and authorized open-original controls.
 - Production readiness probe: unauthenticated `POST /api/wells/activity-media/sync` must reach Sanctum and return `401`. HTTP `404` means the media API code is not deployed, so mobile retries cannot upload images.
 
 ## Diesel Inventory Input Contract
@@ -166,6 +166,15 @@ These endpoints are served by this unified backend and consumed by `/Volumes/Sec
 - A referenced type cannot be deleted. The paginated Inertia payload exposes `CAN_DELETE`; this flag must never disable the edit action.
 - Store/update validation belongs in `StoreNotificationTypeRequest` and `UpdateNotificationTypeRequest`.
 - `ICON` and the legacy compatibility value `EMOJI` use approved ASCII codes, never raw emoji.
+
+## Master Data Deletion Protection Contract
+
+- `InspectorRepository`, `TeamRepository`, and `WellRepository` own the complete related-record counts used for deletion decisions.
+- Their services expose `CAN_DELETE` and `DELETE_BLOCKERS`, reject linked deletes before writing, and translate an Oracle `ORA-02292` race into a friendly Arabic error.
+- Inspector blockers are teams, readings, diesel inventories, notifications, and tokens. Team blockers are wells and inspectors. Well blockers are readings, inventories, notifications, teams, generators, and media.
+- Controllers only catch the domain `RuntimeException` and return the flash message; they never repeat relation queries.
+- Oracle migration `2026_07_26_000020` replaces every relevant master-data `CASCADE` rule with `NO ACTION`. The database is the final protection if a caller bypasses Vue or a relation is created between the preflight and delete.
+- Use `IS_ACTIVE = 0` instead of physical deletion after an entity has operational history.
 
 ## Wells Map Contract
 - `WellRepository::getWellsForMap()` is the map data source and returns active and inactive wells with quarter names and generator assignments. Do not reuse the active-only selector for the administrative map.

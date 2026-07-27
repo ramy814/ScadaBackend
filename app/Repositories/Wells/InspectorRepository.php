@@ -5,25 +5,44 @@ declare(strict_types=1);
 namespace App\Repositories\Wells;
 
 use App\Models\Wells\Inspector;
-use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 
 class InspectorRepository
 {
     public function __construct(
         private readonly Inspector $model
-    ) {
-    }
+    ) {}
 
     public function all(): Collection
     {
-        return $this->model->with('teams')->orderBy('NAME')->get();
+        return $this->model
+            ->with('teams')
+            ->withCount([
+                'teams',
+                'readings',
+                'dieselInventories',
+                'notifications',
+                'tokens',
+            ])
+            ->orderBy('NAME')
+            ->get();
     }
 
     public function paginate(int $perPage = 15): LengthAwarePaginator
     {
-        return $this->model->with('teams')->orderBy('NAME')->paginate($perPage);
+        return $this->model
+            ->with('teams')
+            ->withCount([
+                'teams',
+                'readings',
+                'dieselInventories',
+                'notifications',
+                'tokens',
+            ])
+            ->orderBy('NAME')
+            ->paginate($perPage);
     }
 
     public function find(int $id): ?Inspector
@@ -34,6 +53,19 @@ class InspectorRepository
     public function findOrFail(int $id): Inspector
     {
         return $this->model->with('teams')->findOrFail($id);
+    }
+
+    public function findForDeletion(int $id): Inspector
+    {
+        return $this->model
+            ->withCount([
+                'teams',
+                'readings',
+                'dieselInventories',
+                'notifications',
+                'tokens',
+            ])
+            ->findOrFail($id);
     }
 
     public function create(array $data): Inspector
@@ -79,12 +111,12 @@ class InspectorRepository
             ->map(fn ($id) => (int) $id)
             ->all();
 
-        $newIds   = array_map('intval', $teamIds);
+        $newIds = array_map('intval', $teamIds);
         $toDetach = array_diff($existing, $newIds);
         $toAttach = array_diff($newIds, $existing);
 
         // Remove de-associated teams
-        if (!empty($toDetach)) {
+        if (! empty($toDetach)) {
             $placeholders = implode(',', array_fill(0, count($toDetach), '?'));
             DB::connection('oracle')->statement(
                 "DELETE FROM inspector_teams WHERE INSPECTOR_OID = ? AND TEAM_OID IN ({$placeholders})",

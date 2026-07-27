@@ -1,5 +1,23 @@
 # Changelog & Recent Actions
 
+## [2026-07-26] Wells Master Data Deletion Protection
+
+- Diagnosed a production Wells inspector deletion that removed its readings, diesel inventories, notifications, and team assignment because every Oracle foreign key used `ON DELETE CASCADE` and `InspectorService` performed an unconditional delete.
+- Added repository-owned relation counts and service-level deletion guards for inspectors, teams, and wells. Any linked business record, assignment, media row, generator assignment, or inspector access token blocks physical deletion with a detailed Arabic reason.
+- Added `CAN_DELETE` and `DELETE_BLOCKERS` to the three dashboard payloads. Their delete actions now render as disabled locks and explain exactly which linked records prevent deletion.
+- Added and applied Oracle migration `2026_07_26_000020`; all foreign keys from Wells master data now use enabled, validated `NO ACTION` constraints instead of cascading deletes.
+- Kept physical deletion available only for completely unlinked records. Operational entities with history should be disabled through `IS_ACTIVE` rather than deleted.
+- The deleted experimental inspector data was intentionally not restored, and no existing orphan media/token rows were purged.
+- Verified all 12 live Oracle master-data constraints, passed 34 Wells tests (82 assertions), and completed the Vite production build.
+
+## [2026-07-26] Signal Image Gallery In Dashboard
+
+- Verified that the latest uploaded signal image is stored in `WELL_ACTIVITY_MEDIA`, linked to its notification, and available through the authenticated relative media route.
+- Replaced the subtle signal thumbnails with an explicit **الصور المرفقة** section showing the attachment count and larger previews.
+- Added an in-dashboard lightbox with close, previous/next, image counter, and open-original controls while retaining the compact thumbnail variant for reading tables.
+- Kept notification media eager-loaded and private; the UI never exposes the storage file path.
+- Verified the Vite production build and the Wells activity-media/dashboard unit tests.
+
 ## [2026-07-23] Diesel Inventory Tank Classification And Consumption Checks
 
 - Split the Wells diesel inventory page into **مولدات خزان داخلي** (`Daily Tank`) and **مولدات خزان خارجي**. The external section contains separate inventory and calculated-results tabs.

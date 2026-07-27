@@ -12,8 +12,8 @@ return new class extends Migration
     {
         Schema::create('diesel_inventories', function (Blueprint $table) {
             $table->id('OID');
-            $table->foreignId('WELL_OID')->constrained('wells', 'OID')->cascadeOnDelete();
-            $table->foreignId('INSPECTOR_OID')->constrained('inspectors', 'OID')->cascadeOnDelete();
+            $table->foreignId('WELL_OID')->constrained('wells', 'OID');
+            $table->foreignId('INSPECTOR_OID')->constrained('inspectors', 'OID');
             $table->integer('GENERATOR_OID')->nullable()->comment('References G_STORE.GENERATOR');
             $table->timestamp('INVENTORY_DATE');
             $table->decimal('GENERATOR_HOURS_READING', 12, 2)->nullable()->comment('ساعات تشغيل المولد');

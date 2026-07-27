@@ -6,25 +6,31 @@ namespace App\Services\Wells;
 
 use App\Models\Wells\Inspector;
 use App\Repositories\Wells\InspectorRepository;
-use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Hash;
+use RuntimeException;
 
 class InspectorService
 {
     public function __construct(
         private readonly InspectorRepository $inspectorRepository,
-    ) {
-    }
+    ) {}
 
     public function getAllInspectors(): Collection
     {
-        return $this->inspectorRepository->all();
+        return $this->inspectorRepository->all()
+            ->each(fn (Inspector $inspector): Inspector => $this->applyDeletionState($inspector));
     }
 
     public function getPaginatedInspectors(int $perPage = 15): LengthAwarePaginator
     {
-        return $this->inspectorRepository->paginate($perPage);
+        $inspectors = $this->inspectorRepository->paginate($perPage);
+        $inspectors->getCollection()
+            ->each(fn (Inspector $inspector): Inspector => $this->applyDeletionState($inspector));
+
+        return $inspectors;
     }
 
     public function getInspector(int $id): Inspector
@@ -36,7 +42,7 @@ class InspectorService
     {
         $inspector = $this->inspectorRepository->create($data);
 
-        if (!empty($teamIds)) {
+        if (! empty($teamIds)) {
             $this->inspectorRepository->syncTeams((int) $inspector->getKey(), $teamIds);
         }
 
@@ -60,7 +66,27 @@ class InspectorService
 
     public function deleteInspector(int $id): bool
     {
-        return $this->inspectorRepository->delete($id);
+        $inspector = $this->inspectorRepository->findForDeletion($id);
+        $blockers = $this->deletionBlockers($inspector);
+
+        if ($blockers !== []) {
+            throw new RuntimeException(
+                'لا يمكن حذف المفتش لوجود سجلات مرتبطة به: '.implode('، ', $blockers).'. عطّل الحساب بدلاً من الحذف.'
+            );
+        }
+
+        try {
+            return $this->inspectorRepository->delete($id);
+        } catch (QueryException $exception) {
+            if (! str_contains($exception->getMessage(), 'ORA-02292')) {
+                throw $exception;
+            }
+
+            throw new RuntimeException(
+                'لا يمكن حذف المفتش لأن قاعدة البيانات وجدت سجلات مرتبطة به.',
+                previous: $exception,
+            );
+        }
     }
 
     public function authenticate(string $phone, string $password): ?Inspector
@@ -68,12 +94,12 @@ class InspectorService
         // Search by either PHONE or phone (depending on driver/PDO case)
         $inspector = $this->inspectorRepository->findByPhone($phone);
 
-        if (!$inspector || empty($inspector->is_active ?? $inspector->IS_ACTIVE)) {
+        if (! $inspector || empty($inspector->is_active ?? $inspector->IS_ACTIVE)) {
             return null;
         }
 
         $hash = $inspector->password ?? $inspector->PASSWORD;
-        if (!Hash::check($password, $hash)) {
+        if (! Hash::check($password, $hash)) {
             return null;
         }
 
@@ -88,5 +114,36 @@ class InspectorService
     public function getInspectorsByTeam(int $teamId): Collection
     {
         return $this->inspectorRepository->findByTeam($teamId);
+    }
+
+    private function applyDeletionState(Inspector $inspector): Inspector
+    {
+        $blockers = $this->deletionBlockers($inspector);
+        $inspector->setAttribute('CAN_DELETE', $blockers === []);
+        $inspector->setAttribute('DELETE_BLOCKERS', $blockers);
+
+        return $inspector;
+    }
+
+    /** @return array<int, string> */
+    private function deletionBlockers(Inspector $inspector): array
+    {
+        $relations = [
+            'teams_count' => 'فرق ميدانية',
+            'readings_count' => 'قراءات آبار',
+            'diesel_inventories_count' => 'سجلات جرد سولار',
+            'notifications_count' => 'إشعارات',
+            'tokens_count' => 'جلسات دخول',
+        ];
+
+        $blockers = [];
+        foreach ($relations as $attribute => $label) {
+            $count = (int) ($inspector->getAttribute($attribute) ?? 0);
+            if ($count > 0) {
+                $blockers[] = "{$label} ({$count})";
+            }
+        }
+
+        return $blockers;
     }
 }

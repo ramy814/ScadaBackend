@@ -12,7 +12,7 @@ return new class extends Migration
     {
         Schema::create('well_generators', function (Blueprint $table) {
             $table->id('OID');
-            $table->foreignId('WELL_OID')->constrained('wells', 'OID')->cascadeOnDelete();
+            $table->foreignId('WELL_OID')->constrained('wells', 'OID');
             $table->integer('GENERATOR_OID')->comment('References G_STORE.GENERATOR');
             $table->timestamp('CREATED_AT')->nullable();
 

@@ -61,3 +61,13 @@ The `audit_logs` table must never have rows updated or deleted. It is append-onl
 - External actual rate is `(previous geometric balance + approved supply - current geometric balance) / positive operating hours`.
 - The alert threshold is the well-generator approved rate plus its allowed difference. Actual rate greater than the threshold is high; equal or lower is normal.
 - Missing inputs produce unavailable results. Reverse/zero/impossible meters, non-increasing fill times, and negative consumption produce invalid results. Invalid data must never be displayed as high consumption.
+
+## 8. Wells Master Data Deletion Safety
+
+- Inspectors, teams, and wells may be physically deleted only when they have no related records or assignments.
+- Inspector blockers include teams, readings, diesel inventories, notifications, and access tokens.
+- Team blockers include assigned wells and inspectors.
+- Well blockers include readings, diesel inventories, notifications, team assignments, generator assignments, and media.
+- The service must perform the friendly preflight check and expose `CAN_DELETE` plus `DELETE_BLOCKERS`; the database remains the authoritative final guard.
+- Foreign keys from these master records use `NO ACTION`, never `ON DELETE CASCADE`. A direct or racing delete must fail instead of deleting operational history.
+- Prefer `IS_ACTIVE = 0` for entities that have ever participated in operations.

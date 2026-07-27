@@ -5,16 +5,15 @@ declare(strict_types=1);
 namespace App\Repositories\Wells;
 
 use App\Models\Wells\Team;
-use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 
 class TeamRepository
 {
     public function __construct(
         private readonly Team $model
-    ) {
-    }
+    ) {}
 
     public function all(): Collection
     {
@@ -51,6 +50,13 @@ class TeamRepository
         return $this->model->with(['wells', 'inspectors'])->findOrFail($id);
     }
 
+    public function findForDeletion(int $id): Team
+    {
+        return $this->model
+            ->withCount(['wells', 'inspectors'])
+            ->findOrFail($id);
+    }
+
     public function create(array $data): Team
     {
         return $this->model->create($data);
@@ -82,12 +88,12 @@ class TeamRepository
             ->map(fn ($id) => (int) $id)
             ->all();
 
-        $newIds     = array_map('intval', $wellIds);
-        $toDetach   = array_diff($existing, $newIds);
-        $toAttach   = array_diff($newIds, $existing);
+        $newIds = array_map('intval', $wellIds);
+        $toDetach = array_diff($existing, $newIds);
+        $toAttach = array_diff($newIds, $existing);
 
         // Remove de-associated wells
-        if (!empty($toDetach)) {
+        if (! empty($toDetach)) {
             $placeholders = implode(',', array_fill(0, count($toDetach), '?'));
             DB::connection('oracle')->statement(
                 "DELETE FROM team_wells WHERE TEAM_OID = ? AND WELL_OID IN ({$placeholders})",

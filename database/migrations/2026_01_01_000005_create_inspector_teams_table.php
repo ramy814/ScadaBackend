@@ -12,8 +12,8 @@ return new class extends Migration
     {
         Schema::create('inspector_teams', function (Blueprint $table) {
             $table->id('OID');
-            $table->foreignId('INSPECTOR_OID')->constrained('inspectors', 'OID')->cascadeOnDelete();
-            $table->foreignId('TEAM_OID')->constrained('teams', 'OID')->cascadeOnDelete();
+            $table->foreignId('INSPECTOR_OID')->constrained('inspectors', 'OID');
+            $table->foreignId('TEAM_OID')->constrained('teams', 'OID');
             $table->timestamp('CREATED_AT')->nullable();
 
             $table->unique(['INSPECTOR_OID', 'TEAM_OID']);

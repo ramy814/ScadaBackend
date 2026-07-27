@@ -114,6 +114,17 @@ Source path: `/Volumes/SecondDrive/Wells/wells_app`.
 - Map popups must use theme variables and structured RTL fields. Show `MAP_GENERATORS.*.NUMBER`; do not show the power-source value as **سولار**.
 - Import the installed `leaflet` package and stylesheet dynamically; do not add a runtime CDN dependency for the Wells map.
 
+## Master Data Deletion Safety
+
+- Never configure `ON DELETE CASCADE` from `INSPECTORS`, `TEAMS`, or `WELLS`. Use Oracle `NO ACTION` foreign keys so history cannot be removed by deleting a master row.
+- Physical deletion is allowed only when every known relation count is zero. Keep the preflight logic in the service and the counts/queries in the repository.
+- Inspector blockers: team assignments, readings, diesel inventories, notifications, and Sanctum tokens.
+- Team blockers: assigned wells and inspectors.
+- Well blockers: readings, diesel inventories, notifications, team assignments, generator assignments, and media.
+- Dashboard payloads expose `CAN_DELETE` and `DELETE_BLOCKERS`; Vue renders a disabled lock and reason but is never the authoritative guard.
+- Catch Oracle `ORA-02292` only to provide a friendly domain message. Do not swallow unrelated database errors.
+- Prefer deactivation through `IS_ACTIVE` when a master record has operational history.
+
 ## Oracle SQL Rules
 - Always use UPPERCASE for table and column names
 - Use `ROW_NUMBER() OVER (PARTITION BY ... ORDER BY ...)` for latest records
@@ -166,6 +177,7 @@ Source path: `/Volumes/SecondDrive/Wells/wells_app`.
 - Resolve inspector identity only from Sanctum authentication and verify the authenticated inspector owns the parent activity before storage.
 - Serve media through authenticated `wells.activity-media.show`; never expose `WELL_ACTIVITY_MEDIA.FILE_PATH`.
 - Generate activity media URLs as relative same-origin routes; do not serialize an absolute localhost/`APP_URL` address.
+- Keep `media` eager-loaded for reading and notification dashboard queries. Signals must show a visible labeled attachment gallery and open images inside the dashboard lightbox; use the compact gallery variant only in dense reading tables.
   And in the Repository, replace `->sync($ids)` with manual raw SQL:
   ```php
   // WRONG ❌ — sync() fails on Oracle pivot tables

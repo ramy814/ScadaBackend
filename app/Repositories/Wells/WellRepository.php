@@ -27,7 +27,14 @@ class WellRepository
     {
         $query = $this->withSourceWellCode($this->model->newQuery())
             ->with(['teams', 'generators'])
-            ->withCount(['readings', 'dieselInventories'])
+            ->withCount([
+                'readings',
+                'dieselInventories',
+                'notifications',
+                'teams',
+                'generators',
+                'media',
+            ])
             ->orderByDesc('wells.IS_ACTIVE')
             ->orderBy('wells.NAME');
 
@@ -62,6 +69,20 @@ class WellRepository
     {
         return $this->withSourceWellCode($this->model->newQuery())
             ->with(['teams', 'generators', 'media'])
+            ->findOrFail($id);
+    }
+
+    public function findForDeletion(int $id): Well
+    {
+        return $this->model
+            ->withCount([
+                'readings',
+                'dieselInventories',
+                'notifications',
+                'teams',
+                'generators',
+                'media',
+            ])
             ->findOrFail($id);
     }
 

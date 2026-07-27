@@ -12,8 +12,8 @@ return new class extends Migration
     {
         Schema::create('team_wells', function (Blueprint $table) {
             $table->id('OID');
-            $table->foreignId('TEAM_OID')->constrained('teams', 'OID')->cascadeOnDelete();
-            $table->foreignId('WELL_OID')->constrained('wells', 'OID')->cascadeOnDelete();
+            $table->foreignId('TEAM_OID')->constrained('teams', 'OID');
+            $table->foreignId('WELL_OID')->constrained('wells', 'OID');
             $table->timestamp('CREATED_AT')->nullable();
 
             $table->unique(['TEAM_OID', 'WELL_OID']);

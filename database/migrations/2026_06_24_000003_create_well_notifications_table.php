@@ -20,9 +20,9 @@ return new class extends Migration
             $table->timestamp('READ_AT')->nullable();
             $table->timestamps();
 
-            $table->foreign('WELL_OID')->references('OID')->on('wells')->onDelete('cascade');
+            $table->foreign('WELL_OID')->references('OID')->on('wells');
             $table->foreign('NOTIFICATION_TYPE_OID')->references('OID')->on('notification_types');
-            $table->foreign('INSPECTOR_OID')->references('oid')->on('inspectors')->onDelete('cascade');
+            $table->foreign('INSPECTOR_OID')->references('oid')->on('inspectors');
         });
     }
 

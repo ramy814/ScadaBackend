@@ -12,8 +12,8 @@ return new class extends Migration
     {
         Schema::create('well_readings', function (Blueprint $table) {
             $table->id('OID');
-            $table->foreignId('WELL_OID')->constrained('wells', 'OID')->cascadeOnDelete();
-            $table->foreignId('INSPECTOR_OID')->constrained('inspectors', 'OID')->cascadeOnDelete();
+            $table->foreignId('WELL_OID')->constrained('wells', 'OID');
+            $table->foreignId('INSPECTOR_OID')->constrained('inspectors', 'OID');
             $table->decimal('FLOW_RATE', 10, 2)->comment('م٣/ساعة');
             $table->decimal('CHLORINE', 10, 2)->comment('لتر');
             $table->decimal('SALINITY', 10, 2);

@@ -55,8 +55,16 @@ function submitEdit() {
 }
 
 function confirmDelete(inspector) {
+    if (!inspector.CAN_DELETE) return
+
     selectedInspector.value = inspector
     showDeleteModal.value = true
+}
+
+function deletionReason(inspector) {
+    return inspector.DELETE_BLOCKERS?.length
+        ? `الحذف محمي لوجود: ${inspector.DELETE_BLOCKERS.join('، ')}`
+        : 'حذف المفتش'
 }
 
 function deleteInspector() {
@@ -109,8 +117,16 @@ function deleteInspector() {
                                     <td>
                                         <div class="btn-group">
                                             <button class="btn btn-sm btn-secondary" @click="openEdit(inspector)">✏️</button>
-                                            <button class="btn btn-sm btn-danger" @click="confirmDelete(inspector)">🗑️</button>
+                                            <button
+                                                class="btn btn-sm btn-danger"
+                                                :disabled="!inspector.CAN_DELETE"
+                                                :title="deletionReason(inspector)"
+                                                @click="confirmDelete(inspector)"
+                                            >{{ inspector.CAN_DELETE ? '🗑️' : '🔒' }}</button>
                                         </div>
+                                        <small v-if="!inspector.CAN_DELETE" class="form-hint">
+                                            {{ deletionReason(inspector) }}
+                                        </small>
                                     </td>
                                 </tr>
                                 <tr v-if="!inspectors.length">

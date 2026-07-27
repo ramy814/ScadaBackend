@@ -86,6 +86,11 @@ class Well extends Model
         return $this->hasMany(DieselInventory::class, 'well_oid', 'oid');
     }
 
+    public function notifications(): HasMany
+    {
+        return $this->hasMany(WellNotification::class, 'well_oid', 'oid');
+    }
+
     public function generators(): HasMany
     {
         return $this->hasMany(WellGenerator::class, 'well_oid', 'oid');

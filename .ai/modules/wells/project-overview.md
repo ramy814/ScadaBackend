@@ -58,7 +58,7 @@ A comprehensive well management system consisting of two main applications:
 - Image upload uses `/api/wells/activity-media/sync` after parent sync. `CLIENT_LOCAL_ID` makes retries idempotent; an uploaded image is displayed through an authenticated dashboard URL rather than a public storage path.
 - Reading, signal, and diesel parent records also persist their mobile UUID in `CLIENT_LOCAL_ID`; a lost response or retry returns the original row/OID and must never create a duplicate.
 - Dashboard media URLs are same-origin relative paths. A production `404` from unauthenticated `POST /api/wells/activity-media/sync` means the backend feature has not been deployed even if the mobile APK already exposes image selection.
-- The main Wells dashboard and readings list show reading thumbnails; the notifications list shows signal thumbnails. Each thumbnail opens the authorized full image.
+- The main Wells dashboard and readings list show compact reading thumbnails. The notifications list uses a clearly labeled **الصور المرفقة** gallery with an attachment count and larger previews; selecting a preview opens an in-dashboard lightbox with previous/next, close, counter, and authorized open-original controls.
 - The Wells main dashboard and readings index reload their data every 10 seconds so newly synchronized readings appear without a manual full-page refresh.
 - No authentication on dashboard (will be integrated into existing auth system later)
 - Flutter app works fully offline using SQLite
@@ -100,3 +100,6 @@ A comprehensive well management system consisting of two main applications:
 - The administrative Wells map currently loads all 91 well records with coordinates, including 55 inactive records. The UI can filter intersecting operational and damage layers and independently include or exclude inactive records.
 - Map markers use a water-drop/well symbol, operational-status color, a damage-status dot, and a selected name label in the Wells accent color.
 - The map popup is an RTL theme-aware information card with well identity, activation/operation/damage state, area, pump type, capacity, and assigned generator number from `MAP_GENERATORS`. It does not display the misleading **سولار** power-source label.
+- Inspectors, teams, and wells use protected physical deletion. Any linked operational record or assignment sets `CAN_DELETE = false` and lists the Arabic `DELETE_BLOCKERS`; the interface displays a lock instead of an active delete action.
+- Inspector deletion is blocked by team assignments, readings, diesel inventories, notifications, or access tokens. Team deletion is blocked by assigned wells or inspectors. Well deletion is blocked by readings, diesel inventories, notifications, teams, generators, or media.
+- Oracle foreign keys from Wells master data use `NO ACTION`, not cascade deletion. Disabling through `IS_ACTIVE` is the normal retirement path for records with history.

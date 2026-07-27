@@ -56,7 +56,7 @@ Fuel balance calculation (`h = DIESEL_HEIGHT_CM / 100`, dimensions in meters):
 | Column | Type | Notes |
 |--------|------|-------|
 | OID | INTEGER PK AUTO | Primary key |
-| WELL_OID | INTEGER FK | References WELLS; cascade delete |
+| WELL_OID | INTEGER FK | References WELLS; `NO ACTION` blocks deletion while media exists |
 | CATEGORY | VARCHAR(50) | `pump`, `fuel_tank`, `cooling`, `valves_parts`, or `well_room` |
 | LABEL | VARCHAR NULL | User-provided image name/description |
 | FILE_PATH | VARCHAR(500) | Private `local` disk path; never expose directly |
@@ -287,3 +287,12 @@ SELECT q.OId, q.NAME FROM GAZADATA.QUARTERS q
 - Well → WellNotifications: One-to-Many
 - Inspector → WellNotifications: One-to-Many
 - WellNotification → WellActivityMedia: One-to-Many filtered by `ACTIVITY_TYPE = notification`
+
+## Deletion Rules
+
+- All foreign keys from `INSPECTORS`, `TEAMS`, and `WELLS` are enabled and validated with Oracle `DELETE_RULE = NO ACTION`.
+- Never cascade inspector deletion into `WELL_READINGS`, `DIESEL_INVENTORIES`, `WELL_NOTIFICATIONS`, or `INSPECTOR_TEAMS`.
+- Never cascade team deletion into `TEAM_WELLS` or `INSPECTOR_TEAMS`.
+- Never cascade well deletion into readings, inventories, notifications, teams, generators, or media.
+- Application services perform a detailed preflight for a friendly message, while the foreign key remains the non-bypassable final guard.
+- Physical deletion is only for completely unlinked setup mistakes. Use `IS_ACTIVE = 0` for operational records with history.

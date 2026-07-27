@@ -51,8 +51,16 @@ function submitEdit() {
 }
 
 function confirmDelete(team) {
+    if (!team.CAN_DELETE) return
+
     selectedTeam.value = team
     showDeleteModal.value = true
+}
+
+function deletionReason(team) {
+    return team.DELETE_BLOCKERS?.length
+        ? `الحذف محمي لوجود: ${team.DELETE_BLOCKERS.join('، ')}`
+        : 'حذف الفريق'
 }
 
 function deleteTeam() {
@@ -89,7 +97,12 @@ function toggleWell(wellOid, formObj) {
                         <h3 class="card-title">{{ team.NAME }}</h3>
                         <div class="btn-group">
                             <button class="btn btn-sm btn-secondary" @click="openEdit(team)">✏️</button>
-                            <button class="btn btn-sm btn-danger" @click="confirmDelete(team)">🗑️</button>
+                            <button
+                                class="btn btn-sm btn-danger"
+                                :disabled="!team.CAN_DELETE"
+                                :title="deletionReason(team)"
+                                @click="confirmDelete(team)"
+                            >{{ team.CAN_DELETE ? '🗑️' : '🔒' }}</button>
                         </div>
                     </div>
                     <div class="card-body">
@@ -119,6 +132,9 @@ function toggleWell(wellOid, formObj) {
                                 </span>
                             </div>
                         </div>
+                        <p v-if="!team.CAN_DELETE" class="form-hint">
+                            {{ deletionReason(team) }}
+                        </p>
                     </div>
                 </div>
 
