@@ -42,7 +42,12 @@ class TripRepository
         int $perPage = 30,
     ): LengthAwarePaginator {
         $query = Trip::query()
-            ->whereBetween('started_at', [$from, $to])
+            ->with('latestTrackingEvent')
+            ->withMax('points as last_point_at', 'recorded_at')
+            ->where(function ($query) use ($from, $to): void {
+                $query->whereBetween('started_at', [$from, $to])
+                    ->orWhereNull('ended_at');
+            })
             ->latest('started_at');
 
         if ($responseStatus === 'pending') {

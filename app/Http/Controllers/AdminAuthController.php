@@ -220,7 +220,8 @@ class AdminAuthController extends Controller
         $this->hydrateTripDrivers(collect([$trip]), app(MunicipalityDriverRepository::class));
 
         $trip->load([
-            'stops:id,trip_id,started_at,ended_at,reason,notes',
+            'stops:id,trip_id,local_id,started_at,ended_at,latitude,longitude,source,reason,notes',
+            'trackingEvents:id,trip_id,event_type,detected_at,latitude,longitude,details_json',
             'passengers:id,trip_id,employee_id,name,source',
         ]);
 

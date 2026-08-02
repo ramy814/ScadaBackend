@@ -33,9 +33,8 @@ class DieselInventoryRepository
     ): Collection {
         $query = $this->model
             ->with($this->reportRelations())
-            ->orderBy('INVENTORY_DATE')
-            ->orderBy('WELL_OID')
-            ->orderBy('OID');
+            ->orderByDesc('CREATED_AT')
+            ->orderByDesc('OID');
 
         $this->applyFilters($query, $filters);
         $this->applyTankGroup($query, $tankGroup);

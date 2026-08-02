@@ -11,6 +11,7 @@ The project strictly enforces the separation of concerns:
 The Flutter mobile application is designed to function entirely offline during a trip. The backend APIs must support this paradigm:
 - **Idempotency Keys**: Both `trips` (`local_id`) and `trip_points` (`sequence_number`) use client-generated identifiers as unique constraints (`updateOrCreate`). This allows the mobile app to safely retry requests if a network connection drops mid-flight.
 - **Eventual Consistency**: Trips are created in an `uploaded` state. They are only marked as `confirmed` once the mobile app sends a final payload with a `client_checksum` that matches the server's calculated `server_checksum`.
+- **Active Uploads**: Repeated `POST /api/driver/trips` calls refresh the same `local_id`; point, stop, and telemetry identifiers remain idempotent. An active trip may be visible in the dashboard but cannot be confirmed until it has ended and the full checksum arrives.
 - **Snapshot Data**: Because drivers and vehicles might change in the Oracle database over time, the `trips` table stores a complete snapshot of the driver and vehicle details at the exact moment the trip was initiated.
 
 ## 3. Administrative Review Constraints
@@ -26,6 +27,7 @@ Once a trip is `confirmed` by the system, it enters the administrative review pi
 - **State**: The `usePage()` hook is the primary way to access global state (like the authenticated user or flash messages) in the frontend.
 - **Trip Map Source of Truth**: `TripShow.vue` renders only the original ordered `trip_points`. Do not introduce road matching, route snapping, OSRM, Docker, or an external routing API unless the product owner explicitly reverses this decision.
 - **Map Interpretation**: The map may show GPS segments crossing buildings because it visualizes recorded coordinates directly. Never move or overwrite authoritative GPS points merely to make the route look aligned with streets.
+- **Live Monitoring**: Dashboard and active `TripShow` Inertia props may reload every 15 seconds. `last_point_at` plus the latest tracking event drive a technical freshness badge; do not label it as proven deliberate tampering.
 
 ## 5. Security & Authentication
 - **Admin**: Uses the Municipality's MOG SSO package. Authentication state is stored in the session.

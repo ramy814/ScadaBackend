@@ -6,7 +6,7 @@ import Icon from '../../../WellsSystem/Components/Shared/Icon.vue'
 import StatsCard from '../../../WellsSystem/Components/Shared/StatsCard.vue'
 
 const REPORT_TYPES = ['internal', 'external_inventory', 'external_results']
-const STORAGE_PREFIX = 'wells.diesel-inventory.columns.v1.'
+const STORAGE_PREFIX = 'wells.diesel-inventory.columns.v2.'
 
 const props = defineProps({
     internalReport: { type: Object, default: () => ({ rows: [], totals: {} }) },

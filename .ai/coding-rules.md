@@ -37,6 +37,8 @@ const loginUrl = page.props.urls.login;
 
 ## 5. Security
 - Never trust input from the mobile app regarding its state. Always verify server-side (e.g., the points checksum, calculating wait times vs relying on app wait times).
+- For release `1.1.0+23`, recompute automatic wait from completed `trip_stops` intervals and combine it with the separately supplied manual wait. Keep the old `wait_minutes` fallback when `manual_wait_minutes` is absent so older clients remain valid.
+- Device-state events and stale points are technical evidence only. Never encode or display a conclusion that the driver acted deliberately without an independent review process.
 - All admin actions must use POST/PUT/DELETE and be protected by the `auth` middleware.
 
 ## 6. Language

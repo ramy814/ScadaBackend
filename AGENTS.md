@@ -38,7 +38,7 @@
 - `app/Repositories/Wells/` و `app/Services/Wells/` — طبقة بيانات ومنطق نظام الآبار
 
 ## الجداول الرئيسية (اقرأ .ai/database/tables.md للتفاصيل)
-- **Oracle managed**: trips, trip_points, trip_stops, audit_logs
+- **Oracle managed**: trips, trip_points, trip_stops, trip_tracking_events, audit_logs
 - **Oracle driver/vehicle source**: CONTROL_UNIT.FLEET_USERS, CONTROL_UNIT.MOG_VEHICLES
 - **Oracle wells module**: WELLS, TEAMS, INSPECTORS, WELL_READINGS, DIESEL_INVENTORIES, NOTIFICATION_TYPES
 

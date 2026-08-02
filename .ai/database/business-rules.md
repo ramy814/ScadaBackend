@@ -53,7 +53,14 @@ The `audit_logs` table must never have rows updated or deleted. It is append-onl
 - “Updated from store” requires both a current build and a recognized Android installer-store identifier. Do not infer a store update from the version number alone.
 - `not_reported` is not proof that the driver failed to update: first confirm the production presence endpoint is deployed. If `/api/driver/app-presence` returns 404, every installation will remain unreported regardless of its local version.
 
-## 7. Wells Diesel Consumption Status
+## 7. Automatic Wait And Live Tracking Evidence
+
+- For clients that send `manual_wait_minutes`, `TRIPS.WAIT_MINUTES` is recalculated as manual minutes plus whole minutes from completed `trip_stops` whose source is `automatic`.
+- Clients that omit `manual_wait_minutes` keep the legacy rule: preserve the greater of submitted `wait_minutes` and computed automatic duration. This is required for rolling deployment compatibility.
+- Stop and telemetry UUIDs are idempotency keys. Repeated active-trip uploads must update existing rows.
+- Dashboard freshness combines `last_point_at` with the latest device-state event. A stale point, airplane event, GPS event, shutdown, or permission loss requires review but cannot prove deliberate action or distinguish every offline/power scenario.
+
+## 8. Wells Diesel Consumption Status
 
 - `Daily Tank` wells use approved fuel-program fills; classified non-Daily tanks use field inventory geometry. Wells without `TANK_SHAPE` belong to neither report until classified.
 - Generator fuel rows require `G_STORE.FUEL_LOG_DETAILS.ASSET_TYPE = 401`; `ASSET_OID` alone is not unique across asset types.
@@ -62,7 +69,7 @@ The `audit_logs` table must never have rows updated or deleted. It is append-onl
 - The alert threshold is the well-generator approved rate plus its allowed difference. Actual rate greater than the threshold is high; equal or lower is normal.
 - Missing inputs produce unavailable results. Reverse/zero/impossible meters, non-increasing fill times, and negative consumption produce invalid results. Invalid data must never be displayed as high consumption.
 
-## 8. Wells Master Data Deletion Safety
+## 9. Wells Master Data Deletion Safety
 
 - Inspectors, teams, and wells may be physically deleted only when they have no related records or assignments.
 - Inspector blockers include teams, readings, diesel inventories, notifications, and access tokens.

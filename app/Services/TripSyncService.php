@@ -164,10 +164,55 @@ class TripSyncService
             }
 
             foreach ($data['stops'] ?? [] as $stop) {
+                $identity = filled($stop['local_id'] ?? null)
+                    ? ['local_id' => $stop['local_id']]
+                    : ['started_at' => $stop['started_at']];
                 $trip->stops()->updateOrCreate(
-                    ['started_at' => $stop['started_at']],
-                    Arr::only($stop, ['ended_at', 'reason', 'notes']),
+                    $identity,
+                    Arr::only($stop, [
+                        'started_at',
+                        'ended_at',
+                        'latitude',
+                        'longitude',
+                        'source',
+                        'reason',
+                        'notes',
+                    ]),
                 );
+            }
+
+            foreach ($data['tracking_events'] ?? [] as $event) {
+                $trip->trackingEvents()->updateOrCreate(
+                    ['local_id' => $event['local_id']],
+                    Arr::only($event, [
+                        'event_type',
+                        'detected_at',
+                        'latitude',
+                        'longitude',
+                        'details_json',
+                    ]),
+                );
+            }
+
+            if (! empty($data['stops'])) {
+                $automaticWaitSeconds = $trip->stops()
+                    ->where('source', 'automatic')
+                    ->get(['started_at', 'ended_at'])
+                    ->sum(function ($stop): int {
+                        if (! $stop->started_at || ! $stop->ended_at) {
+                            return 0;
+                        }
+
+                        return max(0, (int) $stop->started_at->diffInSeconds($stop->ended_at, false));
+                    });
+                $trip->update([
+                    'wait_minutes' => array_key_exists('manual_wait_minutes', $data)
+                        ? (int) $data['manual_wait_minutes'] + intdiv($automaticWaitSeconds, 60)
+                        : max(
+                            (int) ($data['wait_minutes'] ?? 0),
+                            intdiv($automaticWaitSeconds, 60),
+                        ),
+                ]);
             }
 
             return $trip;
@@ -190,6 +235,10 @@ class TripSyncService
         try {
             if (Schema::connection($connection)->hasColumn($table, $column)) {
                 return $cache[$cacheKey] = true;
+            }
+
+            if (! in_array(DB::connection($connection)->getDriverName(), ['oci', 'oci8', 'oracle'], true)) {
+                return $cache[$cacheKey] = false;
             }
 
             $row = DB::connection($connection)->selectOne(
@@ -362,10 +411,18 @@ SQL,
         } catch (\Throwable) {
         }
 
-        $row = DB::connection($connection)->selectOne(
-            'select count(*) as table_count from user_tables where table_name = ?',
-            [strtoupper($table)],
-        );
+        if (! in_array(DB::connection($connection)->getDriverName(), ['oci', 'oci8', 'oracle'], true)) {
+            return false;
+        }
+
+        try {
+            $row = DB::connection($connection)->selectOne(
+                'select count(*) as table_count from user_tables where table_name = ?',
+                [strtoupper($table)],
+            );
+        } catch (\Throwable) {
+            return false;
+        }
 
         return ((int) ($row->table_count ?? 0)) > 0;
     }

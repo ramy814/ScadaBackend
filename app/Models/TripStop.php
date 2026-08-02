@@ -7,13 +7,25 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class TripStop extends Model
 {
-    protected $fillable = ['trip_id', 'started_at', 'ended_at', 'reason', 'notes'];
+    protected $fillable = [
+        'trip_id',
+        'local_id',
+        'started_at',
+        'ended_at',
+        'latitude',
+        'longitude',
+        'source',
+        'reason',
+        'notes',
+    ];
 
     protected function casts(): array
     {
         return [
             'started_at' => 'datetime',
             'ended_at' => 'datetime',
+            'latitude' => 'decimal:7',
+            'longitude' => 'decimal:7',
         ];
     }
 

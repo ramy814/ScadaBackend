@@ -167,10 +167,10 @@
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>#</th><th>وقت بدء التوقف</th><th>وقت الاستئناف</th><th>المدة</th><th>السبب</th><th>ملاحظات</th></tr></thead>
+          <thead><tr><th>#</th><th>وقت بدء التوقف</th><th>وقت الاستئناف</th><th>المدة</th><th>الموقع</th><th>المصدر</th><th>السبب</th><th>ملاحظات</th></tr></thead>
           <tbody>
             <tr v-if="!trip.stops?.length">
-              <td colspan="6" style="text-align:center;padding:32px;">
+              <td colspan="8" style="text-align:center;padding:32px;">
                 <span v-if="trip.wait_minutes > 0" style="color:var(--warn);font-weight:600;">تم تسجيل {{ trip.wait_minutes }} دقيقة انتظار دون توقفات محددة.</span>
                 <span v-else style="color:var(--text-secondary);">لم يسجل السائق أي توقف.</span>
               </td>
@@ -180,8 +180,34 @@
               <td class="mono">{{ formatDate(stop.started_at) }}</td>
               <td class="mono">{{ formatDate(stop.ended_at) }}</td>
               <td><span v-if="stopDuration(stop) !== null" class="badge warn">{{ stopDuration(stop) }} دقيقة</span><span v-else style="color:var(--text-secondary);">-</span></td>
+              <td class="mono">{{ stopCoordinates(stop) }}</td>
+              <td><span :class="['badge', stop.source === 'automatic' ? 'ok' : 'neutral']">{{ stop.source === 'automatic' ? 'تلقائي' : 'يدوي/قديم' }}</span></td>
               <td><span v-if="stop.reason" class="badge neutral">{{ stop.reason }}</span><span v-else style="color:var(--text-secondary);">-</span></td>
               <td style="color:var(--text-secondary);">{{ stop.notes ?? '-' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;">
+        <div>أحداث سلامة التتبع</div>
+        <span :class="['badge', trip.tracking_events?.length > 0 ? 'warn' : 'ok']">{{ trip.tracking_events?.length ?? 0 }} حدث</span>
+      </div>
+      <div class="alert-box" style="margin:16px 24px;">
+        هذه أحداث تقنية موثقة من الجهاز أو فجوات اتصال، وتحتاج مراجعة المشرف؛ لا تثبت وحدها أن السائق تعمّد إيقاف التتبع.
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>#</th><th>الوقت</th><th>الحدث</th><th>الموقع المتاح</th></tr></thead>
+          <tbody>
+            <tr v-if="!trip.tracking_events?.length"><td colspan="4" style="text-align:center;padding:32px;color:var(--text-secondary);">لم تسجل أحداث تعطيل أو انقطاع صريحة.</td></tr>
+            <tr v-for="(event, i) in trip.tracking_events" :key="event.id">
+              <td>{{ i + 1 }}</td>
+              <td class="mono">{{ formatDate(event.detected_at) }}</td>
+              <td><span :class="['badge', trackingEventClass(event.event_type)]">{{ trackingEventLabel(event.event_type) }}</span></td>
+              <td class="mono">{{ stopCoordinates(event) }}</td>
             </tr>
           </tbody>
         </table>
@@ -331,6 +357,7 @@ const routeHasReturn = ref(false);
 let mapInstance = null;
 let routeLayer = null;
 let routeBounds = null;
+let liveRefreshTimer = null;
 
 const totalWait = computed(() =>
   Math.max(props.stopsMinutes ?? 0, props.trip.wait_minutes ?? 0)
@@ -408,6 +435,31 @@ function stopDuration(stop) {
   if (!stop.started_at || !stop.ended_at) return null;
   return Math.max(0, Math.round((new Date(stop.ended_at) - new Date(stop.started_at)) / 60000));
 }
+function stopCoordinates(item) {
+  if (item.latitude === null || item.latitude === undefined || item.longitude === null || item.longitude === undefined) return '-';
+  return `${Number(item.latitude).toFixed(5)}, ${Number(item.longitude).toFixed(5)}`;
+}
+function trackingEventLabel(type) {
+  return ({
+    gps_disabled: 'تم تعطيل GPS',
+    gps_enabled: 'أعيد تفعيل GPS',
+    airplane_mode_on: 'تم تفعيل وضع الطيران',
+    airplane_mode_off: 'تم إيقاف وضع الطيران',
+    device_shutdown: 'تم إطفاء الجهاز',
+    device_boot: 'أعيد تشغيل الجهاز',
+    battery_low: 'البطارية منخفضة',
+    location_permission_missing: 'تم إيقاف إذن الموقع',
+    location_permission_restored: 'أعيد إذن الموقع',
+    tracking_error: 'خطأ في خدمة التتبع',
+    tracking_gap: 'انقطاع طويل في GPS',
+    clock_anomaly: 'خلل في وقت الجهاز',
+  })[type] ?? type;
+}
+function trackingEventClass(type) {
+  if (['gps_enabled', 'airplane_mode_off', 'device_boot', 'location_permission_restored'].includes(type)) return 'ok';
+  if (type === 'battery_low' || type === 'tracking_error') return 'warn';
+  return 'danger';
+}
 function sourceLabel(s) {
   return s === 'free_text' ? 'نص حر' : s === 'employee_list' ? 'من قائمة الموظفين' : s === 'manual' ? 'يدوي' : s;
 }
@@ -443,6 +495,11 @@ function fitRouteBounds() {
 }
 
 onMounted(async () => {
+  if (!props.trip.ended_at) {
+    liveRefreshTimer = window.setInterval(() => {
+      router.reload({ preserveScroll: true, preserveState: false });
+    }, 15000);
+  }
   if (!mapEl.value) return;
   const L = (await import('leaflet')).default;
   await import('leaflet/dist/leaflet.css');
@@ -616,6 +673,21 @@ onMounted(async () => {
         .addTo(group);
     }
 
+    (props.trip.stops ?? []).forEach((stop) => {
+      if (stop.latitude === null || stop.latitude === undefined || stop.longitude === null || stop.longitude === undefined) return;
+      const point = [Number(stop.latitude), Number(stop.longitude)];
+      bounds.extend(point);
+      L.circleMarker(point, {
+        radius: 8,
+        color: '#ffffff',
+        weight: 3,
+        fillColor: '#f59e0b',
+        fillOpacity: 1,
+      })
+        .bindTooltip(`نقطة انتظار — ${stopDuration(stop) ?? 0} دقيقة`)
+        .addTo(group);
+    });
+
     return { group, bounds, hasReturn: directionalRoute.hasReturn };
   }
 
@@ -628,6 +700,7 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
+  if (liveRefreshTimer) window.clearInterval(liveRefreshTimer);
   mapInstance?.remove();
   mapInstance = null;
   routeLayer = null;

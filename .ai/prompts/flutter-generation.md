@@ -4,12 +4,13 @@ When generating Flutter code for the Fleet Management driver app, you MUST adher
 
 1. **Offline-First Architecture**:
    - The app must never block the UI waiting for a network request during a trip.
-   - All trips and points must be saved to a local SQLite database (using `sqflite` or `drift`) first.
-   - A background sync service or worker should attempt to upload `uploaded` trips and points.
+   - Trips, points, automatic stops, manual wait, and tracking-state events must be saved to local SQLite first.
+   - Active upload is best effort after persistence; an active trip must never be confirmed or deleted.
 
 2. **Idempotency Keys**:
    - Every trip generated locally must have a `uuid` acting as its `local_id`.
    - Every GPS point generated must have an incrementing `sequence_number` scoped to that trip.
+   - Every stop and tracking event must have a client UUID so active-trip retries update rather than duplicate rows.
    - These keys must be sent to the backend to ensure retries do not create duplicates.
 
 3. **Checksum Generation**:
@@ -20,7 +21,18 @@ When generating Flutter code for the Fleet Management driver app, you MUST adher
 4. **Location Tracking**:
    - Use a robust foreground service for location tracking so the OS does not kill the app when screen is off.
    - Include telemetry like `accuracy`, `speed`, and `heading` in the point payload.
+   - Detect automatic waiting only after two continuous stationary minutes at `<= 1 m/s` and within 20 meters; short candidates do not count.
+   - Record observed GPS/permission transitions, airplane mode, graceful shutdown/boot, battery, tracking errors, and long gaps. Never describe these events as proof of deliberate tampering.
 
-5. **State Management**:
+5. **Active Trip Map**:
+   - The approved driver app uses a lightweight `flutter_map` OpenStreetMap view on the active-trip screen only.
+   - Render original locally persisted GPS vertices plus wait markers. Do not call a route engine, snap to roads, rewrite points, or depend on tiles for start/end controls.
+   - Keep route painting bounded for older Android hardware; the current implementation caps displayed vertices at 1,500.
+
+6. **State Management**:
    - Ensure the driver's authentication token and user profile are persisted securely.
    - If the token expires, prompt the user for an SMS OTP again without losing their locally stored trips.
+
+7. **Rolling Compatibility**:
+   - Keep the existing `/api/driver/trips`, points, and confirm endpoints and their required fields.
+   - New fields remain optional so `1.0.x` clients continue working. The new app must tolerate an older backend ignoring optional stops/events during a staged rollout.

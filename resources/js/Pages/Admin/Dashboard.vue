@@ -134,6 +134,7 @@
               <th>المركبة / السائق</th>
               <th>المسار (انطلاق ← وجهة)</th>
               <th>النقاط</th>
+              <th>حالة التتبع المباشر</th>
               <th>الحالة الإدارية</th>
               <th>رد السائق</th>
               <th>الوقت</th>
@@ -142,7 +143,7 @@
           </thead>
           <tbody>
             <tr v-if="recentTrips.data.length === 0">
-              <td colspan="8" style="text-align:center; padding:48px; color:var(--text-secondary);">
+              <td colspan="9" style="text-align:center; padding:48px; color:var(--text-secondary);">
                 لا توجد رحلات ضمن الفترة المحددة.
               </td>
             </tr>
@@ -158,6 +159,12 @@
               </td>
               <td>
                 <span class="badge neutral">{{ trip.points_received }} / {{ trip.points_expected }}</span>
+              </td>
+              <td>
+                <span :class="['badge', trackingHealthClass(trip)]">{{ trackingHealthLabel(trip) }}</span>
+                <div v-if="trip.last_point_at" style="font-size:11px;color:var(--text-secondary);margin-top:4px;">
+                  آخر نقطة: {{ formatDate(trip.last_point_at) }}
+                </div>
               </td>
               <td>
                 <span :class="['badge', statusBadge(trip.status)]">{{ statusLabel(trip.status) }}</span>
@@ -232,7 +239,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { onBeforeUnmount, onMounted, ref } from 'vue';
 import { Link, router, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
@@ -257,6 +264,7 @@ const props = defineProps({
 const now = new Date().toLocaleString('ar-EG', { hour12: false });
 const clarifyNotes = ref({});
 const searchTerm = ref(props.search ?? '');
+let liveRefreshTimer = null;
 
 const periods = [
   { value: 'daily', label: 'يومي' },
@@ -286,6 +294,53 @@ function reviewBadge(s) {
 function reviewLabel(s) {
   return s === 'approved' ? 'مُعتمدة' : s === 'rejected' ? 'مرفوضة' : s === 'needs_clarification' ? 'توضيح' : 'قيد المراجعة';
 }
+
+const criticalTrackingEvents = new Set([
+  'gps_disabled',
+  'airplane_mode_on',
+  'device_shutdown',
+  'location_permission_missing',
+  'tracking_gap',
+  'clock_anomaly',
+]);
+
+function trackingHealthClass(trip) {
+  if (trip.ended_at) return 'neutral';
+  if (criticalTrackingEvents.has(trip.latest_tracking_event?.event_type)) return 'danger';
+  if (trip.latest_tracking_event?.event_type === 'tracking_error') return 'warn';
+  if (!trip.last_point_at) return 'warn';
+  return Date.now() - new Date(trip.last_point_at).getTime() <= 90000 ? 'ok' : 'danger';
+}
+
+function trackingHealthLabel(trip) {
+  if (trip.ended_at) return 'منتهية';
+  const event = trip.latest_tracking_event?.event_type;
+  const labels = {
+    gps_disabled: 'GPS معطّل',
+    airplane_mode_on: 'وضع الطيران مفعّل',
+    device_shutdown: 'تم إطفاء الجهاز',
+    location_permission_missing: 'إذن الموقع متوقف',
+    tracking_gap: 'انقطاع طويل',
+    clock_anomaly: 'خلل في وقت الجهاز',
+    tracking_error: 'خطأ في خدمة التتبع',
+  };
+  if (labels[event]) return labels[event];
+  if (!trip.last_point_at) return 'بانتظار أول نقطة';
+  return Date.now() - new Date(trip.last_point_at).getTime() <= 90000
+    ? 'متصل مباشرة'
+    : 'لا توجد نقاط حديثة';
+}
+
+onMounted(() => {
+  if (!props.recentTrips.data.some(trip => !trip.ended_at)) return;
+  liveRefreshTimer = window.setInterval(() => {
+    router.reload({ only: ['recentTrips'], preserveScroll: true, preserveState: true });
+  }, 15000);
+});
+
+onBeforeUnmount(() => {
+  if (liveRefreshTimer) window.clearInterval(liveRefreshTimer);
+});
 
 function dashboardUrl(overrides = {}) {
   const params = new URLSearchParams({

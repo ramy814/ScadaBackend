@@ -16,11 +16,11 @@ app/
 │   ├── Middleware/
 │   │   └── HandleInertiaRequests.php # Injects global URLs into Vue
 │   └── Requests/             # FormRequests for validation
-├── Models/                   # Eloquent Models (Trip, TripPoint)
+├── Models/                   # Trip, TripPoint, TripStop, TripTrackingEvent, etc.
 ├── Repositories/             # Encapsulates all Database Queries
 │   └── MunicipalityVehicleRepository.php # Only place where Oracle is queried
 ├── Services/                 # Business Logic layer
-│   ├── TripSyncService.php   # Idempotency, snapshots, point batching
+│   ├── TripSyncService.php   # Idempotent snapshots, stops/events, point batches, confirmation
 │   ├── DriverAppUsageService.php # Driver/version/store adoption overview
 │   ├── VirtualFuelService.php# Estimates fuel usage based on GPS
 │   └── AdminTripReviewService.php # Handles approve/reject/clarify logic
@@ -67,3 +67,12 @@ Do not reuse wells `Team` or `Inspector` classes for valves features.
 - Admin: `GET /admin/driver-apps` → `DriverAppUsageController` → `Admin/DriverApps.vue`.
 - Managed data: `DriverAppInstallation` through `DriverAppInstallationRepository`.
 - Release policy: `config/driver_app.php`; change the configured version/build for every published Android release.
+
+## Driver Live Tracking
+
+- `StoreTripRequest` accepts the unchanged legacy trip payload plus optional `manual_wait_minutes`, stop UUID/coordinates/source, and allowlisted tracking events.
+- `TripSyncService` owns idempotent trip, stop, and event persistence and recomputes automatic waiting without trusting a client-computed automatic total.
+- `TripRepository::paginateForDashboard()` adds `last_point_at`, eager-loads the latest tracking event, and keeps active trips visible outside the selected completed-trip period.
+- `AdminAuthController::showTrip()` loads stop locations and ordered technical events for `Admin/TripShow.vue`.
+- `Admin/Dashboard.vue` and `Admin/TripShow.vue` refresh active data every 15 seconds. This is polling over the existing Inertia/API data; there is no WebSocket service.
+- The schema change is `2026_07_29_000021_add_live_tracking_telemetry.php`. See `.ai/workflows/live-tracking-flow.md` for the authoritative end-to-end and rollout contract.

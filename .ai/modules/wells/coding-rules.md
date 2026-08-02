@@ -66,6 +66,7 @@ Source path: `/Volumes/SecondDrive/Wells/wells_app`.
 - Keep the selected reading date in `READING_DATE`; do not substitute the local insert time or server sync time.
 - Well-reading date selection is inclusive from today through 7 calendar days earlier. Future dates and older dates are invalid in the mobile form.
 - Diesel inventory generator hours and diesel height are required. Validate trimmed input as a non-negative number, parse with `double.parse` only after form validation, and always include both values in the local row and sync payload.
+- After the local diesel insert, use `SyncManager.uploadPendingDiesel()` for an immediate online upload. Keep the form open and retain offline/failed rows as pending; the current API acknowledges saved rows through `synced_ids`, and Flutter marks only those returned local IDs when that field is present.
 - Use the shared `RecentActivityPanel` for the latest three readings and diesel inventories, retaining the module accent, relative day, exact date, sync status, and compact metrics.
 - Activity images must be picked/compressed before the parent form save, persisted outside temporary picker storage, and represented by `activity_photos` SQLite rows. Keep original pixel dimensions and target 1.75 MB without replacing a smaller supported original with a larger compressed copy.
 - Upload a reading/signal image only after the parent sync response maps its local UUID to an Oracle OID. A media failure must not discard the parent record or other unconfirmed images.

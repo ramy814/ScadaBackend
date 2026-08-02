@@ -32,6 +32,7 @@ class DieselInventoryService
             ['key' => 'notes', 'label' => 'ملاحظات', 'type' => 'text', 'default' => false],
         ],
         'external_inventory' => [
+            ['key' => 'created_at', 'label' => 'تاريخ الإدخال', 'type' => 'date', 'default' => true],
             ['key' => 'previous_inventory_date', 'label' => 'تاريخ القراءة السابقة', 'type' => 'date', 'default' => true],
             ['key' => 'inventory_date', 'label' => 'تاريخ القراءة الحالية', 'type' => 'date', 'default' => true],
             ['key' => 'well_name', 'label' => 'اسم البئر', 'type' => 'text', 'default' => true],
@@ -46,6 +47,7 @@ class DieselInventoryService
             ['key' => 'notes', 'label' => 'ملاحظات', 'type' => 'text', 'default' => false],
         ],
         'external_results' => [
+            ['key' => 'created_at', 'label' => 'تاريخ الإدخال', 'type' => 'date', 'default' => true],
             ['key' => 'well_name', 'label' => 'اسم البئر', 'type' => 'text', 'default' => true],
             ['key' => 'generator_number', 'label' => 'رقم المولد', 'type' => 'text', 'default' => true],
             ['key' => 'operating_hours', 'label' => 'فرق ساعات تشغيل المولد', 'type' => 'number', 'default' => true],
@@ -294,6 +296,9 @@ class DieselInventoryService
 
             return [
                 'index' => $index + 1,
+                'created_at' => $inventory->getAttributes()['created_at']
+                    ?? $inventory->getAttributes()['CREATED_AT']
+                    ?? null,
                 'inventory_date' => $currentDate,
                 'previous_inventory_date' => $previousDate,
                 'well_name' => $this->attribute($well, 'NAME') ?? '-',

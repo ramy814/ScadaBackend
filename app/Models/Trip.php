@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Trip extends Model
 {
@@ -97,6 +98,16 @@ class Trip extends Model
     public function stops(): HasMany
     {
         return $this->hasMany(TripStop::class);
+    }
+
+    public function trackingEvents(): HasMany
+    {
+        return $this->hasMany(TripTrackingEvent::class);
+    }
+
+    public function latestTrackingEvent(): HasOne
+    {
+        return $this->hasOne(TripTrackingEvent::class)->latestOfMany('detected_at');
     }
 
     public function passengers(): HasMany

@@ -42,6 +42,7 @@ class DieselInventoryReportTest extends TestCase
         $inventory->setRawAttributes([
             'oid' => 10,
             'well_oid' => 14,
+            'created_at' => '2026-06-29 14:30:00',
             'inventory_date' => '2026-06-28 12:00:00',
             'generator_hours_reading' => '120',
             'diesel_height_cm' => '50',
@@ -96,6 +97,7 @@ class DieselInventoryReportTest extends TestCase
         ))->getInventoryReport();
         $row = $report['rows']->first();
 
+        self::assertSame('2026-06-29 14:30:00', $row['created_at']);
         self::assertSame(20.0, $row['operating_hours']);
         self::assertEqualsWithDelta(1970.79, $row['consumed_fuel_liters'], 0.01);
         self::assertEqualsWithDelta(98.54, $row['actual_consumption_lph'], 0.01);

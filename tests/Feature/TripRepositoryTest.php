@@ -21,11 +21,27 @@ class TripRepositoryTest extends TestCase
             $table->string('review_status')->nullable();
             $table->text('clarification_response')->nullable();
             $table->timestamp('started_at');
+            $table->timestamp('ended_at')->nullable();
+        });
+
+        Schema::create('trip_points', function (Blueprint $table): void {
+            $table->id();
+            $table->foreignId('trip_id');
+            $table->timestamp('recorded_at');
+        });
+
+        Schema::create('trip_tracking_events', function (Blueprint $table): void {
+            $table->id();
+            $table->foreignId('trip_id');
+            $table->string('event_type');
+            $table->timestamp('detected_at');
         });
     }
 
     protected function tearDown(): void
     {
+        Schema::dropIfExists('trip_tracking_events');
+        Schema::dropIfExists('trip_points');
         Schema::dropIfExists('trips');
 
         parent::tearDown();

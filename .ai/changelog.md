@@ -1,5 +1,23 @@
 # Changelog & Recent Actions
 
+## [2026-08-02] Wells Diesel Inventory Immediate Dashboard Sync
+
+- Diagnosed new diesel inventories remaining only in Flutter SQLite: reading saves attempted an immediate online upload, while diesel saves waited for a manual sync or a later connectivity-restored event.
+- Added a diesel-only immediate upload through `SyncManager` after the local insert. Successful API acknowledgements update the local sync state before the latest-three inventory panel reloads.
+- Kept offline-first safety: unavailable or timed-out uploads remain pending and the inspector receives an explicit local-save message.
+- Verified the live Oracle table had received no newer inventory after 2026-07-27 before the fix, then passed all 7 Flutter tests and Flutter analysis with only pre-existing info-level findings.
+
+## [2026-07-29] Driver Live Route, Automatic Waiting, And Tracking-State Evidence
+
+- Released the compatible driver contract `1.1.0+23`: the active screen now plots the original locally recorded GPS trace and current/stop markers with lightweight OpenStreetMap tiles, while all controls remain offline-first and independent of tile availability.
+- Added automatic waiting detection after two stationary minutes at no more than 1 m/s within a 20-meter radius. SQLite stores candidate/confirmed intervals, anchor coordinates, and separate manual wait so the backend can prevent double counting.
+- Reused the existing idempotent trip and point endpoints for best-effort active uploads about every 30 seconds. Active trips are never checksum-confirmed or locally deleted; the established final confirmation protocol remains unchanged.
+- Added retry-safe `trip_tracking_events` for GPS/permission state, airplane mode, graceful shutdown/boot, low battery, tracking errors, and gaps. The dashboard presents these as technical evidence requiring review, never proof of intentional driver behavior.
+- Added `trip_stops` coordinates/source/client UUID and a new `trip_tracking_events` table through migration `2026_07_29_000021_add_live_tracking_telemetry.php`.
+- Added active-trip freshness to the Fleet dashboard, 15-second active Inertia refresh, stop markers/durations, and the full tracking-event audit list on trip details.
+- Preserved rolling compatibility: old apps may omit all new fields, new apps can still upload the original contract to an older backend, and only the upgraded backend exposes stop/event monitoring.
+- Verified 64 Laravel tests (174 assertions), the Vite production build, Flutter analysis, 12 Flutter tests, and signed Android release/debug APK builds.
+
 ## [2026-07-26] Wells Master Data Deletion Protection
 
 - Diagnosed a production Wells inspector deletion that removed its readings, diesel inventories, notifications, and team assignment because every Oracle foreign key used `ON DELETE CASCADE` and `InspectorService` performed an unconditional delete.

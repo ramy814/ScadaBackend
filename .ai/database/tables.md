@@ -48,8 +48,21 @@ Individual GPS coordinates forming the path of a trip.
 ### `trip_stops`
 Periods where the vehicle was stationary during a trip.
 - `trip_id`: Foreign key to `trips`.
+- `local_id`: Nullable client UUID. New clients use it for idempotent stop updates; null preserves legacy rows.
 - `started_at`, `ended_at`: Duration of the stop.
+- `latitude`, `longitude`: Nullable stationary-cluster anchor displayed on the trip map.
+- `source`: `automatic` for the new stationary detector, otherwise `manual` for legacy/manual records.
 - `reason`, `notes`: Why the vehicle stopped.
+
+### `trip_tracking_events`
+Observed device/tracking state transitions attached to a trip.
+- `trip_id`: Foreign key to `trips`.
+- `local_id`: Client UUID, unique per trip for retry-safe updates.
+- `event_type`: Allowlisted GPS, permission, airplane, shutdown/boot, battery, gap, clock, or tracking-error code.
+- `detected_at`: Device observation time.
+- `latitude`, `longitude`: Nullable last available position.
+- `details_json`: Nullable small diagnostic payload.
+- These rows document technical evidence; they do not encode driver intent.
 
 ### `trip_passengers`
 People accompanying the driver.
