@@ -85,7 +85,11 @@ Source path: `/Volumes/SecondDrive/Wells/wells_app`.
 - Dashboard reading surfaces must label and display both values separately: `READING_DATE` as **تاريخ القراءة** and `CREATED_AT` as **تاريخ إدخال السجل**.
 - Production-report queries must return only the latest filtered reading per `WELL_OID`, ordered by `READING_DATE DESC, OID DESC` within each well.
 - Apply all report filters inside the newer-reading exclusion query as well as the outer query. Otherwise a newer row outside the selected period, inspector, or quality filter can incorrectly remove the valid report row.
+- Build the final production-report rows from all active wells. Reading filters choose the attached reading; they must not remove an active well with no matching reading. Preserve an explicit `well_oid` selection as the only active-well narrowing rule.
+- Missing readings remain visible with null numeric/date fields and **غير مدخلة** status. Do not convert missing values to numeric zero or include them in production totals.
+- Mark a row **تحتاج مراجعة** only for missing current meter data or a current meter lower than the previous meter. A missing previous row is **قراءة أولى**, not an error. Do not invent chlorine, salinity, quality, or operating-hour alert thresholds without an approved business rule.
 - PDF and Excel must continue to share the same service result; never deduplicate independently in Blade or in one export controller method.
+- Both export buttons must request the optional Inertia preview with the exact current filters before download. The confirmed export URL must reuse those same filter values.
 
 ## Diesel Inventory Validation
 - Validate every `inventories.*.GENERATOR_HOURS_READING` and `inventories.*.DIESEL_HEIGHT_CM` as `required`, `numeric`, and `min:0` at the API boundary.

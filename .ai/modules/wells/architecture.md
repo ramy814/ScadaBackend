@@ -148,9 +148,13 @@ These endpoints are served by this unified backend and consumed by `/Volumes/Sec
 - PDF and Excel exports use the same `ReadingService::getProductionReport()` data and the shared `wells.readings-report` view.
 - `ReadingRepository::getReportReadings()` returns at most one row per `WELL_OID`.
 - Apply well, inspector, quality, `date_from`, and `date_to` filters first, then select the latest matching reading for each well by `READING_DATE DESC, OID DESC`.
+- `ReadingService::getProductionReport()` starts from `WellRepository::getActiveWells()`, then attaches the latest filtered reading. Every active well remains in the report even when no reading matches; only an explicit `well_oid` filter narrows the active-well list.
+- Inspector, quality, and date filters apply to reading selection, not active-well inclusion. An unmatched well is returned with null reading/calculation fields and the Arabic status **غير مدخلة** so supervisors can identify missing submissions.
 - A reading newer than `date_to` must not suppress the latest reading that is inside the selected period.
 - `getPreviousReading()` continues to resolve the immediately preceding chronological reading from full history for operating-hours and production calculations; the previous reading is not restricted to the export date range.
 - Apply the export limit only after the one-row-per-well selection.
+- Report summaries include active, reported, missing, normal, first-reading, review-required, and completion-percentage counts. Normal/review status uses only reading availability and non-decreasing meter consistency; do not invent domain thresholds that are not configured.
+- `ReadingController::index()` exposes the report through an optional Inertia `reportPreview` prop. PDF and Excel buttons must load this preview with the current filters and require explicit download confirmation.
 
 ## Wells Management Screen Contract
 - `WellController::index()` accepts `search`, `damage_status`, and `is_active`; the list does not use `quarter_oid` as a filter.

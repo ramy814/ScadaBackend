@@ -62,6 +62,7 @@ resources/
 17. **Diesel Inventory Tabs And Columns**: `WellsSystem/DieselInventories/Index.vue` renders internal `Daily Tank` and external-tank primary tabs, with inventory/results subtabs for external tanks. It consumes server-owned `columnSets`, stores the user's per-report selection in local storage, and sends the same allowlisted `columns[]` with `report_type` to both exports. Unclassified wells remain outside both tabs and the warning uses `urls.wells`.
 18. **Signal Image Gallery**: `WellsSystem/Notifications/Index.vue` renders notification media through `Shared/MediaThumbnails.vue` in `gallery` mode, with a labeled attachment count and larger previews. Selection opens a teleported, theme-aware lightbox with close, previous/next, counter, and open-original actions. Reading tables continue to use the component's compact mode.
 19. **Wells Protected Deletion**: Wells inspector, team, and well pages consume server-owned `CAN_DELETE` and `DELETE_BLOCKERS`. A linked record renders a disabled lock with the Arabic blocker list; Vue must never infer safety from only one count or re-enable deletion client-side.
+20. **Reading Export Preview**: `WellsSystem/Readings/Index.vue` requests the optional `reportPreview` Inertia prop before either PDF or Excel download. The modal displays every active-well report row, highlights **غير مدخلة** wells, shows server-owned completion/review indicators, and downloads only after confirmation using the same current filters. Do not calculate report status or totals again in Vue.
 
 ## Trip Map Display Contract
 

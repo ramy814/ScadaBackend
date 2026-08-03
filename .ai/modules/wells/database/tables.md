@@ -159,6 +159,8 @@ Reading date rules:
 - Sort readings by `READING_DATE DESC, OID DESC` for latest-first displays. Use the reverse direction where a chronological production report requires it.
 - Reading production exports select one current row per `WELL_OID`: the latest row inside the complete selected filter set by `READING_DATE DESC, OID DESC`.
 - The preceding reading used for the report calculation is the immediately earlier historical row for the same well and may be outside the selected export period.
+- The final production report is active-well-driven: all `WELLS.IS_ACTIVE = 1` rows appear even if no filtered reading exists. Missing readings keep their report values null and are never represented as zero production or zero meter readings.
+- Report supervision statuses are application-level interpretations of availability and meter consistency only; no chemical/water-quality threshold is stored or inferred by this report.
 
 ### DIESEL_INVENTORIES
 | Column | Type | Notes |

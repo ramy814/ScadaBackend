@@ -24,9 +24,11 @@ A comprehensive well management system consisting of two main applications:
 
 ## Production Reports
 - The readings monitoring page supports `date_from` / `date_to` filters and exports a production report as PDF or Excel.
-- The PDF and Excel reading reports contain one row per well: only the latest reading inside the selected filters is exported, using `READING_DATE DESC, OID DESC` as the deterministic order.
+- The PDF and Excel reading reports contain one row for every active well (or the explicitly selected active well). The latest reading inside the selected filters is attached using `READING_DATE DESC, OID DESC`; active wells without a matching reading remain visible as **غير مدخلة**.
 - A later reading outside the selected period does not hide the well's latest in-period reading. The prior reading used to calculate operating hours may come from before the selected period.
 - Report rows are calculated from well readings: previous reading, current reading, operating-hours difference, and `production = difference * WELLS.CAPACITY`.
+- Before either download, the page opens a filter-matched preview containing the full active-well table plus active/reported/missing/completion/review indicators. Missing and inconsistent readings are highlighted for supervisor follow-up.
+- Reading status does not infer chemical or water-quality limits. **طبيعي** means a non-decreasing comparable meter, **قراءة أولى** means no previous row, and **تحتاج مراجعة** is limited to absent/reversed meter data.
 - The report format follows the daily wells Excel sample (`تقرير_الابار_اليومي19-06-2026.xlsx`) with well name, official number/name, coordinates, capacity, previous/current readings, operating hours, production, and notes.
 - The diesel inventory page has separate internal (`Daily Tank`) and external-tank sections. External tanks have separate inventory and calculated-results tabs.
 - Internal-tank rates come from consecutive approved fuel-program fills. External-tank rates use consecutive field inventories, geometric tank balances, and approved deliveries.

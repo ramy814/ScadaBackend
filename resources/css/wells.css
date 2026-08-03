@@ -960,6 +960,33 @@ html[data-theme="dark"] .pump-type-vertical {
     gap: 12px;
 }
 
+.reading-preview-stats {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.reading-preview-stats .stat-card {
+    padding: 16px;
+}
+
+.reading-preview-note {
+    margin-bottom: 14px;
+    color: var(--color-text-secondary);
+}
+
+.reading-preview-table-wrapper {
+    max-height: 52vh;
+}
+
+.reading-preview-table {
+    min-width: 980px;
+}
+
+.reading-preview-missing td {
+    background: rgba(239, 68, 68, 0.07);
+}
+
 /* ---------- Map ---------- */
 .map-container {
     width: 100%;

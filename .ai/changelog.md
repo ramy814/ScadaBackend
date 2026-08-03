@@ -1,5 +1,14 @@
 # Changelog & Recent Actions
 
+## [2026-08-03] Active-Well Reading Report And Export Preview
+
+- Changed the Wells production report to start from all active wells instead of only wells that already have a matching reading. An explicit `well_oid` filter may narrow the active-well set; inspector/date/quality filters determine which reading is attached and leave unmatched active wells visible as **غير مدخلة**.
+- Kept at most one matching reading per well through `READING_DATE DESC, OID DESC`, while the immediately preceding reading still comes from full history for meter and production calculations.
+- Added supervisor statuses for normal, first, missing, and review-required rows. These statuses use only reading availability and meter consistency; they do not invent unsupported chlorine, salinity, or water-quality thresholds.
+- Added report indicators for active wells, submitted wells, missing wells, completion percentage, and readings requiring review.
+- PDF and Excel buttons now load an Inertia preview with the exact current filters before download. The preview shows all report rows and indicators, and the shared export template includes the same summaries and missing-well highlighting.
+- Moved reading report validation to `ReadingReportRequest`, changed the PDF to a visually verified A3 landscape layout, passed all 35 Wells tests (90 assertions), and completed the Vite production build.
+
 ## [2026-08-02] Wells Diesel Inventory Immediate Dashboard Sync
 
 - Diagnosed new diesel inventories remaining only in Flutter SQLite: reading saves attempted an immediate online upload, while diesel saves waited for a manual sync or a later connectivity-restored event.
