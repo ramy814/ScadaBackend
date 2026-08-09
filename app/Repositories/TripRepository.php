@@ -43,6 +43,12 @@ class TripRepository
     ): LengthAwarePaginator {
         $query = Trip::query()
             ->with('latestTrackingEvent')
+            ->withCount([
+                'trackingEvents as gps_disabled_events_count' => fn ($query) => $query
+                    ->where('event_type', 'gps_disabled'),
+                'trackingEvents as airplane_mode_events_count' => fn ($query) => $query
+                    ->where('event_type', 'airplane_mode_on'),
+            ])
             ->withMax('points as last_point_at', 'recorded_at')
             ->where(function ($query) use ($from, $to): void {
                 $query->whereBetween('started_at', [$from, $to])

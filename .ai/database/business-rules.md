@@ -58,7 +58,7 @@ The `audit_logs` table must never have rows updated or deleted. It is append-onl
 - For clients that send `manual_wait_minutes`, `TRIPS.WAIT_MINUTES` is recalculated as manual minutes plus whole minutes from completed `trip_stops` whose source is `automatic`.
 - Clients that omit `manual_wait_minutes` keep the legacy rule: preserve the greater of submitted `wait_minutes` and computed automatic duration. This is required for rolling deployment compatibility.
 - Stop and telemetry UUIDs are idempotency keys. Repeated active-trip uploads must update existing rows.
-- Dashboard freshness combines `last_point_at` with the latest device-state event. A stale point, airplane event, GPS event, shutdown, or permission loss requires review but cannot prove deliberate action or distinguish every offline/power scenario.
+- Dashboard freshness combines `last_point_at` with the latest device-state event. Every dashboard trip row also receives separate server-side counts for `gps_disabled` and `airplane_mode_on`, including completed trips, so recovery/end events cannot hide earlier interruptions. These counts require review but cannot prove deliberate action or distinguish every offline/power scenario.
 
 ## 8. Wells Diesel Consumption Status
 

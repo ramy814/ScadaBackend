@@ -48,7 +48,7 @@ return response()->json($trip);
 
 ### Driver App Presence
 
-- Current client contract version: driver app `1.1.0+23`; authoritative release defaults are in `config/driver_app.php`.
+- Current client contract version: driver app `1.1.1+24`; authoritative release defaults are in `config/driver_app.php`.
 - `POST /api/driver/app-presence` is authenticated with the existing driver Sanctum token.
 - Payload: `device_id` (random installation UUID), `app_version`, `build_number`, `package_name`, optional `installer_store`, `installed_at`, and `app_updated_at`.
 - Driver identity and snapshots always come from the authenticated `Beneficiary`; never accept a driver ID, name, phone, or vehicle assignment from this payload.

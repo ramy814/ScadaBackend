@@ -134,7 +134,7 @@
               <th>المركبة / السائق</th>
               <th>المسار (انطلاق ← وجهة)</th>
               <th>النقاط</th>
-              <th>حالة التتبع المباشر</th>
+              <th>سلامة التتبع</th>
               <th>الحالة الإدارية</th>
               <th>رد السائق</th>
               <th>الوقت</th>
@@ -152,6 +152,7 @@
               <td>
                 <div style="font-weight:700;">{{ trip.vehicle?.plate_number ?? '-' }}</div>
                 <div style="font-size:12px; color:var(--text-secondary); margin-top:2px;">{{ trip.driver?.name ?? '-' }}</div>
+                <div v-if="trip.driver?.phone" dir="ltr" style="font-size:11px; color:var(--text-secondary); margin-top:2px;">{{ trip.driver.phone }}</div>
               </td>
               <td>
                 <div style="font-weight:600;">{{ trip.origin_text }}</div>
@@ -162,6 +163,9 @@
               </td>
               <td>
                 <span :class="['badge', trackingHealthClass(trip)]">{{ trackingHealthLabel(trip) }}</span>
+                <div v-if="trackingIncidentLabel(trip)" style="font-size:11px;color:var(--danger);margin-top:4px;font-weight:700;">
+                  {{ trackingIncidentLabel(trip) }} — يحتاج مراجعة
+                </div>
                 <div v-if="trip.last_point_at" style="font-size:11px;color:var(--text-secondary);margin-top:4px;">
                   آخر نقطة: {{ formatDate(trip.last_point_at) }}
                 </div>
@@ -305,6 +309,7 @@ const criticalTrackingEvents = new Set([
 ]);
 
 function trackingHealthClass(trip) {
+  if (trackingIncidentLabel(trip)) return 'danger';
   if (trip.ended_at) return 'neutral';
   if (criticalTrackingEvents.has(trip.latest_tracking_event?.event_type)) return 'danger';
   if (trip.latest_tracking_event?.event_type === 'tracking_error') return 'warn';
@@ -313,7 +318,8 @@ function trackingHealthClass(trip) {
 }
 
 function trackingHealthLabel(trip) {
-  if (trip.ended_at) return 'منتهية';
+  if (trackingIncidentLabel(trip)) return 'حدث تعطيل مسجّل';
+  if (trip.ended_at) return 'منتهية دون حدث تعطيل مسجّل';
   const event = trip.latest_tracking_event?.event_type;
   const labels = {
     gps_disabled: 'GPS معطّل',
@@ -329,6 +335,17 @@ function trackingHealthLabel(trip) {
   return Date.now() - new Date(trip.last_point_at).getTime() <= 90000
     ? 'متصل مباشرة'
     : 'لا توجد نقاط حديثة';
+}
+
+function trackingIncidentLabel(trip) {
+  const incidents = [];
+  if (Number(trip.gps_disabled_events_count) > 0) {
+    incidents.push(`إيقاف GPS: ${trip.gps_disabled_events_count}`);
+  }
+  if (Number(trip.airplane_mode_events_count) > 0) {
+    incidents.push(`تشغيل وضع الطيران: ${trip.airplane_mode_events_count}`);
+  }
+  return incidents.join(' | ');
 }
 
 onMounted(() => {

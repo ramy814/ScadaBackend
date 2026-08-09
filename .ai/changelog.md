@@ -1,5 +1,13 @@
 # Changelog & Recent Actions
 
+## [2026-08-09] Non-Blocking Driver Start And Per-Trip Tracking Flags
+
+- Released driver app `1.1.1+24`. Trip creation still requires disclosure, location/notification permissions, precise-location mode, and an enabled location service, but it no longer waits for two `<= 50m` fixes or fails after 25 seconds. The tracker starts immediately and the established quality guardrails reject weak points until reception improves.
+- Initialized `flutter_screenutil` globally and adapted the shared shell plus trip start/active controls for narrow and older Android screens while retaining practical minimum touch sizes.
+- Kept GPS/airplane evidence attached to the authenticated trip/driver and uploaded through the existing offline-first `tracking_events` contract.
+- Added dashboard counts for `gps_disabled` and `airplane_mode_on` on every active or completed trip. The trip list now shows the counts as review evidence instead of hiding them behind the generic completed status; the event timeline remains in trip details.
+- Advanced backend app-presence defaults to version `1.1.1`, build `24`. Technical events remain evidence requiring human review and do not prove intentional driver action.
+
 ## [2026-08-03] Active-Well Reading Report And Export Preview
 
 - Changed the Wells production report to start from all active wells instead of only wells that already have a matching reading. An explicit `well_oid` filter may narrow the active-well set; inspector/date/quality filters determine which reading is attached and leave unmatched active wells visible as **غير مدخلة**.

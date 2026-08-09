@@ -15,7 +15,8 @@ The Fleet admin area also monitors driver-app adoption at `/admin/driver-apps`. 
 
 ## Current Driver App Release And Presence Contract
 
-- Current approved Android release: `1.1.0+23` (`versionName 1.1.0`, `versionCode 23`).
+- Current approved Android release: `1.1.1+24` (`versionName 1.1.1`, `versionCode 24`).
+- This release removes the blocking two-fix/25-second GPS accuracy gate. Disclosure, permissions, precise mode, and an enabled location service remain prerequisites; weak reception is filtered during tracking instead of preventing field work.
 - Presence is triggered primarily when an authenticated driver main shell opens or resumes; it must not depend on OTP login because sessions are retained locally.
 - The backend endpoint is `POST /api/driver/app-presence`, and the admin screen is `/admin/driver-apps`.
 - Production must deploy the endpoint and `driver_app_installations` migration before distributing the matching app. An unauthenticated production probe returning HTTP 404 proves the route is missing; a deployed protected route should reach authentication instead.
@@ -29,7 +30,7 @@ The Fleet admin area also monitors driver-app adoption at `/admin/driver-apps`. 
 - **Authoritative Trip Maps**: Administrative trip maps show the recorded GPS points without road matching. Visual direction aids may be derived in the browser, but stored coordinates and calculated trip data remain unchanged.
 - **Live Trip Visibility**: Active driver builds may idempotently upload already-persisted metadata, point batches, automatic stops, and device-state events about every 30 seconds. The Fleet dashboard refreshes active rows/details every 15 seconds; final checksum confirmation and deletion rules are unchanged.
 - **Technical Evidence Only**: GPS/permission changes, airplane mode, graceful shutdown/boot, tracking errors, and stale point gaps are supervisor review evidence. They do not prove driver intent, and a sudden power loss or network outage cannot be conclusively distinguished while the phone is offline.
-- **Live Tracking Reference**: `.ai/workflows/live-tracking-flow.md` is the authoritative cross-version flow and deployment-order reference for driver release `1.1.0+23`.
+- **Live Tracking Reference**: `.ai/workflows/live-tracking-flow.md` is the authoritative cross-version flow and deployment-order reference for driver release `1.1.1+24`.
 - **Unified Dashboard Themes**: Fleet, Wells, Valves, the portal, and permissions share the semantic `--theme-*` tokens in `resources/css/app.css`. Light mode is based on Fleet and dark mode is based on Valves; individual systems retain only their identity accents. The selected `light`/`dark` value is shared through `localStorage.theme` and applied as `html[data-theme]`.
 
 ## Tech Stack

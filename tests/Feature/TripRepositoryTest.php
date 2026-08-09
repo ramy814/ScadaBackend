@@ -121,4 +121,35 @@ class TripRepositoryTest extends TestCase
         $this->assertSame([1], $vehicleMatches->getCollection()->pluck('id')->all());
         $this->assertSame([2], $driverMatches->getCollection()->pluck('id')->all());
     }
+
+    public function test_dashboard_counts_gps_and_airplane_events_on_finished_trips(): void
+    {
+        $now = now();
+
+        DB::table('trips')->insert([
+            'id' => 7,
+            'vehicle_plate' => '30-9999',
+            'driver_name' => 'سائق الاختبار',
+            'review_status' => 'pending',
+            'clarification_response' => null,
+            'started_at' => $now->copy()->subHour(),
+            'ended_at' => $now,
+        ]);
+        DB::table('trip_tracking_events')->insert([
+            ['trip_id' => 7, 'event_type' => 'gps_disabled', 'detected_at' => $now->copy()->subMinutes(30)],
+            ['trip_id' => 7, 'event_type' => 'gps_disabled', 'detected_at' => $now->copy()->subMinutes(20)],
+            ['trip_id' => 7, 'event_type' => 'airplane_mode_on', 'detected_at' => $now->copy()->subMinutes(10)],
+            ['trip_id' => 7, 'event_type' => 'gps_enabled', 'detected_at' => $now->copy()->subMinutes(5)],
+        ]);
+
+        $trip = app(TripRepository::class)->paginateForDashboard(
+            $now->copy()->subDay(),
+            $now->copy()->addDay(),
+            'all',
+            '',
+        )->getCollection()->first();
+
+        $this->assertSame(2, $trip->gps_disabled_events_count);
+        $this->assertSame(1, $trip->airplane_mode_events_count);
+    }
 }
