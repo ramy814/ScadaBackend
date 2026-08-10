@@ -59,6 +59,8 @@ The `audit_logs` table must never have rows updated or deleted. It is append-onl
 - Clients that omit `manual_wait_minutes` keep the legacy rule: preserve the greater of submitted `wait_minutes` and computed automatic duration. This is required for rolling deployment compatibility.
 - Stop and telemetry UUIDs are idempotency keys. Repeated active-trip uploads must update existing rows.
 - Dashboard freshness combines `last_point_at` with the latest device-state event. Every dashboard trip row also receives separate server-side counts for `gps_disabled` and `airplane_mode_on`, including completed trips, so recovery/end events cannot hide earlier interruptions. These counts require review but cannot prove deliberate action or distinguish every offline/power scenario.
+- `stationary_heartbeat` points prove recent GPS coverage but are excluded from filtered distance and fuel. Finite client speeds from 0 through 1 m/s are treated as stationary by driver build 26 and later, preventing low-speed coordinate drift from becoming vehicle movement.
+- Any interval over 60 seconds splits the filtered route before `stationary_heartbeat` handling. The dashboard must retain a gap connector even when the first post-gap point is stationary, and the connector never contributes to distance or fuel. Dashboard trip rows count explicit `tracking_gap` events alongside GPS-disable and airplane-mode events.
 
 ## 8. Wells Diesel Consumption Status
 

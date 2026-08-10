@@ -20,6 +20,9 @@ When generating Flutter code for the Fleet Management driver app, you MUST adher
 
 4. **Location Tracking**:
    - Use a robust foreground service for location tracking so the OS does not kill the app when screen is off.
+   - GNSS collection and SQLite persistence must work without internet. Treat connectivity as sync/map-tile availability only; airplane mode is a visible non-blocking warning plus audit event.
+   - Request GPS about every 10 seconds. Persist finite `0..1 m/s` fixes only as periodic `stationary_heartbeat` coverage rows, and never include those rows in distance/fuel.
+   - Request a bounded immediate first fix alongside the stream. After 45 seconds without callbacks, store one local `tracking_gap`, warn the driver, recreate the stream with Android LocationManager/GNSS, and give it a fresh 45-second acquisition window. Waiting for GPS must not deactivate or block the local trip.
    - Include telemetry like `accuracy`, `speed`, and `heading` in the point payload.
    - Detect automatic waiting only after two continuous stationary minutes at `<= 1 m/s` and within 20 meters; short candidates do not count.
    - Record observed GPS/permission transitions, airplane mode, graceful shutdown/boot, battery, tracking errors, and long gaps. Never describe these events as proof of deliberate tampering.

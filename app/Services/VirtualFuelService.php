@@ -264,25 +264,34 @@ class VirtualFuelService
                 continue;
             }
 
+            $isCoverageGap = $coverageGapSeconds > self::MAX_SEGMENT_GAP_SECONDS;
             $markCoverageGap($coverageGapSeconds);
+            if ($isCoverageGap) {
+                if ($includeSegments && $acceptedSegments !== []) {
+                    $previousSegment = $acceptedSegments[array_key_last($acceptedSegments)];
+                    $previousCoordinate = $previousSegment[array_key_last($previousSegment)] ?? null;
+                    if ($previousCoordinate !== null) {
+                        $gapConnectors[] = [
+                            'from' => $previousCoordinate,
+                            'to' => $this->coordinate($current),
+                            'seconds' => $coverageGapSeconds,
+                        ];
+                    }
+                }
+                $distanceAnchor = null;
+            }
             $acceptedPoints++;
             $lastEligible = $current;
 
-            if ($distanceAnchor === null ||
-                $coverageGapSeconds > self::MAX_SEGMENT_GAP_SECONDS) {
+            if ($current['quality_reason'] === 'stationary_heartbeat') {
+                $collapse('stationary_heartbeat');
+
+                continue;
+            }
+
+            if ($distanceAnchor === null) {
                 $distanceAnchor = $current;
                 if ($includeSegments) {
-                    if ($acceptedSegments !== []) {
-                        $previousSegment = $acceptedSegments[array_key_last($acceptedSegments)];
-                        $previousCoordinate = $previousSegment[array_key_last($previousSegment)] ?? null;
-                        if ($previousCoordinate !== null) {
-                            $gapConnectors[] = [
-                                'from' => $previousCoordinate,
-                                'to' => $this->coordinate($current),
-                                'seconds' => $coverageGapSeconds,
-                            ];
-                        }
-                    }
                     $acceptedSegments[] = [$this->coordinate($current)];
                 }
 

@@ -18,6 +18,7 @@ class TripRepositoryTest extends TestCase
             $table->id();
             $table->string('vehicle_plate');
             $table->string('driver_name');
+            $table->string('status')->nullable();
             $table->string('review_status')->nullable();
             $table->text('clarification_response')->nullable();
             $table->timestamp('started_at');
@@ -75,6 +76,7 @@ class TripRepositoryTest extends TestCase
             $now->copy()->addDay(),
             'all',
             '42',
+            true,
         );
 
         $this->assertSame([42], $trips->getCollection()->pluck('id')->all());
@@ -110,19 +112,21 @@ class TripRepositoryTest extends TestCase
             $now->copy()->addDay(),
             'all',
             '1234',
+            true,
         );
         $driverMatches = $repository->paginateForDashboard(
             $now->copy()->subDay(),
             $now->copy()->addDay(),
             'all',
             'محمد',
+            true,
         );
 
         $this->assertSame([1], $vehicleMatches->getCollection()->pluck('id')->all());
         $this->assertSame([2], $driverMatches->getCollection()->pluck('id')->all());
     }
 
-    public function test_dashboard_counts_gps_and_airplane_events_on_finished_trips(): void
+    public function test_dashboard_counts_gps_airplane_and_gap_events_on_finished_trips(): void
     {
         $now = now();
 
@@ -139,6 +143,7 @@ class TripRepositoryTest extends TestCase
             ['trip_id' => 7, 'event_type' => 'gps_disabled', 'detected_at' => $now->copy()->subMinutes(30)],
             ['trip_id' => 7, 'event_type' => 'gps_disabled', 'detected_at' => $now->copy()->subMinutes(20)],
             ['trip_id' => 7, 'event_type' => 'airplane_mode_on', 'detected_at' => $now->copy()->subMinutes(10)],
+            ['trip_id' => 7, 'event_type' => 'tracking_gap', 'detected_at' => $now->copy()->subMinutes(8)],
             ['trip_id' => 7, 'event_type' => 'gps_enabled', 'detected_at' => $now->copy()->subMinutes(5)],
         ]);
 
@@ -147,9 +152,79 @@ class TripRepositoryTest extends TestCase
             $now->copy()->addDay(),
             'all',
             '',
+            true,
         )->getCollection()->first();
 
         $this->assertSame(2, $trip->gps_disabled_events_count);
         $this->assertSame(1, $trip->airplane_mode_events_count);
+        $this->assertSame(1, $trip->tracking_gap_events_count);
+    }
+
+    public function test_dashboard_hides_trips_with_fewer_than_fifty_points_unless_requested(): void
+    {
+        $now = now();
+
+        DB::table('trips')->insert([
+            [
+                'id' => 10,
+                'vehicle_plate' => '10-0001',
+                'driver_name' => 'سائق فعلي',
+                'status' => 'confirmed',
+                'review_status' => 'pending',
+                'started_at' => $now,
+                'ended_at' => $now->copy()->addMinutes(10),
+            ],
+            [
+                'id' => 11,
+                'vehicle_plate' => '10-0002',
+                'driver_name' => 'سائق تجريبي',
+                'status' => 'confirmed',
+                'review_status' => 'pending',
+                'started_at' => $now->copy()->subMinute(),
+                'ended_at' => $now->copy()->addMinutes(5),
+            ],
+            [
+                'id' => 12,
+                'vehicle_plate' => '10-0003',
+                'driver_name' => 'سائق مباشر',
+                'status' => 'uploaded',
+                'review_status' => 'pending',
+                'started_at' => $now->copy()->addSecond(),
+                'ended_at' => null,
+            ],
+        ]);
+
+        DB::table('trip_points')->insert(collect(range(1, 50))->map(fn (int $id): array => [
+            'trip_id' => 10,
+            'recorded_at' => $now->copy()->addSeconds($id),
+        ])->all());
+        DB::table('trip_points')->insert(collect(range(1, 49))->map(fn (int $id): array => [
+            'trip_id' => 11,
+            'recorded_at' => $now->copy()->addSeconds($id),
+        ])->all());
+        DB::table('trip_points')->insert([
+            'trip_id' => 12,
+            'recorded_at' => $now,
+        ]);
+
+        $repository = app(TripRepository::class);
+        $defaultTrips = $repository->paginateForDashboard(
+            $now->copy()->subDay(),
+            $now->copy()->addDay(),
+            'all',
+            '',
+        );
+        $allTrips = $repository->paginateForDashboard(
+            $now->copy()->subDay(),
+            $now->copy()->addDay(),
+            'all',
+            '',
+            true,
+        );
+
+        $this->assertSame([12, 10], $defaultTrips->getCollection()->pluck('id')->all());
+        $this->assertSame([12, 10, 11], $allTrips->getCollection()->pluck('id')->all());
+        $this->assertSame(2, $repository->dashboardCounts()['todayTrips']);
+        $this->assertSame(3, $repository->dashboardCounts(true)['todayTrips']);
     }
 }

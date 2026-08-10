@@ -185,6 +185,47 @@ class TripDataQualityTest extends TestCase
         self::assertNotContains('tracking_coverage_gap', $metrics['quality_flags']);
     }
 
+    public function test_stationary_heartbeat_drift_never_counts_as_movement(): void
+    {
+        $points = [
+            $this->point(31.5000000, 34.4500000, 17.49, '08:00:00'),
+            $this->point(31.5004500, 34.4500000, 5.61, '08:00:20'),
+        ];
+        $points[1]['quality_reason'] = 'stationary_heartbeat';
+
+        $metrics = (new VirtualFuelService)->metricsFromPoints(
+            $points,
+            new DateTimeImmutable('2026-07-19T08:00:00Z'),
+            new DateTimeImmutable('2026-07-19T08:00:20Z'),
+        );
+
+        self::assertSame(0.0, $metrics['distance_km']);
+        self::assertSame(1, $metrics['collapsed_counts']['stationary_heartbeat']);
+    }
+
+    public function test_gap_ending_with_stationary_heartbeat_still_splits_the_route(): void
+    {
+        $points = [
+            $this->point(31.5000000, 34.4500000, 5, '08:00:00'),
+            $this->point(31.5010000, 34.4500000, 5, '08:02:00'),
+            $this->point(31.5019000, 34.4500000, 5, '08:02:10'),
+        ];
+        $points[1]['quality_reason'] = 'stationary_heartbeat';
+
+        $metrics = (new VirtualFuelService)->metricsFromPoints(
+            $points,
+            new DateTimeImmutable('2026-07-19T08:00:00Z'),
+            new DateTimeImmutable('2026-07-19T08:03:00Z'),
+            true,
+        );
+
+        self::assertContains('tracking_gap', $metrics['quality_flags']);
+        self::assertCount(2, $metrics['accepted_segments']);
+        self::assertCount(1, $metrics['gap_connectors']);
+        self::assertSame(120, $metrics['gap_connectors'][0]['seconds']);
+        self::assertEqualsWithDelta(0.0, $metrics['distance_km'], 0.001);
+    }
+
     public function test_it_withholds_fuel_for_a_long_tail_coverage_gap(): void
     {
         $fuel = new VirtualFuelService;

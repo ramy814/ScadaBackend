@@ -15,7 +15,7 @@ The Fleet admin area also monitors driver-app adoption at `/admin/driver-apps`. 
 
 ## Current Driver App Release And Presence Contract
 
-- Current approved Android release: `1.1.1+24` (`versionName 1.1.1`, `versionCode 24`).
+- Current approved Android release: `1.1.11+34` (`versionName 1.1.11`, `versionCode 34`).
 - This release removes the blocking two-fix/25-second GPS accuracy gate. Disclosure, permissions, precise mode, and an enabled location service remain prerequisites; weak reception is filtered during tracking instead of preventing field work.
 - Presence is triggered primarily when an authenticated driver main shell opens or resumes; it must not depend on OTP login because sessions are retained locally.
 - The backend endpoint is `POST /api/driver/app-presence`, and the admin screen is `/admin/driver-apps`.
@@ -30,7 +30,7 @@ The Fleet admin area also monitors driver-app adoption at `/admin/driver-apps`. 
 - **Authoritative Trip Maps**: Administrative trip maps show the recorded GPS points without road matching. Visual direction aids may be derived in the browser, but stored coordinates and calculated trip data remain unchanged.
 - **Live Trip Visibility**: Active driver builds may idempotently upload already-persisted metadata, point batches, automatic stops, and device-state events about every 30 seconds. The Fleet dashboard refreshes active rows/details every 15 seconds; final checksum confirmation and deletion rules are unchanged.
 - **Technical Evidence Only**: GPS/permission changes, airplane mode, graceful shutdown/boot, tracking errors, and stale point gaps are supervisor review evidence. They do not prove driver intent, and a sudden power loss or network outage cannot be conclusively distinguished while the phone is offline.
-- **Live Tracking Reference**: `.ai/workflows/live-tracking-flow.md` is the authoritative cross-version flow and deployment-order reference for driver release `1.1.1+24`.
+- **Live Tracking Reference**: `.ai/workflows/live-tracking-flow.md` is the authoritative cross-version flow and deployment-order reference for driver release `1.1.6+29`.
 - **Unified Dashboard Themes**: Fleet, Wells, Valves, the portal, and permissions share the semantic `--theme-*` tokens in `resources/css/app.css`. Light mode is based on Fleet and dark mode is based on Valves; individual systems retain only their identity accents. The selected `light`/`dark` value is shared through `localStorage.theme` and applied as `html[data-theme]`.
 
 ## Tech Stack
@@ -52,8 +52,9 @@ The Fleet admin area also monitors driver-app adoption at `/admin/driver-apps`. 
 4. The driver ends the trip. The mobile app sends a confirmation payload with a checksum.
 5. The backend verifies the checksum and marks the trip as `confirmed`.
 6. Confirmation persists the trusted distance and duration, calculates official fuel when quality permits, and returns a driver-facing summary. The driver app caches the summary and shows distance, fuel, and duration per trip.
-7. An administrator logs into the dashboard via SSO.
-8. The administrator reviews the trip path, wait markers/durations, and tracking-state evidence on a map, then approves/rejects the trip.
+7. Confirmed server-history details request a separate lightweight route preview only when opened. The response is capped at 100 accurate ordered points so the normal history list remains small.
+8. An administrator logs into the dashboard via SSO.
+9. The administrator reviews the trip path, wait markers/durations, and tracking-state evidence on a map, then approves/rejects the trip.
 
 ## Integrated Field Modules
 - **Wells**: Has its own wells, teams, inspectors, readings, diesel inventories, and notifications context under `.ai/modules/wells/`.

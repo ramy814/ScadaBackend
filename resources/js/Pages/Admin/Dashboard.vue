@@ -121,10 +121,24 @@
     <!-- Trips Table -->
     <div class="table-card">
       <div class="table-header">
-        <div class="table-title">رحلات الفترة المحددة</div>
-        <div v-if="recentTrips.total" style="color:var(--text-secondary); font-size:13px; font-weight:600;">
-          عرض {{ recentTrips.from }} - {{ recentTrips.to }} من {{ recentTrips.total }}
+        <div class="table-heading">
+          <div class="table-title">رحلات الفترة المحددة</div>
+          <div v-if="recentTrips.total" class="table-count">
+            عرض {{ recentTrips.from }} - {{ recentTrips.to }} من {{ recentTrips.total }}
+          </div>
         </div>
+        <Link
+          :href="dashboardUrl({ show_experimental: showExperimental ? false : true })"
+          :class="['experimental-toggle', { active: showExperimental }]"
+          title="الرحلات المنتهية التي تحتوي على أقل من 50 نقطة"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 3h6"></path>
+            <path d="M10 3v6l-5 9a2 2 0 0 0 1.7 3h10.6a2 2 0 0 0 1.7-3l-5-9V3"></path>
+            <path d="M8.5 14h7"></path>
+          </svg>
+          {{ showExperimental ? 'إخفاء الرحلات التجريبية' : 'إظهار الرحلات التجريبية' }}
+        </Link>
       </div>
       <div class="table-wrap">
         <table>
@@ -160,6 +174,7 @@
               </td>
               <td>
                 <span class="badge neutral">{{ trip.points_received }} / {{ trip.points_expected }}</span>
+                <span v-if="trip.ended_at && Number(trip.points_received) < 50" class="badge warn" style="margin-right:4px;">تجريبية</span>
               </td>
               <td>
                 <span :class="['badge', trackingHealthClass(trip)]">{{ trackingHealthLabel(trip) }}</span>
@@ -262,6 +277,7 @@ const props = defineProps({
   period: String,
   responseStatus: String,
   search: String,
+  showExperimental: Boolean,
   recentTrips: Object,
 });
 
@@ -318,7 +334,7 @@ function trackingHealthClass(trip) {
 }
 
 function trackingHealthLabel(trip) {
-  if (trackingIncidentLabel(trip)) return 'حدث تعطيل مسجّل';
+  if (trackingIncidentLabel(trip)) return 'حدث تتبع يحتاج مراجعة';
   if (trip.ended_at) return 'منتهية دون حدث تعطيل مسجّل';
   const event = trip.latest_tracking_event?.event_type;
   const labels = {
@@ -345,6 +361,9 @@ function trackingIncidentLabel(trip) {
   if (Number(trip.airplane_mode_events_count) > 0) {
     incidents.push(`تشغيل وضع الطيران: ${trip.airplane_mode_events_count}`);
   }
+  if (Number(trip.tracking_gap_events_count) > 0) {
+    incidents.push(`فجوات GPS: ${trip.tracking_gap_events_count}`);
+  }
   return incidents.join(' | ');
 }
 
@@ -367,13 +386,19 @@ function dashboardUrl(overrides = {}) {
   const nextSearch = Object.prototype.hasOwnProperty.call(overrides, 'search')
     ? overrides.search
     : props.search;
+  const nextShowExperimental = Object.prototype.hasOwnProperty.call(overrides, 'show_experimental')
+    ? overrides.show_experimental
+    : props.showExperimental;
 
   Object.entries(overrides).forEach(([key, value]) => {
-    if (key !== 'search') params.set(key, value);
+    if (!['search', 'show_experimental'].includes(key)) params.set(key, value);
   });
 
   if (nextSearch) {
     params.set('search', nextSearch);
+  }
+  if (nextShowExperimental) {
+    params.set('show_experimental', '1');
   }
 
   return `${page.props.urls.dashboard}?${params.toString()}`;
@@ -384,6 +409,7 @@ function submitSearch() {
     period: props.period,
     response_status: props.responseStatus,
     search: searchTerm.value,
+    show_experimental: props.showExperimental ? 1 : undefined,
   }, {
     preserveState: true,
     preserveScroll: true,
@@ -395,6 +421,7 @@ function submitReview(action, tripId) {
     period: props.period,
     response_status: props.responseStatus,
     search: props.search,
+    show_experimental: props.showExperimental ? 1 : undefined,
     page: props.recentTrips.current_page,
   });
 }
@@ -405,6 +432,7 @@ function confirmReject(tripId) {
     period: props.period,
     response_status: props.responseStatus,
     search: props.search,
+    show_experimental: props.showExperimental ? 1 : undefined,
     page: props.recentTrips.current_page,
   });
 }
@@ -413,13 +441,65 @@ function submitClarify(tripId, note) {
   if (!note) return;
   router.post(
     `${page.props.urls.trips_base}/${tripId}/clarify`,
-    { note, period: props.period, response_status: props.responseStatus, search: props.search, page: props.recentTrips.current_page },
+    { note, period: props.period, response_status: props.responseStatus, search: props.search, show_experimental: props.showExperimental ? 1 : undefined, page: props.recentTrips.current_page },
     { onSuccess: () => { clarifyNotes.value[tripId] = ''; } }
   );
 }
 </script>
 
 <style scoped>
+.table-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.table-count {
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.experimental-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  border: 1px solid var(--warn);
+  border-radius: var(--radius-md);
+  color: var(--warn);
+  background: var(--warn-bg);
+  font-size: 13px;
+  font-weight: 800;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: var(--transition);
+}
+
+.experimental-toggle svg {
+  width: 18px;
+  height: 18px;
+}
+
+.experimental-toggle:hover,
+.experimental-toggle.active {
+  color: #fff;
+  background: var(--warn);
+}
+
+@media (max-width: 700px) {
+  .table-header {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .experimental-toggle {
+    justify-content: center;
+  }
+}
+
 .page-link {
   display: inline-flex;
   align-items: center;

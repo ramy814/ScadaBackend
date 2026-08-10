@@ -10,6 +10,7 @@ use App\Http\Requests\UploadTripPointsRequest;
 use App\Models\AuditLog;
 use App\Models\Trip;
 use App\Services\CurrentBeneficiaryService;
+use App\Services\DriverTripRoutePreviewService;
 use App\Services\DriverTripSummaryService;
 use App\Services\TripSyncService;
 use Illuminate\Http\JsonResponse;
@@ -198,6 +199,20 @@ class TripSyncController extends Controller
             'items' => $items,
             'count' => $items->count(),
         ]);
+    }
+
+    public function routePreview(
+        Request $request,
+        Trip $trip,
+        TripSyncService $sync,
+        DriverTripRoutePreviewService $previews,
+        CurrentBeneficiaryService $drivers,
+    ): JsonResponse {
+        $driver = $drivers->resolve($request->user());
+        $sync->assertOwnedBy($trip, $driver);
+        abort_unless($trip->status === 'confirmed', 409, 'الرحلة غير مؤكدة.');
+
+        return response()->json($previews->forTrip($trip));
     }
 
     public function respondClarification(

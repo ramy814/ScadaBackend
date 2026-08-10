@@ -1,5 +1,60 @@
 # Changelog & Recent Actions
 
+## [2026-08-10] Lightweight Driver Route Preview
+
+- Added authenticated `GET /api/driver/trips/{trip}/route-preview` for confirmed trips owned by the current driver.
+- Kept `GET /api/driver/trips` summary-only; route coordinates are loaded only after opening one server trip.
+- Added repository/service downsampling to at most 100 ordered accurate coordinates, excluding invalid and stationary-heartbeat points while preserving endpoints.
+- Updated the configured driver release default to `1.1.11+34`.
+
+## [2026-08-10] Fleet Dashboard Experimental Trip Filter
+
+- Classified completed dashboard trips with fewer than 50 stored GPS points as experimental display data; active trips remain visible for live supervision until they end.
+- Hid experimental trips from the Fleet dashboard list and trip statistics by default while preserving them in Oracle, reports, and direct trip details.
+- Added a prominent Arabic toggle in the trip-table header that shows or hides experimental trips, labels them clearly, and preserves the selection across search, filters, pagination, live refresh, and review actions.
+- Verified the repository rule against live Oracle data and passed all 69 Laravel tests plus the Vite production build.
+
+## [2026-08-10] Trip 1591 GPS Gap Recovery
+
+- Verified trip `1591` uploaded all 96 locally recorded points with a matching checksum, but contained four local capture gaps totaling about 24 minutes; internet/server loss and point-quality rejection were not the cause.
+- Fixed the driver watchdog so a restarted stream receives a fresh 45-second acquisition window instead of being cancelled every 15 seconds against the pre-restart last point.
+- Driver `1.1.6+29` records one `tracking_gap` per provider-silence period, warns the driver, falls back to Android LocationManager/GNSS, and atomically stores airplane mode already enabled at trip creation.
+- Fixed `VirtualFuelService` so a gap is split before `stationary_heartbeat` is collapsed. All raw gaps now remain visible as excluded connectors and cannot be joined into distance/fuel.
+- Added dashboard counts for explicit GPS-gap events beside GPS-disable and airplane-mode counts, while preserving the rule that these are technical review signals and not proof of intent.
+- Advanced backend app-presence defaults to version `1.1.6`, build `29`.
+
+## [2026-08-09] Offline GPS And Airplane-Mode Driver Warning
+
+- Released driver app `1.1.5+28`; satellite GPS, quality filtering, waiting, duration, and SQLite persistence remain operational without internet. Connectivity is needed only for best-effort sync and optional map tiles.
+- Replaced the ineffective manifest-only airplane-mode listener with a process-wide context-registered protected broadcast receiver, which remains available while the active foreground trip keeps the process alive.
+- If airplane mode is already enabled at trip start, the app shows a non-blocking Arabic dialog. Enabling it during a trip records `airplane_mode_on` against the active driver/trip and displays a high-priority notification explaining that local GPS continues while upload waits.
+- Refactored the existing native open-trip notification helper for boot, battery, and airplane alerts, and made native telemetry writes return whether an active-trip event was inserted so alerts are not shown outside a trip.
+- Advanced backend app-presence defaults to version `1.1.5`, build `28`.
+
+## [2026-08-09] Driver First-Fix Recovery
+
+- Released driver app `1.1.4+27` after production trip 1586 ended in 6:39 with zero points and zero events, proving its background isolate never acknowledged startup or reached live sync.
+- Made startup require an actual background health acknowledgement. The main isolate now sends an unconditional Android start plus `startTracking` and retries once after eight seconds without acknowledgement instead of trusting nominal running-service state.
+- Kept the 10-second continuous stream and added a bounded immediate first-position request at tracking startup.
+- Activated the existing 15-second watchdog constants: after 45 seconds without any provider callback it recreates the silent stream and retries the immediate request, while SQLite remains authoritative.
+- Updated active-trip status and map copy to distinguish a running service waiting for any GPS callback from retained samples that are too weak to paint as route movement; the duration display now refreshes every 10 seconds.
+- Advanced backend app-presence defaults to version `1.1.4`, build `27`.
+
+## [2026-08-09] Ten-Second GPS Sampling And Stationary Drift Filtering
+
+- Released driver app `1.1.3+26` with a 10-second GPS request interval instead of 2 seconds; locally persisted movement and 20-second stationary heartbeats remain offline-first.
+- Inspected production trips 1582 and 1583. Their 19 and 10 stored rows were mostly `stationary_heartbeat` coverage samples; trip 1582 correctly calculated zero distance, while low-speed startup drift in trip 1583 produced about 50 false meters.
+- Classified finite provider speeds from 0 through 1 m/s as stationary for persistence, so coordinate drift is compressed to heartbeats instead of being labeled movement.
+- Excluded `stationary_heartbeat` coordinates from filtered distance and fuel in both Flutter and `VirtualFuelService`, while retaining them for GPS coverage/audit continuity.
+- Advanced backend app-presence defaults to version `1.1.3`, build `26`.
+
+## [2026-08-09] Immediate GPS Disable Capture
+
+- Released driver app `1.1.2+25` to close the timing gap where a driver could disable location and finish/upload the trip before the periodic device-state watchdog ran.
+- Subscribed the active Android foreground tracker to location-service status changes, persisted `gps_disabled`/`gps_enabled` immediately in SQLite, and requested the existing best-effort live sync after insertion.
+- Added a final non-blocking GPS-disabled audit before local trip closure, without allowing a platform-status failure to block the offline-first end transaction.
+- Advanced backend app-presence defaults to version `1.1.2`, build `25`. Dashboard events remain technical evidence for supervisor review, not proof of deliberate intent.
+
 ## [2026-08-09] Non-Blocking Driver Start And Per-Trip Tracking Flags
 
 - Released driver app `1.1.1+24`. Trip creation still requires disclosure, location/notification permissions, precise-location mode, and an enabled location service, but it no longer waits for two `<= 50m` fixes or fails after 25 seconds. The tracker starts immediately and the established quality guardrails reject weak points until reception improves.

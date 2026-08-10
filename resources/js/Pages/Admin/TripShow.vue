@@ -200,13 +200,14 @@
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>#</th><th>الوقت</th><th>الحدث</th><th>الموقع المتاح</th></tr></thead>
+          <thead><tr><th>#</th><th>الوقت</th><th>الحدث</th><th>التفاصيل</th><th>الموقع المتاح</th></tr></thead>
           <tbody>
-            <tr v-if="!trip.tracking_events?.length"><td colspan="4" style="text-align:center;padding:32px;color:var(--text-secondary);">لم تسجل أحداث تعطيل أو انقطاع صريحة.</td></tr>
+            <tr v-if="!trip.tracking_events?.length"><td colspan="5" style="text-align:center;padding:32px;color:var(--text-secondary);">لم تسجل أحداث تعطيل أو انقطاع صريحة.</td></tr>
             <tr v-for="(event, i) in trip.tracking_events" :key="event.id">
               <td>{{ i + 1 }}</td>
               <td class="mono">{{ formatDate(event.detected_at) }}</td>
               <td><span :class="['badge', trackingEventClass(event.event_type)]">{{ trackingEventLabel(event.event_type) }}</span></td>
+              <td>{{ trackingEventDetails(event) }}</td>
               <td class="mono">{{ stopCoordinates(event) }}</td>
             </tr>
           </tbody>
@@ -459,6 +460,29 @@ function trackingEventClass(type) {
   if (['gps_enabled', 'airplane_mode_off', 'device_boot', 'location_permission_restored'].includes(type)) return 'ok';
   if (type === 'battery_low' || type === 'tracking_error') return 'warn';
   return 'danger';
+}
+function trackingEventDetails(event) {
+  if (!event.details_json) return '-';
+  let details;
+  try {
+    details = typeof event.details_json === 'string'
+      ? JSON.parse(event.details_json)
+      : event.details_json;
+  } catch {
+    return '-';
+  }
+  if (event.event_type === 'tracking_gap' && details.reason === 'provider_silent') {
+    const seconds = Number(details.silence_seconds);
+    const duration = Number.isFinite(seconds) ? ` بعد ${seconds} ثانية` : '';
+    return `توقف مزود GPS عن إرسال النقاط${duration}؛ تم التحويل إلى GPS المباشر وإعادة المحاولة.`;
+  }
+  if (event.event_type === 'airplane_mode_on' && details.detected_during === 'trip_start') {
+    return 'كان وضع الطيران مفعّلاً عند إنشاء الرحلة؛ استمر الحفظ المحلي وتأجل الرفع.';
+  }
+  if (event.event_type === 'airplane_mode_on' && details.detected_during === 'active_trip_restore') {
+    return 'كان وضع الطيران مفعّلاً عند استعادة الرحلة النشطة.';
+  }
+  return '-';
 }
 function sourceLabel(s) {
   return s === 'free_text' ? 'نص حر' : s === 'employee_list' ? 'من قائمة الموظفين' : s === 'manual' ? 'يدوي' : s;

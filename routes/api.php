@@ -31,6 +31,7 @@ Route::middleware('auth:sanctum')->prefix('driver')->group(function (): void {
     Route::get('/mission-types', [MissionTypeLookupController::class, 'index']);
     Route::get('/trips', [TripSyncController::class, 'index']);
     Route::get('/trips/reconcile', [TripSyncController::class, 'reconcile']);
+    Route::get('/trips/{trip}/route-preview', [TripSyncController::class, 'routePreview']);
     Route::post('/trips', [TripSyncController::class, 'store']);
     Route::post('/trips/{trip}/points', [TripSyncController::class, 'uploadPoints']);
     Route::post('/trips/{trip}/confirm', [TripSyncController::class, 'confirm']);

@@ -53,46 +53,30 @@ class AdminAuthController extends Controller
         $period = request()->query('period', 'daily');
         $responseStatus = request()->query('response_status', 'all');
         $search = trim((string) request()->query('search', ''));
+        $showExperimental = request()->boolean('show_experimental');
         [$from, $to] = $this->periodRange($period);
 
-        $todayTrips = Trip::query()->whereDate('started_at', now()->toDateString())->count();
-        $confirmedTrips = Trip::query()->where('status', 'confirmed')->count();
+        $tripCounts = $tripRepository->dashboardCounts($showExperimental);
         $activeVehicles = DB::connection('oracle')->table('g_store.VEHICLE')->where('IS_ACTIVE', 1)->count();
         $activeDrivers = DB::connection('oracle')->table('g_store.BENEFICIARIES')->where('IS_ACTIVE', 1)->count();
-        $approvedTrips = Trip::query()->where('review_status', 'approved')->count();
-        $rejectedTrips = Trip::query()->where('review_status', 'rejected')->count();
-        $clarificationTrips = Trip::query()->where('review_status', 'needs_clarification')->count();
 
         $recentTrips = $tripRepository->paginateForDashboard(
             $from,
             $to,
             $responseStatus,
             $search,
+            $showExperimental,
         );
         $this->hydrateTripDrivers($recentTrips->getCollection(), $driverRepository);
 
-        $clarificationPendingResponse = Trip::query()
-            ->where('review_status', 'needs_clarification')
-            ->whereNull('clarification_response')
-            ->count();
-
-        $clarificationResponded = Trip::query()
-            ->whereNotNull('clarification_response')
-            ->count();
-
         return Inertia::render('Admin/Dashboard', [
-            'todayTrips' => $todayTrips,
-            'confirmedTrips' => $confirmedTrips,
+            ...$tripCounts,
             'activeVehicles' => $activeVehicles,
             'activeDrivers' => $activeDrivers,
-            'approvedTrips' => $approvedTrips,
-            'rejectedTrips' => $rejectedTrips,
-            'clarificationTrips' => $clarificationTrips,
-            'clarificationPendingResponse' => $clarificationPendingResponse,
-            'clarificationResponded' => $clarificationResponded,
             'period' => $period,
             'responseStatus' => $responseStatus,
             'search' => $search,
+            'showExperimental' => $showExperimental,
             'recentTrips' => $recentTrips,
         ]);
     }
@@ -472,6 +456,7 @@ class AdminAuthController extends Controller
                         'period' => $request->input('period', $request->query('period', 'daily')),
                         'response_status' => $request->input('response_status', $request->query('response_status', 'all')),
                         'search' => $request->input('search', $request->query('search', '')),
+                        'show_experimental' => $request->boolean('show_experimental'),
                         'page' => $request->input('page', $request->query('page', 1)),
                     ]
             )
