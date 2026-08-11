@@ -193,10 +193,10 @@ Diesel report classification and formulas:
 - External tank: `TANK_SHAPE IS NOT NULL` and not `Daily Tank`. Oracle empty strings are null; do not add `TRIM(TANK_SHAPE) <> ''`, because comparison with an Oracle empty string evaluates to null and removes valid rows.
 - Unclassified wells are excluded from both groups until `TANK_SHAPE` is completed.
 - Internal actual rate = current approved fill quantity ÷ the positive meter difference from the immediately preceding approved fill.
-- External current/previous balances are calculated from tank geometry and diesel height. Actual rate = `(previous balance + approved supply - current balance) ÷ positive operating hours`.
+- External current/previous balances are calculated from tank geometry and diesel height. Actual rate = `(previous balance + approved supply - current balance) ÷ operating hours`; use the validated positive difference when supply exists and the absolute non-zero difference when supply is `0`.
 - A valid external interval with no approved delivery uses supplied quantity `0`; consumed liters and the rate are still calculated using the absolute non-zero meter difference. Missing history, unresolved generator, incomplete geometry, a zero meter difference, or non-increasing inventory time remain unavailable rather than being invented as zero.
 - Upper consumption limit = per-assignment approved rate + non-negative tolerance. Actual values above it are high; equality is normal.
-- Missing inputs are unavailable. Reverse/zero/impossible meter intervals and negative calculated consumption are invalid; signed negative formula results remain visible for diagnosis.
+- Missing inputs are unavailable. Reverse/impossible meter intervals are invalid when supply exists, while the zero-supply exception uses their absolute non-zero difference. A zero meter difference, non-increasing inventory time, and negative calculated consumption remain invalid; signed negative formula results remain visible for diagnosis.
 
 ### READING_GENERATOR_LOGS
 | Column | Type | Notes |

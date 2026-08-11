@@ -75,10 +75,10 @@ The `audit_logs` table must never have rows updated or deleted. It is append-onl
 - `Daily Tank` wells use approved fuel-program fills; classified non-Daily tanks use field inventory geometry. Wells without `TANK_SHAPE` belong to neither report until classified.
 - Generator fuel rows used by either diesel report require `G_STORE.FUEL_LOG_DETAILS.ASSET_TYPE = 401`, non-null approved quantity, `G_STORE.FUEL_LOG.STATUS_OID = 416`, and null cancellation date; `ASSET_OID` alone is not unique across asset types.
 - Internal actual rate is approved liters divided by the positive difference between consecutive fill meter readings.
-- External actual rate is `(previous geometric balance + approved supply - current geometric balance) / positive operating hours`.
+- External actual rate is `(previous geometric balance + approved supply - current geometric balance) / operating hours`; use validated positive operating hours when supply exists and the absolute non-zero generator-meter difference when supply is `0`.
 - External supply belongs to an inventory interval when its numeric generator reading is greater than the previous inventory reading and no greater than the current inventory reading. Timestamp matching is fallback-only for delivery rows without a usable meter reading.
 - The alert threshold is the well-generator approved rate plus its allowed difference. Actual rate greater than the threshold is high; equal or lower is normal.
-- Missing inputs produce unavailable results. Reverse/zero/impossible meters, non-increasing fill times, and negative consumption produce invalid results. Invalid data must never be displayed as high consumption.
+- Missing inputs produce unavailable results. Reverse/impossible meters are invalid when supply exists; the zero-supply exception uses their absolute non-zero difference. Zero meter differences, non-increasing inventory times, and negative consumption remain invalid. Invalid data must never be displayed as high consumption.
 - Missing chronological history keeps approved supply null and must be labeled as not calculable. Numeric zero is reserved for a valid inventory interval in which no approved delivery occurred; in that case calculate consumed liters as `previous balance - current balance` and calculate the rate with the absolute non-zero generator-meter difference. Reversal or excess over elapsed time does not invalidate this zero-supply exception.
 - Keep a negative calculated consumption/rate visible for diagnosis while classifying the row as invalid.
 
