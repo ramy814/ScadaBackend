@@ -72,7 +72,9 @@ Do not reuse wells `Team` or `Inspector` classes for valves features.
 
 - `StoreTripRequest` accepts the unchanged legacy trip payload plus optional `manual_wait_minutes`, stop UUID/coordinates/source, and allowlisted tracking events.
 - `TripSyncService` owns idempotent trip, stop, and event persistence and recomputes automatic waiting without trusting a client-computed automatic total.
-- `TripRepository::paginateForDashboard()` adds `last_point_at`, eager-loads the latest tracking event, counts GPS-disable and airplane-on events per trip, and keeps active trips visible outside the selected completed-trip period.
+- `TripRepository::paginateForDashboard()` adds `last_point_at`, eager-loads the latest tracking event, counts GPS-disable, airplane-on, and explicit tracking-gap events per trip, and keeps active trips visible outside the selected completed-trip period.
+- `TripRepository` owns the shared dashboard visibility rule used by both pagination and `dashboardCounts()`: active trips are always visible; completed trips require at least 50 stored `trip_points` unless `show_experimental=1` is requested.
+- The experimental filter never deletes or updates a trip and does not apply to reports or direct trip-detail routes.
 - `AdminAuthController::showTrip()` loads stop locations and ordered technical events for `Admin/TripShow.vue`.
 - `Admin/Dashboard.vue` and `Admin/TripShow.vue` refresh active data every 15 seconds. This is polling over the existing Inertia/API data; there is no WebSocket service.
 - The schema change is `2026_07_29_000021_add_live_tracking_telemetry.php`. See `.ai/workflows/live-tracking-flow.md` for the authoritative end-to-end and rollout contract.

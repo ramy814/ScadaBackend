@@ -86,10 +86,16 @@ class TripSyncController extends Controller
         $from = $request->query('from');
         $to = $request->query('to');
         $q = trim((string) $request->query('q', ''));
+        $perPage = (int) $request->query(
+            'per_page',
+            $request->query('limit', 20),
+        );
+        $perPage = min(max($perPage, 1), $request->has('per_page') ? 50 : 300);
 
         $query = Trip::query()
             ->where('oracle_driver_id', (string) $driver->getAuthIdentifier())
-            ->latest('started_at');
+            ->latest('started_at')
+            ->latest('id');
 
         if ($status !== '') {
             $query->where('status', $status);
@@ -114,12 +120,20 @@ class TripSyncController extends Controller
                     ->orWhere('destination_text', 'like', '%'.$q.'%')
                     ->orWhere('mission_type', 'like', '%'.$q.'%')
                     ->orWhere('vehicle_plate', 'like', '%'.$q.'%');
+                if (ctype_digit($q)) {
+                    $nested->orWhere('id', (int) $q);
+                }
             });
         }
 
-        $trips = $query
-            ->limit((int) min(max((int) $request->query('limit', 100), 1), 300))
-            ->get()
+        $paginator = $query->paginate(
+            $perPage,
+            ['*'],
+            'page',
+            max((int) $request->query('page', 1), 1),
+        );
+        $trips = $paginator
+            ->getCollection()
             ->map(fn (Trip $trip): array => [
                 'id' => $trip->id,
                 'local_id' => $trip->local_id,
@@ -141,6 +155,12 @@ class TripSyncController extends Controller
 
         return response()->json([
             'trips' => $trips,
+            'pagination' => [
+                'current_page' => $paginator->currentPage(),
+                'last_page' => $paginator->lastPage(),
+                'per_page' => $paginator->perPage(),
+                'total' => $paginator->total(),
+            ],
         ]);
     }
 

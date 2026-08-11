@@ -2,11 +2,16 @@
 
 namespace Tests\Feature;
 
+use App\Http\Controllers\Api\TripSyncController;
 use App\Models\Beneficiary;
+use App\Models\Trip;
 use App\Repositories\MunicipalityVehicleRepository;
+use App\Services\CurrentBeneficiaryService;
+use App\Services\DriverTripSummaryService;
 use App\Services\TripSyncService;
 use App\Services\VirtualFuelService;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Mockery;
@@ -45,7 +50,13 @@ class TripLiveTelemetryTest extends TestCase
             $table->unsignedInteger('start_odometer')->nullable();
             $table->unsignedInteger('end_odometer')->nullable();
             $table->unsignedInteger('points_expected')->default(0);
+            $table->unsignedInteger('points_received')->default(0);
             $table->unsignedTinyInteger('quality_version')->nullable();
+            $table->decimal('virtual_fuel_liters', 10, 3)->nullable();
+            $table->decimal('distance_km', 10, 3)->nullable();
+            $table->unsignedInteger('duration_minutes')->nullable();
+            $table->string('review_status')->default('pending');
+            $table->timestamp('confirmed_at')->nullable();
             $table->timestamps();
         });
 
@@ -141,6 +152,57 @@ class TripLiveTelemetryTest extends TestCase
         $legacyTrip = $service->storeTrip($driver, $legacy);
 
         $this->assertSame(9, (int) $legacyTrip->fresh()->wait_minutes);
+    }
+
+    public function test_driver_history_is_paginated_and_filtered_on_the_server(): void
+    {
+        $driver = new Beneficiary;
+        $driver->setRawAttributes(['OID' => '42']);
+        foreach ([1, 2, 3] as $id) {
+            Trip::query()->create([
+                'local_id' => "11111111-1111-4111-8111-11111111111{$id}",
+                'oracle_driver_id' => '42',
+                'driver_name' => 'سائق اختبار',
+                'driver_phone' => '0599000000',
+                'vehicle_plate' => $id === 3 ? '30-3000' : '20-2000',
+                'status' => 'confirmed',
+                'review_status' => $id === 3 ? 'approved' : 'pending',
+                'started_at' => "2026-08-0{$id} 08:00:00",
+                'ended_at' => "2026-08-0{$id} 09:00:00",
+                'origin_type' => 'free_text',
+                'origin_text' => 'المقر',
+                'destination_type' => 'free_text',
+                'destination_text' => 'الميدان',
+                'mission_type' => 'مهمة اختبار',
+                'points_expected' => 10,
+                'points_received' => 10,
+                'distance_km' => 2,
+                'duration_minutes' => 60,
+                'virtual_fuel_liters' => 0.24,
+            ]);
+        }
+
+        $request = Request::create('/api/driver/trips', 'GET');
+        $request->query->add([
+            'status' => 'confirmed',
+            'review_status' => 'pending',
+            'q' => '20-2000',
+            'page' => 2,
+            'per_page' => 1,
+        ]);
+        $request->setUserResolver(fn () => $driver);
+
+        $response = app(TripSyncController::class)->index(
+            $request,
+            new CurrentBeneficiaryService,
+            new DriverTripSummaryService(new VirtualFuelService),
+        );
+        $payload = $response->getData(true);
+
+        $this->assertSame(2, $payload['pagination']['current_page']);
+        $this->assertSame(2, $payload['pagination']['last_page']);
+        $this->assertSame(2, $payload['pagination']['total']);
+        $this->assertSame(1, $payload['trips'][0]['id']);
     }
 
     /** @return array<string, mixed> */

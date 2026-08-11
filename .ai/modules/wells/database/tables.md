@@ -47,7 +47,7 @@ Fuel balance calculation (`h = DIESEL_HEIGHT_CM / 100`, dimensions in meters):
 - Dashboard inventory rows, totals, and reports use this geometric result as the actual balance. They do not fall back to `AVAILABLE_FUEL_LITERS`; incomplete tank dimensions/shape/height produce an unavailable balance instead of an invented value.
 - The previous reading is selected per well using `INVENTORY_DATE`, then `OID` as the tie-breaker. Dashboard date filters must not remove the historical row used as the previous reading.
 - Diesel report operating hours: `current GENERATOR_HOURS_READING - previous GENERATOR_HOURS_READING`. If the current counter is lower, the result is left blank and a reset/inconsistent-reading note is shown.
-- Approved fuel supplied between inventories: sum `G_STORE.FUEL_LOG_DETAILS.APPROVED_GALLONS` where the linked `G_STORE.FUEL_LOG.FILL_UP_DATE` is after the previous inventory and through the current inventory.
+- Approved fuel supplied between external inventories: sum `G_STORE.FUEL_LOG_DETAILS.APPROVED_GALLONS` where numeric `CURRENT_READING` falls in `(previous inventory generator reading, current inventory generator reading]`. When the delivery meter is missing/malformed, use same-day `FUEL_LOG.ENTRY_DATE`, then `FILL_UP_DATE`, against the chronological inventory interval.
 - Actual fuel consumed: `previous calculated balance + approved supply - current calculated balance`; actual rate is this value divided by operating hours. Negative results are treated as inconsistent data and left blank with a note.
 - Water production: `operating hours × WELLS.CAPACITY`.
 - Calculated diesel consumption: `operating hours × G_STORE.GENERATOR.FUEL_CONSUMPTION`.
@@ -264,7 +264,9 @@ Diesel reports additionally read:
 - `FUEL_LOG_DETAILS.APPROVED_GALLONS`: approved supplied fuel quantity; despite the legacy column name, the operational report treats this source value as liters.
 - `FUEL_LOG_DETAILS.CURRENT_READING`: generator meter reading stored as text; validate it numerically in the service.
 - `FUEL_LOG_DETAILS.ASSET_TYPE = 401`: mandatory discriminator for generator rows. `ASSET_OID` overlaps other asset types and is not a safe join key by itself.
-- `FUEL_LOG.FILL_UP_DATE`: delivery date used to place approved supply between consecutive inventory readings.
+- `FUEL_LOG.STATUS_OID = 416`: mandatory final filled/approved status for any delivery used by diesel inventory or `Daily Tank` calculations.
+- `FUEL_LOG.FILL_UP_DATE`: operational delivery date; legacy rows commonly store midnight and must not override a valid delivery meter reading.
+- `FUEL_LOG.ENTRY_DATE`: timestamp fallback when the delivery meter is unavailable and entry occurred on the same calendar day as `FILL_UP_DATE`.
 - `FUEL_LOG.CANCEL_DATE`: canceled fills are excluded.
 
 For `Daily Tank`, calculate `LAG` across every approved, non-canceled generator fill before applying the requested date filter. Do not filter out a missing/malformed `CURRENT_READING` before `LAG`; the immediately preceding fill must remain the preceding fill and make the interval unavailable instead of being skipped.

@@ -242,6 +242,8 @@ class DieselInventoryService
                     $deliveries->get((int) $generatorId, collect()),
                     $previousDate,
                     $currentDate,
+                    $previousHours,
+                    $currentHours,
                 )
                 : null;
             $consumedFuel = $previousBalance !== null
@@ -251,9 +253,21 @@ class DieselInventoryService
                 : null;
             $notes = array_filter([(string) ($this->attribute($inventory, 'NOTES') ?? '')]);
             $calculationError = $interval['error'];
+            $previousInventoryUnavailableReason = $previousDate
+                ? null
+                : 'لا توجد قراءة جرد أقدم زمنياً لهذا البئر';
+            $suppliedFuelUnavailableReason = $suppliedFuel !== null
+                ? null
+                : ($previousInventoryUnavailableReason
+                    ? 'تعذر احتساب التوريد لعدم وجود قراءة جرد أقدم زمنياً لهذا البئر'
+                    : 'تعذر احتساب التوريد لعدم تحديد مولد واحد للسجل');
 
             if ($interval['error']) {
                 $notes[] = $interval['error'];
+            }
+
+            if ($previousInventoryUnavailableReason) {
+                $notes[] = $suppliedFuelUnavailableReason;
             }
 
             if ($currentBalance === null) {
@@ -301,6 +315,7 @@ class DieselInventoryService
                     ?? null,
                 'inventory_date' => $currentDate,
                 'previous_inventory_date' => $previousDate,
+                'previous_inventory_unavailable_reason' => $previousInventoryUnavailableReason,
                 'well_name' => $this->attribute($well, 'NAME') ?? '-',
                 'official_well_name' => $this->attribute($well, 'SOURCE_WELL_CODE')
                     ?? $this->attribute($well, 'WELL_NUM')
@@ -319,6 +334,7 @@ class DieselInventoryService
                     ? round($previousHeight - $currentHeight, 2)
                     : null,
                 'supplied_fuel_liters' => $suppliedFuel,
+                'supplied_fuel_unavailable_reason' => $suppliedFuelUnavailableReason,
                 'previous_fuel_balance_liters' => $previousBalance,
                 'current_fuel_balance_liters' => $currentBalance,
                 'consumed_fuel_liters' => $consumedFuel,
@@ -479,12 +495,42 @@ class DieselInventoryService
         return $this->dieselInventoryRepository->countUnclassifiedWells();
     }
 
-    private function suppliedFuelBetween(iterable $deliveries, Carbon $from, Carbon $to): float
-    {
-        return round(collect($deliveries)->sum(function (array $delivery) use ($from, $to): float {
-            $suppliedAt = Carbon::parse($delivery['supplied_at']);
+    private function suppliedFuelBetween(
+        iterable $deliveries,
+        Carbon $from,
+        Carbon $to,
+        ?float $previousMeterReading,
+        ?float $currentMeterReading,
+    ): float {
+        $hasValidMeterRange = $previousMeterReading !== null
+            && $currentMeterReading !== null
+            && $currentMeterReading >= $previousMeterReading;
 
-            return $suppliedAt->greaterThan($from) && $suppliedAt->lessThanOrEqualTo($to)
+        return round(collect($deliveries)->sum(function (array $delivery) use (
+            $from,
+            $to,
+            $previousMeterReading,
+            $currentMeterReading,
+            $hasValidMeterRange,
+        ): float {
+            $deliveryMeterReading = $this->numeric($delivery['meter_reading'] ?? null);
+
+            if ($hasValidMeterRange && $deliveryMeterReading !== null) {
+                return $deliveryMeterReading > $previousMeterReading
+                    && $deliveryMeterReading <= $currentMeterReading
+                    ? (float) $delivery['liters']
+                    : 0.0;
+            }
+
+            $suppliedAt = Carbon::parse($delivery['supplied_at']);
+            $enteredAt = empty($delivery['entered_at'])
+                ? null
+                : Carbon::parse($delivery['entered_at']);
+            $effectiveSuppliedAt = $enteredAt?->isSameDay($suppliedAt)
+                ? $enteredAt
+                : $suppliedAt;
+
+            return $effectiveSuppliedAt->greaterThan($from) && $effectiveSuppliedAt->lessThanOrEqualTo($to)
                 ? (float) $delivery['liters']
                 : 0.0;
         }), 2);

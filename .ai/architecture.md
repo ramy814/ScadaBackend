@@ -28,7 +28,7 @@ Once a trip is `confirmed` by the system, it enters the administrative review pi
 - **Trip Map Source of Truth**: `TripShow.vue` renders only the original ordered `trip_points`. Do not introduce road matching, route snapping, OSRM, Docker, or an external routing API unless the product owner explicitly reverses this decision.
 - **Map Interpretation**: The map may show GPS segments crossing buildings because it visualizes recorded coordinates directly. Never move or overwrite authoritative GPS points merely to make the route look aligned with streets.
 - **Lightweight Driver History Maps**: The confirmed-trip list remains summary-only. `GET /api/driver/trips/{trip}/route-preview` authorizes ownership and returns at most 100 accurate ordered coordinates through `DriverTripRoutePreviewService` and `TripRepository`; this preview is never used for distance, fuel, checksum, or stored route mutation.
-- **Live Monitoring**: Dashboard and active `TripShow` Inertia props may reload every 15 seconds. `last_point_at` plus the latest tracking event drive a technical freshness badge; do not label it as proven deliberate tampering.
+- **Live Monitoring**: Dashboard and active `TripShow` Inertia props may reload every 15 seconds. `last_point_at` plus the latest tracking event drive a technical freshness badge; do not label it as proven deliberate tampering. Active trips remain visible even before reaching 50 points. After a trip ends, fewer than 50 stored points classifies it as experimental dashboard display data, hidden by default and available through `show_experimental=1`.
 
 ## 5. Security & Authentication
 - **Admin**: Uses the Municipality's MOG SSO package. Authentication state is stored in the session.

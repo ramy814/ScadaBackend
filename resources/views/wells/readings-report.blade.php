@@ -2,118 +2,170 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <style>
+        @page {
+            margin: 10mm;
+        }
+
         body {
-            font-family: dejavusans, sans-serif;
             direction: rtl;
-            color: #111827;
-            font-size: 9px;
+            margin: 0;
+            background: #ffffff;
+            color: #172033;
+            font-family: dejavusans, sans-serif;
+            font-size: 11px;
+            line-height: 1.5;
         }
+
+        body.format-excel {
+            font-size: 12pt;
+        }
+
+        .report-header {
+            margin-bottom: 14px;
+            padding: 14px 16px;
+            border: 1px solid #93c5fd;
+            background: #eff6ff;
+        }
+
         h1 {
-            margin: 0 0 8px;
+            margin: 0 0 7px;
             text-align: center;
-            font-size: 20px;
+            color: #164e63;
+            font-size: 26px;
         }
+
         .meta {
-            margin-bottom: 12px;
             text-align: center;
-            color: #374151;
+            color: #475569;
+            font-size: 12px;
         }
+
         .summary-table {
             width: 100%;
-            margin-bottom: 10px;
+            margin-bottom: 14px;
             border-collapse: separate;
-            border-spacing: 4px 0;
+            border-spacing: 6px 0;
         }
+
         .summary-card {
             width: 20%;
-            padding: 6px;
+            padding: 10px;
             border: 1px solid #bfdbfe;
-            background: #eff6ff;
+            background: #f8fafc;
             text-align: center;
         }
+
         .summary-label {
             display: block;
             color: #475569;
-            font-size: 8px;
+            font-size: 10px;
         }
+
         .summary-value {
             display: block;
-            margin-top: 2px;
+            margin-top: 3px;
             color: #164e63;
-            font-size: 13px;
+            font-size: 17px;
             font-weight: bold;
         }
+
         .summary-card.is-alert {
             border-color: #fca5a5;
             background: #fff1f2;
         }
+
         .summary-card.is-alert .summary-value {
             color: #b91c1c;
         }
+
         table {
             width: 100%;
             border-collapse: collapse;
         }
-        .report-table {
-            table-layout: fixed;
+
+        thead {
+            display: table-header-group;
         }
-        th, td {
+
+        th,
+        td {
             border: 1px solid #94a3b8;
-            padding: 4px 3px;
+            padding: 7px 6px;
             text-align: center;
             vertical-align: middle;
         }
+
         th {
-            background: #dbeafe;
+            background: #164e63;
+            color: #ffffff;
+            font-size: 11px;
             font-weight: bold;
         }
-        .title-row th {
-            background: #bfdbfe;
-            font-size: 14px;
+
+        tbody tr:nth-child(even) td {
+            background: #f8fafc;
         }
+
         .total-row td {
-            background: #e5e7eb;
+            background: #dbeafe;
+            color: #0f172a;
             font-weight: bold;
         }
+
         .text-cell {
             text-align: right;
         }
+
         .date-cell,
         .number-cell,
         .coordinates-cell {
             direction: ltr;
             white-space: nowrap;
         }
+
         .missing-row td {
-            background: #fff1f2;
+            background: #fff1f2 !important;
         }
+
         .status-badge {
             display: inline-block;
-            min-width: 58px;
-            padding: 2px 5px;
+            min-width: 80px;
+            padding: 4px 7px;
             border: 1px solid #cbd5e1;
-            border-radius: 3px;
+            border-radius: 4px;
             font-weight: bold;
             white-space: nowrap;
         }
+
         .status-normal { border-color: #86efac; background: #ecfdf5; color: #166534; }
         .status-first { border-color: #93c5fd; background: #eff6ff; color: #1d4ed8; }
         .status-review { border-color: #fcd34d; background: #fffbeb; color: #92400e; }
+        .status-abnormal { border-color: #fca5a5; background: #fff1f2; color: #b91c1c; }
         .status-missing { border-color: #fca5a5; background: #fff1f2; color: #b91c1c; }
+
+        .empty-row td {
+            padding: 24px;
+            color: #64748b;
+            font-size: 14px;
+        }
     </style>
 </head>
-<body>
 @php
     $filters = $report['filters'] ?? [];
-    $rows = $report['rows'] ?? collect();
+    $rows = collect($report['rows'] ?? []);
+    $columns = collect($report['columns'] ?? []);
     $summary = $report['summary'] ?? [];
+    $totals = $report['totals'] ?? [];
     $dateFrom = $filters['date_from'] ?? null;
     $dateTo = $filters['date_to'] ?? null;
     $period = $dateFrom || $dateTo
         ? trim(($dateFrom ?: 'البداية') . ' - ' . ($dateTo ?: 'النهاية'))
         : 'كل الفترات';
-    $number = fn ($value) => $value === null ? '' : rtrim(rtrim(number_format((float) $value, 2, '.', ''), '0'), '.');
+    $number = fn ($value) => $value === null || $value === ''
+        ? '-'
+        : rtrim(rtrim(number_format((float) $value, 2, '.', ''), '0'), '.');
     $date = function ($value): string {
         if ($value === null || $value === '') {
             return '-';
@@ -125,12 +177,22 @@
             return (string) $value;
         }
     };
+    $statusClass = fn (string $key): string => match ($key) {
+        'normal' => 'status-normal',
+        'first' => 'status-first',
+        'review' => 'status-review',
+        'abnormal' => 'status-abnormal',
+        default => 'status-missing',
+    };
 @endphp
-
-<h1>تقرير إنتاج الآبار</h1>
-<div class="meta">
-    الفترة: {{ $period }} |
-    تاريخ الإنشاء: {{ $date($report['generated_at'] ?? now()) }}
+<body class="format-{{ $format ?? 'pdf' }}">
+<div class="report-header">
+    <h1>تقرير إنتاج الآبار</h1>
+    <div class="meta">
+        الفترة: {{ $period }}
+        &nbsp; | &nbsp;
+        تاريخ الإنشاء: {{ $date($report['generated_at'] ?? now()) }}
+    </div>
 </div>
 
 <table class="summary-table">
@@ -161,65 +223,53 @@
 <table class="report-table">
     <thead>
         <tr>
-            <th width="2%">#</th>
-            <th width="7%">المؤشر</th>
-            <th width="10%">اسم البئر</th>
-            <th width="8%">رقم/اسم رسمي</th>
-            <th width="10%">الإحداثيات</th>
-            <th width="6%">السعة (م³/ساعة)</th>
-            <th width="6%">القراءة السابقة</th>
-            <th width="6%">القراءة الحالية</th>
-            <th width="7%">فرق التشغيل (ساعة)</th>
-            <th width="7%">الإنتاج (م³)</th>
-            <th width="10%">المفتش</th>
-            <th width="9%">تاريخ القراءة</th>
-            <th width="12%">ملاحظات</th>
+            <th>#</th>
+            @foreach ($columns as $column)
+                <th>{{ $column['label'] }}</th>
+            @endforeach
         </tr>
     </thead>
     <tbody>
         @forelse ($rows as $row)
-            @php
-                $status = $row['status'] ?? ['key' => 'missing', 'label' => 'غير مدخلة'];
-            @endphp
             <tr class="{{ empty($row['has_reading']) ? 'missing-row' : '' }}">
                 <td>{{ $row['index'] }}</td>
-                <td>
-                    <span class="status-badge status-{{ $status['key'] }}">
-                        {{ $status['label'] }}
-                    </span>
-                </td>
-                <td class="text-cell">{{ $row['well_name'] }}</td>
-                <td>{{ $row['well_number'] }}</td>
-                <td class="coordinates-cell">{{ $row['coordinates'] ?: '-' }}</td>
-                <td class="number-cell">{{ $number($row['capacity']) }}</td>
-                <td class="number-cell">{{ $number($row['previous_reading']) }}</td>
-                <td class="number-cell">{{ $number($row['current_reading']) }}</td>
-                <td class="number-cell">{{ $number($row['operating_hours']) }}</td>
-                <td class="number-cell">{{ $number($row['production']) }}</td>
-                <td class="text-cell">{{ $row['inspector_name'] }}</td>
-                <td class="date-cell">{{ $date($row['reading_date']) }}</td>
-                <td class="text-cell">{{ $row['notes'] }}</td>
+                @foreach ($columns as $column)
+                    @php
+                        $key = $column['key'];
+                        $type = $column['type'] ?? 'text';
+                        $value = $row[$key] ?? null;
+                    @endphp
+                    <td class="{{ $type === 'number' ? 'number-cell' : ($type === 'date' ? 'date-cell' : ($key === 'coordinates' ? 'coordinates-cell' : 'text-cell')) }}">
+                        @if ($type === 'status')
+                            @php $status = is_array($value) ? $value : ['key' => 'missing', 'label' => '-']; @endphp
+                            <span class="status-badge {{ $statusClass($status['key'] ?? 'missing') }}">
+                                {{ $status['label'] ?? '-' }}
+                            </span>
+                        @elseif ($type === 'date')
+                            {{ $date($value) }}
+                        @elseif ($type === 'number')
+                            {{ $number($value) }}
+                        @else
+                            {{ $value === null || $value === '' ? '-' : $value }}
+                        @endif
+                    </td>
+                @endforeach
             </tr>
         @empty
-            <tr>
-                <td colspan="13">لا توجد آبار فعّالة مطابقة</td>
+            <tr class="empty-row">
+                <td colspan="{{ $columns->count() + 1 }}">لا توجد آبار فعّالة مطابقة</td>
             </tr>
         @endforelse
-        <tr class="total-row">
-            <td>المجموع</td>
-            <td></td>
-            <td></td>
-            <td></td>
-            <td></td>
-            <td></td>
-            <td></td>
-            <td></td>
-            <td class="number-cell">{{ $number($report['total_operating_hours'] ?? 0) }}</td>
-            <td class="number-cell">{{ $number($report['total_production'] ?? 0) }}</td>
-            <td></td>
-            <td></td>
-            <td></td>
-        </tr>
+        @if ($rows->isNotEmpty())
+            <tr class="total-row">
+                <td>الإجمالي</td>
+                @foreach ($columns as $column)
+                    <td class="{{ ($column['type'] ?? null) === 'number' ? 'number-cell' : '' }}">
+                        {{ array_key_exists($column['key'], $totals) ? $number($totals[$column['key']]) : '' }}
+                    </td>
+                @endforeach
+            </tr>
+        @endif
     </tbody>
 </table>
 </body>

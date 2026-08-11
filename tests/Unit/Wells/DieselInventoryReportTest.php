@@ -85,8 +85,17 @@ class DieselInventoryReportTest extends TestCase
         $generatorRepository->shouldReceive('getApprovedFuelDeliveries')->once()->andReturn([
             [
                 'generator_oid' => 76,
-                'supplied_at' => '2026-06-28 08:00:00',
+                'supplied_at' => '2026-06-27 08:00:00',
+                'entered_at' => '2026-06-27 08:00:00',
+                'meter_reading' => '110',
                 'liters' => 400.0,
+            ],
+            [
+                'generator_oid' => 76,
+                'supplied_at' => '2026-06-28 08:00:00',
+                'entered_at' => '2026-06-28 08:00:00',
+                'meter_reading' => '121',
+                'liters' => 600.0,
             ],
         ]);
 
@@ -99,6 +108,7 @@ class DieselInventoryReportTest extends TestCase
 
         self::assertSame('2026-06-29 14:30:00', $row['created_at']);
         self::assertSame(20.0, $row['operating_hours']);
+        self::assertSame(400.0, $row['supplied_fuel_liters']);
         self::assertEqualsWithDelta(1970.79, $row['consumed_fuel_liters'], 0.01);
         self::assertEqualsWithDelta(98.54, $row['actual_consumption_lph'], 0.01);
         self::assertEqualsWithDelta(9424.78, $row['tank_capacity_liters'], 0.01);
@@ -143,6 +153,55 @@ class DieselInventoryReportTest extends TestCase
         self::assertSame(10.0, $high['actual_consumption_lph']);
         self::assertSame('high', $high['consumption_status']['key']);
         self::assertSame(1, $report['high_consumption_count']);
+    }
+
+    public function test_external_report_explains_values_that_need_an_older_inventory(): void
+    {
+        $well = new Well;
+        $well->forceFill([
+            'oid' => 14,
+            'NAME' => 'بئر الاختبار',
+            'TANK_SHAPE' => 'اسطواني عمودي',
+            'TANK_DIAMETER' => '2',
+            'TANK_HEIGHT' => '3',
+        ]);
+        $inventory = new DieselInventory;
+        $inventory->setRawAttributes([
+            'oid' => 10,
+            'well_oid' => 14,
+            'inventory_date' => '2026-07-25 00:00:00',
+            'generator_hours_reading' => '645',
+            'diesel_height_cm' => '16',
+        ]);
+        $inventory->setRelation('well', $well);
+        $inventory->setRelation('inspector', new Inspector);
+
+        $inventoryRepository = Mockery::mock(DieselInventoryRepository::class);
+        $inventoryRepository->shouldReceive('getReportInventories')->once()
+            ->andReturn(new Collection([$inventory]));
+        $inventoryRepository->shouldReceive('previousReadingsFor')->once()
+            ->andReturn(collect([10 => []]));
+
+        $generatorRepository = Mockery::mock(GeneratorRepository::class);
+        $generatorRepository->shouldReceive('getReportGenerators')->once()->andReturn([
+            'by_id' => [],
+            'by_well' => [14 => ['oid' => 76, 'number' => 'GEN-76']],
+            'by_well_generator' => [],
+        ]);
+
+        $row = (new DieselInventoryService(
+            $inventoryRepository,
+            new DieselFuelCalculator,
+            $generatorRepository,
+        ))->getInventoryReport()['rows']->first();
+
+        self::assertNull($row['previous_inventory_date']);
+        self::assertNull($row['supplied_fuel_liters']);
+        self::assertSame(
+            'لا توجد قراءة جرد أقدم زمنياً لهذا البئر',
+            $row['previous_inventory_unavailable_reason'],
+        );
+        self::assertStringContainsString('تعذر احتساب التوريد', $row['notes']);
     }
 
     public function test_daily_tank_report_marks_a_missing_previous_fill_as_unavailable(): void

@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\DB;
 
 class GeneratorRepository
 {
+    private const APPROVED_DELIVERY_STATUS_OID = 416;
+
     public function __construct(
         private readonly WellGenerator $model
     ) {}
@@ -268,7 +270,7 @@ class GeneratorRepository
     public function getDailyTankFuelEntries(array $filters = [], int $limit = 5000): array
     {
         $conditions = [];
-        $bindings = [];
+        $bindings = [self::APPROVED_DELIVERY_STATUS_OID];
 
         if (! empty($filters['well_oid'])) {
             $conditions[] = 'fuel_entries.WELL_OID = ?';
@@ -330,6 +332,7 @@ class GeneratorRepository
                     WHERE UPPER(TRIM(w.TANK_SHAPE)) = 'DAILY TANK'
                       AND fd.APPROVED_GALLONS IS NOT NULL
                       AND fd.ASSET_TYPE = 401
+                      AND fl.STATUS_OID = ?
                       AND fl.FILL_UP_DATE IS NOT NULL
                       AND fl.CANCEL_DATE IS NULL
                 ) fuel_entries
@@ -345,7 +348,7 @@ class GeneratorRepository
         );
     }
 
-    /** @return array<int, array{generator_oid: int, supplied_at: mixed, liters: float}> */
+    /** @return array<int, array{generator_oid: int, supplied_at: mixed, entered_at: mixed, meter_reading: mixed, liters: float}> */
     public function getApprovedFuelDeliveries(array $generatorIds, Carbon $from, Carbon $to): array
     {
         $generatorIds = array_values(array_unique(array_map('intval', array_filter($generatorIds))));
@@ -356,18 +359,22 @@ class GeneratorRepository
 
         $placeholders = implode(',', array_fill(0, count($generatorIds), '?'));
         $bindings = array_merge($generatorIds, [
-            $from->format('Y-m-d H:i:s'),
+            self::APPROVED_DELIVERY_STATUS_OID,
+            $from->copy()->startOfDay()->format('Y-m-d H:i:s'),
             $to->format('Y-m-d H:i:s'),
         ]);
         $rows = DB::connection('oracle')->select(<<<SQL
             SELECT fd.ASSET_OID,
                    fl.FILL_UP_DATE,
+                   fl.ENTRY_DATE,
+                   fd.CURRENT_READING,
                    fd.APPROVED_GALLONS
             FROM G_STORE.FUEL_LOG_DETAILS fd
             JOIN G_STORE.FUEL_LOG fl ON fl.OID = fd.FUEL_LOG_OID
             WHERE fd.ASSET_OID IN ($placeholders)
               AND fd.ASSET_TYPE = 401
               AND fd.APPROVED_GALLONS IS NOT NULL
+              AND fl.STATUS_OID = ?
               AND fl.CANCEL_DATE IS NULL
               AND fl.FILL_UP_DATE BETWEEN TO_DATE(?, 'YYYY-MM-DD HH24:MI:SS')
                                       AND TO_DATE(?, 'YYYY-MM-DD HH24:MI:SS')
@@ -380,6 +387,8 @@ class GeneratorRepository
             return [
                 'generator_oid' => (int) $values['asset_oid'],
                 'supplied_at' => $values['fill_up_date'],
+                'entered_at' => $values['entry_date'],
+                'meter_reading' => $values['current_reading'],
                 'liters' => (float) $values['approved_gallons'],
             ];
         }, $rows);

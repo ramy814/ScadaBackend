@@ -341,6 +341,30 @@ function cellValue(row, column) {
     return row?.[column.key]
 }
 
+function unavailableReason(row, column) {
+    if (cellValue(row, column) !== null && cellValue(row, column) !== undefined) {
+        return null
+    }
+
+    if ([
+        'previous_inventory_date',
+        'previous_generator_reading',
+        'previous_diesel_height_cm',
+    ].includes(column.key)) {
+        return row?.previous_inventory_unavailable_reason || null
+    }
+
+    return column.key === 'supplied_fuel_liters'
+        ? (row?.supplied_fuel_unavailable_reason || null)
+        : null
+}
+
+function unavailableLabel(column) {
+    return column.key === 'supplied_fuel_liters'
+        ? 'غير محتسب'
+        : 'لا توجد قراءة سابقة'
+}
+
 function statusDetails(value) {
     const key = typeof value === 'object' && value
         ? value.key
@@ -719,7 +743,14 @@ function rowKey(row, index) {
                                     :dir="column.key === 'generator_number' ? 'ltr' : undefined"
                                 >
                                     <span
-                                        v-if="column.type === 'status'"
+                                        v-if="unavailableReason(row, column)"
+                                        class="diesel-unavailable-value"
+                                        :title="unavailableReason(row, column)"
+                                    >
+                                        {{ unavailableLabel(column) }}
+                                    </span>
+                                    <span
+                                        v-else-if="column.type === 'status'"
                                         class="diesel-consumption-status"
                                         :class="`is-${statusDetails(cellValue(row, column)).key}`"
                                         role="status"
@@ -1147,6 +1178,19 @@ function rowKey(row, index) {
     max-width: 360px;
     text-align: right !important;
     white-space: normal;
+}
+
+.diesel-unavailable-value {
+    display: inline-block;
+    min-width: 116px;
+    padding: 5px 8px;
+    color: var(--color-warning);
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    white-space: nowrap;
+    background: rgba(245, 158, 11, 0.1);
+    border: 1px solid rgba(245, 158, 11, 0.24);
+    border-radius: 999px;
 }
 
 .diesel-consumption-status {

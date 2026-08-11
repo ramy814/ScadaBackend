@@ -10,6 +10,7 @@ use App\Services\Wells\InspectorService;
 use App\Services\Wells\ReadingService;
 use App\Services\Wells\WellService;
 use Illuminate\Http\Response as HttpResponse;
+use Illuminate\Support\Arr;
 use Inertia\Inertia;
 use Inertia\Response;
 use Mpdf\Mpdf;
@@ -32,6 +33,7 @@ class ReadingController extends Controller
             'inspectors' => $this->inspectorService->getAllInspectors(),
             'filters' => $filters,
             'statistics' => $this->readingService->getStatistics(),
+            'reportColumns' => $this->readingService->getReportColumns(),
             'reportPreview' => Inertia::optional(
                 fn (): array => $this->readingService->getProductionReport($filters)
             ),
@@ -52,7 +54,10 @@ class ReadingController extends Controller
 
     public function reportPdf(ReadingReportRequest $request): HttpResponse
     {
-        $report = $this->readingService->getProductionReport($this->readingFilters($request));
+        $report = $this->readingService->getExportReport(
+            $this->readingFilters($request),
+            $request->validated('columns', []),
+        );
         $html = view('wells.readings-report', [
             'report' => $report,
             'format' => 'pdf',
@@ -60,11 +65,12 @@ class ReadingController extends Controller
 
         $mpdf = new Mpdf([
             'mode' => 'utf-8',
-            'format' => 'A3-L',
-            'margin_left' => 6,
-            'margin_right' => 6,
-            'margin_top' => 7,
-            'margin_bottom' => 7,
+            'format' => 'A2-L',
+            'margin_left' => 10,
+            'margin_right' => 10,
+            'margin_top' => 10,
+            'margin_bottom' => 10,
+            'shrink_tables_to_fit' => 1,
             'autoScriptToLang' => true,
             'autoLangToFont' => true,
         ]);
@@ -79,7 +85,10 @@ class ReadingController extends Controller
     public function reportExcel(ReadingReportRequest $request): HttpResponse
     {
         $html = view('wells.readings-report', [
-            'report' => $this->readingService->getProductionReport($this->readingFilters($request)),
+            'report' => $this->readingService->getExportReport(
+                $this->readingFilters($request),
+                $request->validated('columns', []),
+            ),
             'format' => 'excel',
         ])->render();
 
@@ -91,7 +100,13 @@ class ReadingController extends Controller
 
     private function readingFilters(ReadingReportRequest $request): array
     {
-        return $request->validated();
+        return Arr::only($request->validated(), [
+            'well_oid',
+            'inspector_oid',
+            'quality',
+            'date_from',
+            'date_to',
+        ]);
     }
 
     private function reportFileName(string $extension): string

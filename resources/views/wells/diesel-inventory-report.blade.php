@@ -201,6 +201,23 @@
         'invalid' => 'status-invalid',
         default => 'status-unavailable',
     };
+    $unavailableReason = function (array $row, string $key, mixed $value): ?string {
+        if ($value !== null && $value !== '') {
+            return null;
+        }
+
+        if (in_array($key, [
+            'previous_inventory_date',
+            'previous_generator_reading',
+            'previous_diesel_height_cm',
+        ], true)) {
+            return $row['previous_inventory_unavailable_reason'] ?? null;
+        }
+
+        return $key === 'supplied_fuel_liters'
+            ? ($row['supplied_fuel_unavailable_reason'] ?? null)
+            : null;
+    };
     $generatedAt = $report['generated_at'] ?? now();
     $totalOperatingHours = $totals['operating_hours'] ?? $report['total_operating_hours'] ?? null;
     $totalSuppliedFuel = $totals['supplied_fuel_liters'] ?? $report['total_supplied_fuel_liters'] ?? null;
@@ -255,8 +272,11 @@
                         $key = $column['key'];
                         $type = $column['type'] ?? 'text';
                         $value = data_get($row, $key);
+                        $missingReason = $unavailableReason($row, $key, $value);
                     @endphp
-                    @if ($type === 'number')
+                    @if ($missingReason)
+                        <td class="notes-cell">{{ $missingReason }}</td>
+                    @elseif ($type === 'number')
                         <td class="number-cell">{{ $number($value) }}</td>
                     @elseif ($type === 'date')
                         <td class="date-cell">{{ $date($value) }}</td>

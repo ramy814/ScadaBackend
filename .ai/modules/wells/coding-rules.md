@@ -87,20 +87,25 @@ Source path: `/Volumes/SecondDrive/Wells/wells_app`.
 - Apply all report filters inside the newer-reading exclusion query as well as the outer query. Otherwise a newer row outside the selected period, inspector, or quality filter can incorrectly remove the valid report row.
 - Build the final production-report rows from all active wells. Reading filters choose the attached reading; they must not remove an active well with no matching reading. Preserve an explicit `well_oid` selection as the only active-well narrowing rule.
 - Missing readings remain visible with null numeric/date fields and **غير مدخلة** status. Do not convert missing values to numeric zero or include them in production totals.
-- Mark a row **تحتاج مراجعة** only for missing current meter data or a current meter lower than the previous meter. A missing previous row is **قراءة أولى**, not an error. Do not invent chlorine, salinity, quality, or operating-hour alert thresholds without an approved business rule.
+- Mark a row **غير طبيعي** when either comparable meter reading is negative, the current meter is lower than the previous meter, or the operating-hours difference is greater than 20. A difference of exactly 20 remains normal. Missing current data is **تحتاج مراجعة** and a missing previous row is **قراءة أولى**. Do not infer chlorine, salinity, or water-quality thresholds from this status.
 - PDF and Excel must continue to share the same service result; never deduplicate independently in Blade or in one export controller method.
-- Both export buttons must request the optional Inertia preview with the exact current filters before download. The confirmed export URL must reuse those same filter values.
+- Load the optional Inertia production preview into a dedicated same-page report tab. PDF/Excel actions must not open a modal or separate browser window.
+- Keep the reading report column registry in `ReadingService`. Accept only allowlisted keys, retain their selected order, and send the same `columns[]` selection used by the preview to both exports.
+- Keep the reading PDF on the A2 landscape print layout with legible font/cell spacing; Excel uses the same dynamic RTL template and selected columns.
 
 ## Diesel Inventory Validation
 - Validate every `inventories.*.GENERATOR_HOURS_READING` and `inventories.*.DIESEL_HEIGHT_CM` as `required`, `numeric`, and `min:0` at the API boundary.
 - Do not silently coerce a missing generator reading or diesel height to null. Historical null rows remain readable, but new Flutter/API submissions must contain both values.
 - Treat numeric zero as valid; do not use truthiness checks for these fields.
+- Preserve the selected inventory time instead of collapsing a chosen date to midnight. Warn on a non-newer timestamp in Flutter, but keep an explicit historical-save path because offline records may synchronize out of order.
 
 ## Diesel Inventory Reporting
 - Keep tank classification, calculations, status evaluation, and report-column allowlists in `DieselInventoryService`; controllers only pass validated filters and render.
 - `Daily Tank` means `UPPER(TRIM(TANK_SHAPE)) = 'DAILY TANK'`. External reports require a non-null classified shape other than `Daily Tank`; never silently place an unclassified well in the external group.
-- Always constrain `G_STORE.FUEL_LOG_DETAILS` generator joins with `ASSET_TYPE = 401` and exclude canceled fuel logs.
+- Always constrain report-facing `G_STORE.FUEL_LOG_DETAILS` generator joins with `ASSET_TYPE = 401`, non-null `APPROVED_GALLONS`, linked `FUEL_LOG.STATUS_OID = 416`, and null `CANCEL_DATE`. Apply the same acceptance predicate to external-inventory supply and `Daily Tank` fills.
 - Apply the requested date range outside the analytic `LAG` query. Keep missing/malformed intermediate meter readings in sequence and return unavailable; never jump over them.
+- Keep null supply distinct from zero: null means no calculable interval or unresolved generator, while zero means a valid previous/current interval with no approved delivery. Display the null reason on screen and in exports.
+- For external inventory supply, use a numeric fuel-detail `CURRENT_READING` before timestamps: include it only in `(previous inventory generator reading, current inventory generator reading]`. Use same-day `ENTRY_DATE` and then `FILL_UP_DATE` only when the delivery meter is unavailable. Query from the previous inventory day's start so midnight `FILL_UP_DATE` values are not discarded before meter matching.
 - Mark reverse/zero/impossible meter differences, non-increasing timestamps, and negative calculated consumption as invalid. Do not let them trigger a high-consumption alert.
 - A high alert requires `actual > approved rate + allowed difference`; equality remains normal.
 - Store the approved rate and allowed difference on `WELL_GENERATORS`, because a well can have multiple generators. Preserve these settings when synchronizing assignments.

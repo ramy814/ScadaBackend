@@ -136,6 +136,7 @@ These endpoints are served by this unified backend and consumed by `/Volumes/Sec
 - Every `inventories[]` item must include `WELL_OID`, `INVENTORY_DATE`, `GENERATOR_HOURS_READING`, and `DIESEL_HEIGHT_CM`.
 - Generator hours and diesel height must be numeric and at least zero. Zero represents a valid counter/empty-tank reading and must not be rejected as an empty value.
 - Do not restore `?? null` fallbacks for these two fields in new sync writes. Historical Oracle rows may remain nullable for backward compatibility, but current mobile/API submissions may not omit them.
+- Flutter must retain an explicit time when the inspector chooses the inventory date. If the timestamp is not newer than the latest known local/server inventory, warn before saving and allow the inspector to confirm it as historical; the backend must continue accepting out-of-order offline sync.
 
 ## Reading Date Contract
 - The Flutter form defaults `READING_DATE` to today and permits today through 7 calendar days earlier, inclusive.
@@ -153,8 +154,9 @@ These endpoints are served by this unified backend and consumed by `/Volumes/Sec
 - A reading newer than `date_to` must not suppress the latest reading that is inside the selected period.
 - `getPreviousReading()` continues to resolve the immediately preceding chronological reading from full history for operating-hours and production calculations; the previous reading is not restricted to the export date range.
 - Apply the export limit only after the one-row-per-well selection.
-- Report summaries include active, reported, missing, normal, first-reading, review-required, and completion-percentage counts. Normal/review status uses only reading availability and non-decreasing meter consistency; do not invent domain thresholds that are not configured.
-- `ReadingController::index()` exposes the report through an optional Inertia `reportPreview` prop. PDF and Excel buttons must load this preview with the current filters and require explicit download confirmation.
+- Report summaries include active, reported, missing, normal, first-reading, review-required, and completion-percentage counts. A comparable row is normal only when both readings are non-negative and the operating-hours difference is at most 20 hours. Negative readings, reversed meters, and differences above 20 hours are abnormal and included in the review-required count.
+- `ReadingController::index()` exposes the report through an optional Inertia `reportPreview` prop plus the server-owned `reportColumns` allowlist. The readings page lazy-loads the preview into a dedicated same-page report tab; it must not use a modal or open another browser window.
+- `ReadingService::getExportReport()` filters requested column keys against the fixed registry. The same ordered selection drives the preview table, PDF, and Excel. Reading PDF output uses A2 landscape with print-readable typography and spacing.
 
 ## Wells Management Screen Contract
 - `WellController::index()` accepts `search`, `damage_status`, and `is_active`; the list does not use `quarter_oid` as a filter.
@@ -199,7 +201,9 @@ These endpoints are served by this unified backend and consumed by `/Volumes/Sec
 - `DieselInventoryService::getInternalTankReport()` owns `Daily Tank` fill-to-fill calculations.
 - `DieselInventoryService::getInventoryReport()` owns classified external-tank inventory/result rows and geometric balance calculations.
 - `DieselInventoryRepository` loads external inventories and their immediately preceding historical row. A classified external well has a non-null `TANK_SHAPE` other than `Daily Tank`.
-- `GeneratorRepository` resolves per-well generator settings, approved deliveries, and `Daily Tank` fuel-program entries from `G_STORE`. Every `FUEL_LOG_DETAILS` generator join requires `ASSET_TYPE = 401`.
+- When no older chronological inventory exists, `DieselInventoryService` returns null calculation values plus explicit Arabic unavailability reasons. Vue and the shared PDF/Excel view display those reasons; they must not convert an unknown supply interval to numeric zero.
+- `GeneratorRepository` resolves per-well generator settings, approved deliveries, and `Daily Tank` fuel-program entries from `G_STORE`. Both report queries require `FUEL_LOG_DETAILS.ASSET_TYPE = 401`, non-null `APPROVED_GALLONS`, `FUEL_LOG.STATUS_OID = 416`, and null `CANCEL_DATE`.
+- External approved supply is assigned primarily by the delivery `CURRENT_READING` falling in `(previous inventory meter, current inventory meter]`. `GeneratorRepository` widens the initial lower date bound to the start of the previous inventory day so a date-only midnight `FILL_UP_DATE` reaches this meter comparison. Missing delivery-meter values fall back to a same-day `ENTRY_DATE`, then `FILL_UP_DATE`.
 - Internal rate: `approved fill liters / (current fill meter - immediately previous approved fill meter)`.
 - External rate: `(previous geometric balance + approved supply - current geometric balance) / operating hours`.
 - Meter differences must be positive and cannot exceed elapsed calendar hours plus the one-hour meter/date precision allowance. Reverse, repeated-time, impossible, or negative-balance results are `invalid`, never `high`.

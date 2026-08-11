@@ -15,6 +15,23 @@ use Illuminate\Support\Facades\DB;
 
 class ReadingService
 {
+    private const MAX_NORMAL_OPERATING_HOURS = 20.0;
+
+    private const REPORT_COLUMNS = [
+        ['key' => 'status', 'label' => 'المؤشر', 'type' => 'status', 'default' => true],
+        ['key' => 'well_name', 'label' => 'اسم البئر', 'type' => 'text', 'default' => true],
+        ['key' => 'well_number', 'label' => 'الرقم/الاسم الرسمي', 'type' => 'text', 'default' => true],
+        ['key' => 'coordinates', 'label' => 'الإحداثيات', 'type' => 'text', 'default' => false],
+        ['key' => 'capacity', 'label' => 'السعة (م³/ساعة)', 'type' => 'number', 'default' => true],
+        ['key' => 'previous_reading', 'label' => 'القراءة السابقة', 'type' => 'number', 'default' => true],
+        ['key' => 'current_reading', 'label' => 'القراءة الحالية', 'type' => 'number', 'default' => true],
+        ['key' => 'operating_hours', 'label' => 'فرق التشغيل (ساعة)', 'type' => 'number', 'default' => true],
+        ['key' => 'production', 'label' => 'الإنتاج (م³)', 'type' => 'number', 'default' => true],
+        ['key' => 'inspector_name', 'label' => 'المفتش', 'type' => 'text', 'default' => true],
+        ['key' => 'reading_date', 'label' => 'تاريخ القراءة', 'type' => 'date', 'default' => true],
+        ['key' => 'notes', 'label' => 'ملاحظات', 'type' => 'text', 'default' => false],
+    ];
+
     public function __construct(
         private readonly ReadingRepository $readingRepository,
         private readonly WellRepository $wellRepository,
@@ -100,7 +117,12 @@ class ReadingService
                     ? round($currentReading - $previousReading, 2)
                     : null;
             $capacity = $this->numeric($this->attribute($well, 'CAPACITY')) ?? 0.0;
-            $status = $this->readingStatus($reading, $currentReading, $previousReading);
+            $status = $this->readingStatus(
+                $reading,
+                $currentReading,
+                $previousReading,
+                $operatingHours,
+            );
 
             return [
                 'index' => $index + 1,
@@ -133,19 +155,37 @@ class ReadingService
             'rows' => $rows,
             'total_operating_hours' => $rows->sum('operating_hours'),
             'total_production' => $rows->sum('production'),
+            'totals' => [
+                'operating_hours' => $rows->sum('operating_hours'),
+                'production' => $rows->sum('production'),
+            ],
             'summary' => [
                 'total_active_wells' => $totalActiveWells,
                 'reported_wells' => $reportedWells,
                 'missing_wells' => $totalActiveWells - $reportedWells,
                 'normal_wells' => $rows->where('status.key', 'normal')->count(),
                 'first_reading_wells' => $rows->where('status.key', 'first')->count(),
-                'review_wells' => $rows->where('status.key', 'review')->count(),
+                'review_wells' => $rows
+                    ->whereIn('status.key', ['review', 'abnormal'])
+                    ->count(),
                 'completion_percentage' => $totalActiveWells > 0
                     ? round(($reportedWells / $totalActiveWells) * 100, 1)
                     : 0.0,
             ],
             'generated_at' => now(),
         ];
+    }
+
+    public function getReportColumns(): array
+    {
+        return self::REPORT_COLUMNS;
+    }
+
+    public function getExportReport(array $filters = [], array $requestedColumns = []): array
+    {
+        return array_merge($this->getProductionReport($filters), [
+            'columns' => $this->selectedColumns($requestedColumns),
+        ]);
     }
 
     public function getReadingsByWell(int $wellId): Collection
@@ -184,6 +224,7 @@ class ReadingService
         ?WellReading $reading,
         ?float $currentReading,
         ?float $previousReading,
+        ?float $operatingHours,
     ): array {
         if (! $reading) {
             return [
@@ -203,6 +244,15 @@ class ReadingService
             ];
         }
 
+        if ($currentReading < 0 || ($previousReading !== null && $previousReading < 0)) {
+            return [
+                'key' => 'abnormal',
+                'label' => 'غير طبيعي',
+                'level' => 'elevated',
+                'reason' => 'إحدى قراءات العداد سالبة',
+            ];
+        }
+
         if ($previousReading === null) {
             return [
                 'key' => 'first',
@@ -214,10 +264,19 @@ class ReadingService
 
         if ($currentReading < $previousReading) {
             return [
-                'key' => 'review',
-                'label' => 'تحتاج مراجعة',
+                'key' => 'abnormal',
+                'label' => 'غير طبيعي',
                 'level' => 'elevated',
-                'reason' => 'قراءة العداد الحالية أقل من القراءة السابقة',
+                'reason' => 'فرق التشغيل سالب لأن القراءة الحالية أقل من السابقة',
+            ];
+        }
+
+        if ($operatingHours !== null && $operatingHours > self::MAX_NORMAL_OPERATING_HOURS) {
+            return [
+                'key' => 'abnormal',
+                'label' => 'غير طبيعي',
+                'level' => 'elevated',
+                'reason' => 'فرق التشغيل أكبر من 20 ساعة',
             ];
         }
 
@@ -232,6 +291,26 @@ class ReadingService
     private function numeric(mixed $value): ?float
     {
         return $value === null || $value === '' || ! is_numeric($value) ? null : (float) $value;
+    }
+
+    private function selectedColumns(array $requested): array
+    {
+        $available = collect(self::REPORT_COLUMNS);
+        $allowedKeys = $available->pluck('key');
+        $requested = collect($requested)
+            ->filter(fn (mixed $key): bool => is_string($key) && $allowedKeys->contains($key))
+            ->unique()
+            ->values();
+
+        if ($requested->isEmpty()) {
+            return $available->where('default', true)->values()->all();
+        }
+
+        return $requested
+            ->map(fn (string $key): array => $available->firstWhere('key', $key))
+            ->filter()
+            ->values()
+            ->all();
     }
 
     private function attribute(?object $model, string $key): mixed

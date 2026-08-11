@@ -62,16 +62,26 @@ The `audit_logs` table must never have rows updated or deleted. It is append-onl
 - `stationary_heartbeat` points prove recent GPS coverage but are excluded from filtered distance and fuel. Finite client speeds from 0 through 1 m/s are treated as stationary by driver build 26 and later, preventing low-speed coordinate drift from becoming vehicle movement.
 - Any interval over 60 seconds splits the filtered route before `stationary_heartbeat` handling. The dashboard must retain a gap connector even when the first post-gap point is stationary, and the connector never contributes to distance or fuel. Dashboard trip rows count explicit `tracking_gap` events alongside GPS-disable and airplane-mode events.
 
-## 8. Wells Diesel Consumption Status
+## 8. Fleet Dashboard Experimental Trip Visibility
+
+- A completed trip with fewer than 50 actual rows in `trip_points` is experimental display data for the Fleet dashboard.
+- The default dashboard list and all trip-derived dashboard statistics exclude these completed short trips.
+- An active trip is never classified as experimental while `ended_at` is null, even when its current point count is below 50. It must remain visible for live supervision.
+- Query parameter `show_experimental=1` includes completed short trips. The page labels them **تجريبية** and preserves the option across period/status filters, search, pagination, live refresh, and dashboard review actions.
+- Classification uses the stored `trip_points` relationship, not a client claim. The rule is presentation-only and must not delete rows, alter confirmation/checksum state, change reports, or block direct trip-detail access.
+
+## 9. Wells Diesel Consumption Status
 
 - `Daily Tank` wells use approved fuel-program fills; classified non-Daily tanks use field inventory geometry. Wells without `TANK_SHAPE` belong to neither report until classified.
-- Generator fuel rows require `G_STORE.FUEL_LOG_DETAILS.ASSET_TYPE = 401`; `ASSET_OID` alone is not unique across asset types.
+- Generator fuel rows used by either diesel report require `G_STORE.FUEL_LOG_DETAILS.ASSET_TYPE = 401`, non-null approved quantity, `G_STORE.FUEL_LOG.STATUS_OID = 416`, and null cancellation date; `ASSET_OID` alone is not unique across asset types.
 - Internal actual rate is approved liters divided by the positive difference between consecutive fill meter readings.
 - External actual rate is `(previous geometric balance + approved supply - current geometric balance) / positive operating hours`.
+- External supply belongs to an inventory interval when its numeric generator reading is greater than the previous inventory reading and no greater than the current inventory reading. Timestamp matching is fallback-only for delivery rows without a usable meter reading.
 - The alert threshold is the well-generator approved rate plus its allowed difference. Actual rate greater than the threshold is high; equal or lower is normal.
 - Missing inputs produce unavailable results. Reverse/zero/impossible meters, non-increasing fill times, and negative consumption produce invalid results. Invalid data must never be displayed as high consumption.
+- Missing chronological history keeps approved supply null and must be labeled as not calculable. Numeric zero is reserved for a valid inventory interval in which no approved delivery occurred.
 
-## 9. Wells Master Data Deletion Safety
+## 10. Wells Master Data Deletion Safety
 
 - Inspectors, teams, and wells may be physically deleted only when they have no related records or assignments.
 - Inspector blockers include teams, readings, diesel inventories, notifications, and access tokens.
@@ -80,3 +90,11 @@ The `audit_logs` table must never have rows updated or deleted. It is append-onl
 - The service must perform the friendly preflight check and expose `CAN_DELETE` plus `DELETE_BLOCKERS`; the database remains the authoritative final guard.
 - Foreign keys from these master records use `NO ACTION`, never `ON DELETE CASCADE`. A direct or racing delete must fail instead of deleting operational history.
 - Prefer `IS_ACTIVE = 0` for entities that have ever participated in operations.
+
+## 11. Wells Reading Production Status
+
+- The production-report indicator evaluates meter consistency only; it is not a water-quality assessment.
+- Comparable current and previous readings must both be non-negative.
+- Operating hours are `current reading - previous reading`. A difference from 0 through 20 hours inclusive is normal; a difference above 20 hours is abnormal.
+- A negative reading or reversed meter is abnormal. A missing previous row is a first reading, while missing current data requires review.
+- Abnormal rows are included in the report's review-required summary count.

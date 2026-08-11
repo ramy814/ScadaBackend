@@ -82,6 +82,106 @@ class ReadingProductionReportTest extends TestCase
         ], $report['summary']);
     }
 
+    public function test_export_uses_only_requested_allowed_unique_columns(): void
+    {
+        $readingRepository = Mockery::mock(ReadingRepository::class);
+        $readingRepository->shouldReceive('getReportReadings')
+            ->once()
+            ->with([])
+            ->andReturn(new Collection);
+
+        $wellRepository = Mockery::mock(WellRepository::class);
+        $wellRepository->shouldReceive('getActiveWells')
+            ->once()
+            ->andReturn(new Collection);
+
+        $service = new ReadingService($readingRepository, $wellRepository);
+        $report = $service->getExportReport([], [
+            'production',
+            'not_a_report_column',
+            'well_name',
+            'production',
+        ]);
+
+        self::assertSame(
+            ['production', 'well_name'],
+            array_column($report['columns'], 'key'),
+        );
+
+        $html = view('wells.readings-report', [
+            'report' => $report,
+            'format' => 'excel',
+        ])->render();
+
+        self::assertStringContainsString('الإنتاج (م³)', $html);
+        self::assertStringContainsString('اسم البئر', $html);
+        self::assertStringNotContainsString('الإحداثيات', $html);
+    }
+
+    public function test_negative_readings_and_differences_over_twenty_hours_are_abnormal(): void
+    {
+        $inspector = new Inspector;
+        $inspector->setRawAttributes(['oid' => 7, 'name' => 'المفتش الأول']);
+        $cases = [
+            1 => ['current' => -1, 'previous' => -5],
+            2 => ['current' => 121, 'previous' => 100],
+            3 => ['current' => 120, 'previous' => 100],
+        ];
+        $readings = new Collection;
+        $previousReadings = [];
+
+        foreach ($cases as $wellId => $case) {
+            $reading = new WellReading;
+            $reading->setRawAttributes([
+                'oid' => $wellId + 10,
+                'well_oid' => $wellId,
+                'pump_hours_reading' => $case['current'],
+                'reading_date' => '2026-08-11 08:00:00',
+            ]);
+            $reading->setRelation('inspector', $inspector);
+            $readings->push($reading);
+
+            $previous = new WellReading;
+            $previous->setRawAttributes([
+                'oid' => $wellId,
+                'well_oid' => $wellId,
+                'pump_hours_reading' => $case['previous'],
+                'reading_date' => '2026-08-10 08:00:00',
+            ]);
+            $previousReadings[] = [$reading, $previous];
+        }
+
+        $readingRepository = Mockery::mock(ReadingRepository::class);
+        $readingRepository->shouldReceive('getReportReadings')
+            ->once()
+            ->with([])
+            ->andReturn($readings);
+
+        foreach ($previousReadings as [$reading, $previous]) {
+            $readingRepository->shouldReceive('getPreviousReading')
+                ->once()
+                ->with($reading)
+                ->andReturn($previous);
+        }
+
+        $wellRepository = Mockery::mock(WellRepository::class);
+        $wellRepository->shouldReceive('getActiveWells')
+            ->once()
+            ->andReturn(new Collection([
+                $this->well(1, 'قراءة سالبة', 50),
+                $this->well(2, 'فرق 21 ساعة', 50),
+                $this->well(3, 'فرق 20 ساعة', 50),
+            ]));
+
+        $report = (new ReadingService($readingRepository, $wellRepository))
+            ->getProductionReport();
+
+        self::assertSame('abnormal', $report['rows'][0]['status']['key']);
+        self::assertSame('abnormal', $report['rows'][1]['status']['key']);
+        self::assertSame('normal', $report['rows'][2]['status']['key']);
+        self::assertSame(2, $report['summary']['review_wells']);
+    }
+
     private function well(int $id, string $name, float $capacity): Well
     {
         $well = new Well;

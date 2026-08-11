@@ -1,5 +1,39 @@
 # Changelog & Recent Actions
 
+## [2026-08-11] External Diesel Supply Meter-Range Allocation
+
+- Fixed external-tank supply allocation when `FUEL_LOG.FILL_UP_DATE` stores only midnight and incorrectly places a same-day delivery before the previous inventory.
+- External supply now uses the approved delivery `CURRENT_READING` against `(previous inventory meter, current inventory meter]`; missing delivery meters fall back to same-day `ENTRY_DATE`, then `FILL_UP_DATE`.
+- Widened the repository's lower fetch bound to the start of the previous inventory day so date-only rows reach the service's authoritative meter comparison even under a single-day report filter.
+- Verified against Saraya: request 78134 (`650.6`, 950 liters) now belongs to the `645 → 713` interval and the 2026-08-01 inventory reports 950 liters, including when filtering only that date.
+
+## [2026-08-11] Diesel Supply Final-Status Requirement
+
+- Required `G_STORE.FUEL_LOG.STATUS_OID = 416` in both external-inventory approved-supply lookup and internal `Daily Tank` fill sequencing.
+- Retained the existing generator asset discriminator, non-null approved quantity, and non-canceled request conditions.
+- Verified the updated Oracle queries against Saraya generator `1840`; requests 76960, 78134, 78726, and 79403 remain accepted because each has final status 416.
+- Added a repository regression test covering both report query paths.
+
+## [2026-08-11] Diesel Inventory Chronology And Missing-Supply Clarity
+
+- Diagnosed the displayed Saraya row as a backfilled inventory timestamped before every other inventory for that well; its approved supply interval was therefore undefined rather than zero.
+- Added date-and-time selection plus a confirmable chronological warning to the offline-first Flutter diesel form. Historical saves remain available and backend sync continues to accept out-of-order records.
+- Replaced unexplained null previous-reading/supply dashes with explicit Arabic reasons on the dashboard and shared PDF/Excel exports, while preserving zero for valid intervals with no approved delivery.
+- Added regression coverage for the external-report reason and Flutter chronology warning.
+
+## [2026-08-11] Wells Reading Abnormal Threshold
+
+- Changed the production-report indicator so any negative current/previous meter reading, reversed meter, or operating-hours difference above 20 is **غير طبيعي**.
+- Kept a difference of exactly 20 hours normal, retained **قراءة أولى** for missing history, and retained **تحتاج مراجعة** for missing current data.
+- Included abnormal rows in the review-required summary and added regression coverage for negative, 21-hour, and exact-20-hour cases.
+
+## [2026-08-11] Wells Reading Report Tab And Print Layout
+
+- Replaced the readings production-report modal with a lazy-loaded same-page tab alongside the readings register; the existing PDF/Excel preview actions now switch to that tab instead of opening a popup or browser window.
+- Added a server-owned reading report column registry and a locally persisted chooser. The on-screen report, PDF, and Excel now use exactly the same allowlisted columns in the selected order.
+- Changed the reading PDF to A2 landscape and increased report typography, cell padding, header hierarchy, and Excel font sizing for clearer printing.
+- Added regression coverage for column allowlisting/order and the dynamic shared export template, visually verified the generated A2 PDF, and passed the focused Wells report tests plus the Vite production build.
+
 ## [2026-08-10] Lightweight Driver Route Preview
 
 - Added authenticated `GET /api/driver/trips/{trip}/route-preview` for confirmed trips owned by the current driver.
