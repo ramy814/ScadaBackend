@@ -48,7 +48,7 @@ Fuel balance calculation (`h = DIESEL_HEIGHT_CM / 100`, dimensions in meters):
 - The previous reading is selected per well using `INVENTORY_DATE`, then `OID` as the tie-breaker. Dashboard date filters must not remove the historical row used as the previous reading.
 - Diesel report operating hours: `current GENERATOR_HOURS_READING - previous GENERATOR_HOURS_READING`. If the current counter is lower, the result is left blank and a reset/inconsistent-reading note is shown.
 - Approved fuel supplied between external inventories: sum `G_STORE.FUEL_LOG_DETAILS.APPROVED_GALLONS` where numeric `CURRENT_READING` falls in `(previous inventory generator reading, current inventory generator reading]`. When the delivery meter is missing/malformed, use same-day `FUEL_LOG.ENTRY_DATE`, then `FILL_UP_DATE`, against the chronological inventory interval.
-- Actual fuel consumed: `previous calculated balance + approved supply - current calculated balance`; actual rate is this value divided by operating hours. Negative results are treated as inconsistent data and left blank with a note.
+- Actual fuel consumed: `previous calculated balance + approved supply - current calculated balance`. A valid interval without an accepted delivery uses supply `0`, simplifies to `previous balance - current balance`, and divides by the absolute non-zero generator-meter difference so the rate remains available. Negative balance results remain visible with a note and an invalid status.
 - Water production: `operating hours × WELLS.CAPACITY`.
 - Calculated diesel consumption: `operating hours × G_STORE.GENERATOR.FUEL_CONSUMPTION`.
 
@@ -194,8 +194,9 @@ Diesel report classification and formulas:
 - Unclassified wells are excluded from both groups until `TANK_SHAPE` is completed.
 - Internal actual rate = current approved fill quantity ÷ the positive meter difference from the immediately preceding approved fill.
 - External current/previous balances are calculated from tank geometry and diesel height. Actual rate = `(previous balance + approved supply - current balance) ÷ positive operating hours`.
+- A valid external interval with no approved delivery uses supplied quantity `0`; consumed liters and the rate are still calculated using the absolute non-zero meter difference. Missing history, unresolved generator, incomplete geometry, a zero meter difference, or non-increasing inventory time remain unavailable rather than being invented as zero.
 - Upper consumption limit = per-assignment approved rate + non-negative tolerance. Actual values above it are high; equality is normal.
-- Missing inputs are unavailable. Reverse/zero/impossible meter intervals and negative calculated consumption are invalid.
+- Missing inputs are unavailable. Reverse/zero/impossible meter intervals and negative calculated consumption are invalid; signed negative formula results remain visible for diagnosis.
 
 ### READING_GENERATOR_LOGS
 | Column | Type | Notes |

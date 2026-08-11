@@ -52,8 +52,10 @@ class DieselInventoryService
             ['key' => 'generator_number', 'label' => 'رقم المولد', 'type' => 'text', 'default' => true],
             ['key' => 'operating_hours', 'label' => 'فرق ساعات تشغيل المولد', 'type' => 'number', 'default' => true],
             ['key' => 'diesel_height_difference_cm', 'label' => 'فرق ارتفاع السولار (سم)', 'type' => 'number', 'default' => true],
+            ['key' => 'previous_fuel_balance_liters', 'label' => 'الرصيد السابق (لتر)', 'type' => 'number', 'default' => true],
+            ['key' => 'supplied_fuel_liters', 'label' => 'كمية توريد السولار (لتر)', 'type' => 'number', 'default' => true],
             ['key' => 'current_fuel_balance_liters', 'label' => 'رصيد السولار المحتسب (لتر)', 'type' => 'number', 'default' => true],
-            ['key' => 'consumed_fuel_liters', 'label' => 'السولار المستهلك (لتر)', 'type' => 'number', 'default' => false],
+            ['key' => 'consumed_fuel_liters', 'label' => 'السولار المستهلك (لتر)', 'type' => 'number', 'default' => true],
             ['key' => 'actual_consumption_lph', 'label' => 'معدل الاستهلاك (لتر/ساعة)', 'type' => 'number', 'default' => true],
             ['key' => 'nominal_consumption_lph', 'label' => 'المعدل المعتمد', 'type' => 'number', 'default' => false],
             ['key' => 'consumption_tolerance_lph', 'label' => 'هامش الاستهلاك', 'type' => 'number', 'default' => false],
@@ -246,6 +248,18 @@ class DieselInventoryService
                     $currentHours,
                 )
                 : null;
+            if ($suppliedFuel === 0.0
+                && $previousHours !== null
+                && $currentHours !== null
+                && $previousDate
+                && $currentDate->greaterThan($previousDate)
+            ) {
+                $noSupplyOperatingHours = round(abs($currentHours - $previousHours), 2);
+                if ($noSupplyOperatingHours > 0) {
+                    $operatingHours = $noSupplyOperatingHours;
+                    $interval['error'] = null;
+                }
+            }
             $consumedFuel = $previousBalance !== null
                 && $currentBalance !== null
                 && $suppliedFuel !== null
@@ -282,7 +296,6 @@ class DieselInventoryService
                 $balanceError = 'الرصيد الحالي أعلى من الرصيد السابق والتوريد المسجل';
                 $calculationError ??= $balanceError;
                 $notes[] = $balanceError;
-                $consumedFuel = null;
             }
 
             if (! $generator) {

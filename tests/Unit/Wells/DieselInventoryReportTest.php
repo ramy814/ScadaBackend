@@ -50,7 +50,29 @@ class DieselInventoryReportTest extends TestCase
         ]);
         $inventory->setRelation('well', $well);
         $inventory->setRelation('inspector', $inspector);
-        $inventories = new Collection([$inventory]);
+        $nextInventory = new DieselInventory;
+        $nextInventory->setRawAttributes([
+            'oid' => 11,
+            'well_oid' => 14,
+            'created_at' => '2026-06-30 14:30:00',
+            'inventory_date' => '2026-06-29 12:00:00',
+            'generator_hours_reading' => '110',
+            'diesel_height_cm' => '40',
+        ]);
+        $nextInventory->setRelation('well', $well);
+        $nextInventory->setRelation('inspector', $inspector);
+        $thirdInventory = new DieselInventory;
+        $thirdInventory->setRawAttributes([
+            'oid' => 12,
+            'well_oid' => 14,
+            'created_at' => '2026-07-01 14:30:00',
+            'inventory_date' => '2026-06-30 12:00:00',
+            'generator_hours_reading' => '120',
+            'diesel_height_cm' => '60',
+        ]);
+        $thirdInventory->setRelation('well', $well);
+        $thirdInventory->setRelation('inspector', $inspector);
+        $inventories = new Collection([$inventory, $nextInventory, $thirdInventory]);
 
         $inventoryRepository = Mockery::mock(DieselInventoryRepository::class);
         $inventoryRepository->shouldReceive('getReportInventories')
@@ -63,6 +85,18 @@ class DieselInventoryReportTest extends TestCase
                 'available_fuel_liters' => '888888',
                 'generator_hours_reading' => '100',
                 'inventory_date' => '2026-06-27 12:00:00',
+            ],
+            11 => [
+                'diesel_height_cm' => '50',
+                'available_fuel_liters' => null,
+                'generator_hours_reading' => '120',
+                'inventory_date' => '2026-06-28 12:00:00',
+            ],
+            12 => [
+                'diesel_height_cm' => '40',
+                'available_fuel_liters' => null,
+                'generator_hours_reading' => '110',
+                'inventory_date' => '2026-06-29 12:00:00',
             ],
         ]));
 
@@ -94,7 +128,7 @@ class DieselInventoryReportTest extends TestCase
                 'generator_oid' => 76,
                 'supplied_at' => '2026-06-28 08:00:00',
                 'entered_at' => '2026-06-28 08:00:00',
-                'meter_reading' => '121',
+                'meter_reading' => '131',
                 'liters' => 600.0,
             ],
         ]);
@@ -117,7 +151,20 @@ class DieselInventoryReportTest extends TestCase
         self::assertSame('GZM-AJP-088-005', $row['generator_number']);
         self::assertSame('high', $row['consumption_status']['key']);
         self::assertSame(11.0, $row['consumption_limit_lph']);
-        self::assertSame(1, $report['high_consumption_count']);
+        self::assertSame(2, $report['high_consumption_count']);
+
+        $zeroSupplyRow = $report['rows'][1];
+        self::assertSame(0.0, $zeroSupplyRow['supplied_fuel_liters']);
+        self::assertSame(10.0, $zeroSupplyRow['operating_hours']);
+        self::assertEqualsWithDelta(314.16, $zeroSupplyRow['consumed_fuel_liters'], 0.01);
+        self::assertEqualsWithDelta(31.42, $zeroSupplyRow['actual_consumption_lph'], 0.01);
+        self::assertSame('high', $zeroSupplyRow['consumption_status']['key']);
+
+        $negativeConsumptionRow = $report['rows'][2];
+        self::assertSame(0.0, $negativeConsumptionRow['supplied_fuel_liters']);
+        self::assertEqualsWithDelta(-628.32, $negativeConsumptionRow['consumed_fuel_liters'], 0.01);
+        self::assertEqualsWithDelta(-62.83, $negativeConsumptionRow['actual_consumption_lph'], 0.01);
+        self::assertSame('invalid', $negativeConsumptionRow['consumption_status']['key']);
     }
 
     public function test_daily_tank_report_calculates_normal_and_high_consumption(): void
@@ -276,7 +323,8 @@ class DieselInventoryReportTest extends TestCase
             ->with(['well_oid' => 14])
             ->andReturn([]);
 
-        $report = $this->serviceWithGeneratorRepository($generatorRepository)->getExportReport(
+        $service = $this->serviceWithGeneratorRepository($generatorRepository);
+        $report = $service->getExportReport(
             'internal',
             ['well_oid' => 14],
             [
@@ -292,6 +340,14 @@ class DieselInventoryReportTest extends TestCase
             array_column($report['columns'], 'key'),
         );
         self::assertSame('internal', $report['report_type']);
+
+        $externalResultDefaults = collect($service->getReportColumns()['external_results'])
+            ->where('default', true)
+            ->pluck('key');
+        self::assertTrue($externalResultDefaults->contains('previous_fuel_balance_liters'));
+        self::assertTrue($externalResultDefaults->contains('supplied_fuel_liters'));
+        self::assertTrue($externalResultDefaults->contains('consumed_fuel_liters'));
+        self::assertTrue($externalResultDefaults->contains('actual_consumption_lph'));
     }
 
     public function test_paginated_inventory_exposes_the_previous_generator_hours_reading(): void

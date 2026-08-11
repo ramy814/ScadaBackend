@@ -1,5 +1,18 @@
 # Changelog & Recent Actions
 
+## [2026-08-11] Zero-Supply External Rate
+
+- For an external inventory interval with supplied quantity `0`, calculate consumed fuel as `previous balance - current balance` and divide by the absolute non-zero generator-meter difference.
+- Do not classify that zero-supply interval as invalid merely because the meter moved backward or exceeds elapsed calendar time; assess the calculated rate against the approved limit.
+- Keep zero meter differences, non-increasing inventory times, incomplete inputs, and negative fuel-consumption results invalid or unavailable as appropriate.
+
+## [2026-08-11] External Inventory Zero-Supply Consumption
+
+- Continued external-tank consumption calculation when a valid inventory interval contains no approved delivery: supplied quantity is `0`, consumed liters are `previous balance + 0 - current balance`, and the actual rate is calculated when operating hours are valid.
+- Made previous balance, supplied quantity, current balance, consumed liters, and actual rate visible by default in the external calculated-results tab and its PDF/Excel column selection.
+- Preserved signed negative formula results for diagnosis while classifying them as invalid instead of hiding the calculated values.
+- Kept genuinely unavailable inputs distinct: first inventory, unresolved generator, incomplete tank geometry, or invalid operating-hours data are not invented as zero.
+
 ## [2026-08-11] External Diesel Supply Meter-Range Allocation
 
 - Fixed external-tank supply allocation when `FUEL_LOG.FILL_UP_DATE` stores only midnight and incorrectly places a same-day delivery before the previous inventory.

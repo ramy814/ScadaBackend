@@ -79,7 +79,8 @@ The `audit_logs` table must never have rows updated or deleted. It is append-onl
 - External supply belongs to an inventory interval when its numeric generator reading is greater than the previous inventory reading and no greater than the current inventory reading. Timestamp matching is fallback-only for delivery rows without a usable meter reading.
 - The alert threshold is the well-generator approved rate plus its allowed difference. Actual rate greater than the threshold is high; equal or lower is normal.
 - Missing inputs produce unavailable results. Reverse/zero/impossible meters, non-increasing fill times, and negative consumption produce invalid results. Invalid data must never be displayed as high consumption.
-- Missing chronological history keeps approved supply null and must be labeled as not calculable. Numeric zero is reserved for a valid inventory interval in which no approved delivery occurred.
+- Missing chronological history keeps approved supply null and must be labeled as not calculable. Numeric zero is reserved for a valid inventory interval in which no approved delivery occurred; in that case calculate consumed liters as `previous balance - current balance` and calculate the rate with the absolute non-zero generator-meter difference. Reversal or excess over elapsed time does not invalidate this zero-supply exception.
+- Keep a negative calculated consumption/rate visible for diagnosis while classifying the row as invalid.
 
 ## 10. Wells Master Data Deletion Safety
 
