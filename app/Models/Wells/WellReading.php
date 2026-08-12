@@ -9,10 +9,14 @@ use App\Traits\Wells\UppercaseKeys;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class WellReading extends Model
 {
+    use SoftDeletes;
     use UppercaseKeys;
+
+    public const DELETED_AT = 'deleted_at';
 
     protected $table = 'well_readings';
 
@@ -48,6 +52,8 @@ class WellReading extends Model
             'LONGITUDE' => 'decimal:8',
             'READING_DATE' => 'datetime',
             'SYNCED_AT' => 'datetime',
+            'deleted_at' => 'datetime',
+            'deleted_by_user_id' => 'integer',
         ];
     }
 

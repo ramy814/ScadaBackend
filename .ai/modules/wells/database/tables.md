@@ -149,6 +149,10 @@ Activity media rules:
 | LONGITUDE | DECIMAL NULL | Inspector GPS |
 | SYNCED_AT | TIMESTAMP NULL | When synced from mobile |
 | CLIENT_LOCAL_ID | VARCHAR(64) NULL UNIQUE | Stable mobile reading UUID; prevents duplicate parent rows on retry |
+| DELETED_AT | TIMESTAMP NULL | Soft-deletion time; null means operationally visible |
+| DELETED_BY_USER_ID | INTEGER NULL | SSO `mog_users.users_list.id` that performed the deletion |
+| DELETED_BY_NAME | VARCHAR(255) NULL | Actor display-name snapshot |
+| DELETE_REASON | VARCHAR(1000) NULL | Mandatory dashboard deletion reason |
 | CREATED_AT | TIMESTAMP | |
 | UPDATED_AT | TIMESTAMP | |
 
@@ -161,6 +165,7 @@ Reading date rules:
 - The preceding reading used for the report calculation is the immediately earlier historical row for the same well and may be outside the selected export period.
 - The final production report is active-well-driven: all `WELLS.IS_ACTIVE = 1` rows appear even if no filtered reading exists. Missing readings keep their report values null and are never represented as zero production or zero meter readings.
 - Report supervision statuses are application-level interpretations of availability and meter consistency only; no chemical/water-quality threshold is stored or inferred by this report.
+- Soft-deleted readings remain physically stored for audit but are excluded from current/previous reading chronology, lists, statistics, reports, exports, and mobile history.
 
 ### DIESEL_INVENTORIES
 | Column | Type | Notes |
@@ -178,6 +183,10 @@ Reading date rules:
 | NOTES | TEXT NULL | Field notes |
 | SYNCED_AT | TIMESTAMP NULL | When synced from mobile |
 | CLIENT_LOCAL_ID | VARCHAR(64) NULL UNIQUE | Stable mobile inventory UUID; prevents duplicate rows on retry |
+| DELETED_AT | TIMESTAMP NULL | Soft-deletion time; null means operationally visible |
+| DELETED_BY_USER_ID | INTEGER NULL | SSO `mog_users.users_list.id` that performed the deletion |
+| DELETED_BY_NAME | VARCHAR(255) NULL | Actor display-name snapshot |
+| DELETE_REASON | VARCHAR(1000) NULL | Mandatory dashboard deletion reason |
 | CREATED_AT | TIMESTAMP | |
 | UPDATED_AT | TIMESTAMP | |
 
@@ -186,6 +195,7 @@ New diesel inventory rules:
 - Flutter and `/api/wells/diesel-inventories/sync` require both `GENERATOR_HOURS_READING` and `DIESEL_HEIGHT_CM`.
 - Empty, non-numeric, and negative values are invalid. Numeric zero is valid.
 - Keep the Oracle columns nullable only for historical compatibility; application code must not create a new null value.
+- Soft-deleted inventories remain physically stored for audit but are excluded from inventory chronology, previous-row analytics, balances, statistics, reports, exports, and mobile history. UUID retry lookup may see them only to prevent recreation.
 
 Diesel report classification and formulas:
 

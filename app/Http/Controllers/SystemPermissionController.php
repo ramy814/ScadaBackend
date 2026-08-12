@@ -54,7 +54,7 @@ class SystemPermissionController extends Controller
     {
         $this->authorizeManager();
 
-        abort_unless(in_array($systemKey, SystemPermissionRepository::SYSTEM_KEYS, true), 404);
+        abort_unless(in_array($systemKey, SystemPermissionRepository::PERMISSION_KEYS, true), 404);
 
         $this->permissions->revoke($userId, $systemKey);
 
@@ -92,6 +92,18 @@ class SystemPermissionController extends Controller
                 'key' => 'valves',
                 'label' => 'متابعة المحابس',
                 'description' => 'خرائط ومتابعة محابس الشبكة البلدية.',
+            ],
+            [
+                'key' => SystemPermissionRepository::DELETE_WELL_READING,
+                'label' => 'حذف قراءات الآبار',
+                'description' => 'إخفاء قراءة مع حفظ منفذ العملية ووقتها وسببها.',
+                'requires' => 'wells',
+            ],
+            [
+                'key' => SystemPermissionRepository::DELETE_DIESEL_INVENTORY,
+                'label' => 'حذف جرد السولار',
+                'description' => 'إخفاء سجل جرد مع حفظ منفذ العملية ووقتها وسببها.',
+                'requires' => 'wells',
             ],
         ];
     }

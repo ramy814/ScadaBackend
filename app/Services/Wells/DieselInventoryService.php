@@ -34,7 +34,7 @@ class DieselInventoryService
         'external_inventory' => [
             ['key' => 'created_at', 'label' => 'تاريخ الإدخال', 'type' => 'date', 'default' => true],
             ['key' => 'previous_inventory_date', 'label' => 'تاريخ القراءة السابقة', 'type' => 'date', 'default' => true],
-            ['key' => 'inventory_date', 'label' => 'تاريخ القراءة الحالية', 'type' => 'date', 'default' => true],
+            ['key' => 'inventory_date', 'label' => 'تاريخ الجرد', 'type' => 'date', 'default' => true],
             ['key' => 'well_name', 'label' => 'اسم البئر', 'type' => 'text', 'default' => true],
             ['key' => 'inspector_name', 'label' => 'المفتش', 'type' => 'text', 'default' => true],
             ['key' => 'generator_number', 'label' => 'رقم المولد', 'type' => 'text', 'default' => false],
@@ -48,6 +48,7 @@ class DieselInventoryService
         ],
         'external_results' => [
             ['key' => 'created_at', 'label' => 'تاريخ الإدخال', 'type' => 'date', 'default' => true],
+            ['key' => 'inventory_date', 'label' => 'تاريخ الجرد', 'type' => 'date', 'default' => true],
             ['key' => 'well_name', 'label' => 'اسم البئر', 'type' => 'text', 'default' => true],
             ['key' => 'generator_number', 'label' => 'رقم المولد', 'type' => 'text', 'default' => true],
             ['key' => 'operating_hours', 'label' => 'فرق ساعات تشغيل المولد', 'type' => 'number', 'default' => true],
@@ -116,6 +117,20 @@ class DieselInventoryService
     public function getInventory(int $id): DieselInventory
     {
         return $this->dieselInventoryRepository->findOrFail($id);
+    }
+
+    public function deleteInventory(
+        int $id,
+        int $actorId,
+        string $actorName,
+        string $reason,
+    ): void {
+        $this->dieselInventoryRepository->softDelete(
+            $id,
+            $actorId,
+            $actorName,
+            trim($reason),
+        );
     }
 
     public function processInventory(array $data): DieselInventory
@@ -323,6 +338,7 @@ class DieselInventoryService
 
             return [
                 'index' => $index + 1,
+                'row_id' => (int) $inventory->getKey(),
                 'created_at' => $inventory->getAttributes()['created_at']
                     ?? $inventory->getAttributes()['CREATED_AT']
                     ?? null,

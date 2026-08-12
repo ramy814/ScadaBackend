@@ -28,8 +28,33 @@ const systemByKey = computed(() => {
 
 function editUser(user) {
   form.user_id = String(user.user_id)
-  form.systems = [...user.systems]
+  const selected = new Set(user.systems)
+  props.systems.forEach(permission => {
+    if (selected.has(permission.key) && permission.requires) selected.add(permission.requires)
+  })
+  form.systems = props.systems.map(permission => permission.key).filter(key => selected.has(key))
   selectedUserName.value = user.name || ''
+}
+
+function permissionDisabled(permission) {
+  return Boolean(permission.requires && !form.systems.includes(permission.requires))
+}
+
+function togglePermission(permission, checked) {
+  const selected = new Set(form.systems)
+
+  if (checked) {
+    selected.add(permission.key)
+  } else {
+    selected.delete(permission.key)
+    props.systems
+      .filter(item => item.requires === permission.key)
+      .forEach(item => selected.delete(item.key))
+  }
+
+  form.systems = props.systems
+    .map(item => item.key)
+    .filter(key => selected.has(key))
 }
 
 function submit() {
@@ -110,7 +135,7 @@ function selectUser(user) {
       <section class="panel form-panel">
         <div class="panel-title">
           <h2>منح أو تعديل صلاحية مستخدم</h2>
-          <p>أدخل رقم مستخدم SSO ثم اختر الأنظمة المسموحة له.</p>
+          <p>اختر الأنظمة، ثم امنح صلاحيات العمليات الحساسة عند الحاجة.</p>
         </div>
 
         <form class="permission-form" @submit.prevent="submit">
@@ -142,8 +167,18 @@ function selectUser(user) {
           </label>
 
           <div class="systems-grid">
-            <label v-for="system in systems" :key="system.key" class="system-option">
-              <input v-model="form.systems" type="checkbox" :value="system.key" />
+            <label
+              v-for="system in systems"
+              :key="system.key"
+              class="system-option"
+              :class="{ disabled: permissionDisabled(system) }"
+            >
+              <input
+                type="checkbox"
+                :checked="form.systems.includes(system.key)"
+                :disabled="permissionDisabled(system)"
+                @change="togglePermission(system, $event.target.checked)"
+              />
               <span>
                 <strong>{{ system.label }}</strong>
                 <em>{{ system.description }}</em>
@@ -162,7 +197,7 @@ function selectUser(user) {
       <section class="panel">
         <div class="panel-title">
           <h2>المستخدمون المصرح لهم</h2>
-          <p>الصلاحية هنا لكل نظام مستقل: تتبع المركبات، الآبار، أو المحابس.</p>
+          <p>تظهر هنا صلاحيات دخول الأنظمة وصلاحيات العمليات الحساسة الممنوحة لكل مستخدم.</p>
         </div>
 
         <div v-if="users.length === 0" class="empty-state">
@@ -175,7 +210,7 @@ function selectUser(user) {
               <tr>
                 <th>المستخدم</th>
                 <th>رقم المستخدم</th>
-                <th>الأنظمة</th>
+                <th>الأنظمة والصلاحيات</th>
                 <th>إجراء</th>
               </tr>
             </thead>
@@ -364,6 +399,10 @@ small,
   border-radius: 8px;
   background: var(--theme-surface-strong);
   cursor: pointer;
+}
+
+.system-option.disabled {
+  opacity: 0.55;
 }
 
 .system-option input {

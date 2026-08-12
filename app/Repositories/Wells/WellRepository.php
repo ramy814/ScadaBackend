@@ -28,8 +28,8 @@ class WellRepository
         $query = $this->withSourceWellCode($this->model->newQuery())
             ->with(['teams', 'generators'])
             ->withCount([
-                'readings',
-                'dieselInventories',
+                'readings as readings_count' => fn ($query) => $query->withTrashed(),
+                'dieselInventories as diesel_inventories_count' => fn ($query) => $query->withTrashed(),
                 'notifications',
                 'teams',
                 'generators',
@@ -76,8 +76,8 @@ class WellRepository
     {
         return $this->model
             ->withCount([
-                'readings',
-                'dieselInventories',
+                'readings as readings_count' => fn ($query) => $query->withTrashed(),
+                'dieselInventories as diesel_inventories_count' => fn ($query) => $query->withTrashed(),
                 'notifications',
                 'teams',
                 'generators',

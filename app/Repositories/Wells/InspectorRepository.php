@@ -21,8 +21,8 @@ class InspectorRepository
             ->with('teams')
             ->withCount([
                 'teams',
-                'readings',
-                'dieselInventories',
+                'readings as readings_count' => fn ($query) => $query->withTrashed(),
+                'dieselInventories as diesel_inventories_count' => fn ($query) => $query->withTrashed(),
                 'notifications',
                 'tokens',
             ])
@@ -36,8 +36,8 @@ class InspectorRepository
             ->with('teams')
             ->withCount([
                 'teams',
-                'readings',
-                'dieselInventories',
+                'readings as readings_count' => fn ($query) => $query->withTrashed(),
+                'dieselInventories as diesel_inventories_count' => fn ($query) => $query->withTrashed(),
                 'notifications',
                 'tokens',
             ])
@@ -60,8 +60,8 @@ class InspectorRepository
         return $this->model
             ->withCount([
                 'teams',
-                'readings',
-                'dieselInventories',
+                'readings as readings_count' => fn ($query) => $query->withTrashed(),
+                'dieselInventories as diesel_inventories_count' => fn ($query) => $query->withTrashed(),
                 'notifications',
                 'tokens',
             ])

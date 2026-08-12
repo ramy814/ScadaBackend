@@ -47,6 +47,32 @@ class DieselInventoryRepository
         return $this->model->create($data);
     }
 
+    public function softDelete(
+        int $id,
+        int $actorId,
+        string $actorName,
+        string $reason,
+    ): void {
+        $inventory = $this->model->findOrFail($id);
+        $inventory->forceFill([
+            'deleted_at' => now(),
+            'deleted_by_user_id' => $actorId,
+            'deleted_by_name' => $actorName,
+            'delete_reason' => $reason,
+        ])->saveOrFail();
+    }
+
+    public function findSyncedByLocalIdIncludingDeleted(
+        string $localId,
+        int $inspectorId,
+    ): ?DieselInventory {
+        return $this->model
+            ->withTrashed()
+            ->where('CLIENT_LOCAL_ID', $localId)
+            ->where('INSPECTOR_OID', $inspectorId)
+            ->first();
+    }
+
     /**
      * Return the preceding inventory reading for each supplied inventory.
      *
@@ -83,6 +109,7 @@ class DieselInventoryRepository
                            PARTITION BY WELL_OID ORDER BY INVENTORY_DATE, OID
                        ) AS PREV_INVENTORY_DATE
                 FROM DIESEL_INVENTORIES
+                WHERE DELETED_AT IS NULL
             )
             WHERE OID IN ($placeholders)
         SQL, $ids);
@@ -164,7 +191,8 @@ class DieselInventoryRepository
                            PARTITION BY WELL_OID ORDER BY INVENTORY_DATE DESC, OID DESC
                        ) AS ROW_NUM
                 FROM DIESEL_INVENTORIES
-                WHERE WELL_OID IN ($placeholders)
+                WHERE DELETED_AT IS NULL
+                  AND WELL_OID IN ($placeholders)
             )
             WHERE ROW_NUM = 1
         SQL, $wellIds);

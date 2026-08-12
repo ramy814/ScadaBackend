@@ -111,6 +111,18 @@ Source path: `/Volumes/SecondDrive/Wells/wells_app`.
 - Store the approved rate and allowed difference on `WELL_GENERATORS`, because a well can have multiple generators. Preserve these settings when synchronizing assignments.
 - Accept report columns only through the service's fixed metadata registry. Never interpolate request-provided database column names into SQL or a report.
 
+## Reading And Diesel Inventory Soft Deletion
+
+- Use only audited soft deletion for `WELL_READINGS` and `DIESEL_INVENTORIES`; never physically delete these operational rows from the dashboard workflow.
+- Require `reason` as a trimmed string from 3 through 1000 characters through `DeleteOperationalRecordRequest`.
+- Store `DELETED_AT`, `DELETED_BY_USER_ID`, `DELETED_BY_NAME`, and `DELETE_REASON` together on the source row. Repository methods perform the write; services own the operation; controllers only authorize and delegate.
+- Require `wells.readings.delete` for a reading and `wells.diesel-inventories.delete` for an inventory. Both action checks fail closed and require base `wells` access.
+- Keep the models' `SoftDeletes` global scope so ordinary lists, statistics, reports, exports, relations, and mobile history exclude deleted rows automatically.
+- Add `DELETED_AT IS NULL` explicitly inside raw/analytic subqueries. A deleted row must never become a current or previous reading/inventory in calculations.
+- UUID idempotency lookup is the only normal path that uses `withTrashed()`: acknowledge the original `CLIENT_LOCAL_ID` without recreating or redisplaying the deleted record.
+- Master-data deletion blockers must use `withTrashed()` counts for readings/inventories because their physical rows and foreign keys still exist.
+- Do not expose delete actions for `Daily Tank` fuel-program rows; they are not `DIESEL_INVENTORIES` records owned by this workflow.
+
 ## Wells Management UI Rules
 - The Wells list filter contract is `search`, `damage_status`, and `is_active`; do not restore the quarter filter unless explicitly requested.
 - Render assigned generators in their own column using the generator number as non-wrapping LTR text and the Arabic name beneath it.

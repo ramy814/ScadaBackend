@@ -28,10 +28,13 @@ Route::middleware(['web', 'auth:admin', 'system.access:wells'])->prefix('wells')
     Route::get('/readings', [ReadingController::class, 'index'])->name('wells.readings.index');
     Route::get('/readings/report/pdf', [ReadingController::class, 'reportPdf'])->name('wells.readings.report.pdf');
     Route::get('/readings/report/excel', [ReadingController::class, 'reportExcel'])->name('wells.readings.report.excel');
+    Route::delete('/readings/{reading}', [ReadingController::class, 'destroy'])->name('wells.readings.destroy');
     Route::get('/readings/{reading}', [ReadingController::class, 'show'])->name('wells.readings.show');
     Route::get('/diesel-inventories', [DieselInventoryController::class, 'index'])->name('wells.diesel-inventories.index');
     Route::get('/diesel-inventories/report/pdf', [DieselInventoryController::class, 'reportPdf'])->name('wells.diesel-inventories.report.pdf');
     Route::get('/diesel-inventories/report/excel', [DieselInventoryController::class, 'reportExcel'])->name('wells.diesel-inventories.report.excel');
+    Route::delete('/diesel-inventories/{inventory}', [DieselInventoryController::class, 'destroy'])
+        ->name('wells.diesel-inventories.destroy');
 
     Route::resource('notification-types', NotificationTypeController::class)
         ->only(['index', 'store', 'update', 'destroy'])

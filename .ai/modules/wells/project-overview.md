@@ -21,6 +21,7 @@ A comprehensive well management system consisting of two main applications:
 6. Inspector records diesel inventory reports offline; generator operating hours and diesel height are mandatory non-negative values
 7. Parent records auto-sync first; queued reading/signal images upload after the server returns the parent Oracle OID
 8. Admin monitors readings, signals, attached images, diesel inventory, quality distribution, and inspector activity
+9. Authorized administrators may logically delete a reading or external diesel inventory with a mandatory reason; the row remains in Oracle with actor/time/reason audit metadata and is excluded from normal operational views and calculations
 
 ## Production Reports
 - The readings monitoring page supports `date_from` / `date_to` filters and exports a production report as PDF or Excel.
@@ -84,6 +85,10 @@ A comprehensive well management system consisting of two main applications:
 - Wells with no `TANK_SHAPE` are unclassified and excluded from both report groups until corrected. The diesel page shows their count and links to Wells management.
 - If `DIESEL_INVENTORIES.GENERATOR_OID` is null, the report and dashboard table may use `WELL_GENERATORS` only when the well has exactly one assigned generator. Multiple assignments must remain unresolved; reports include an explicit note and the dashboard shows no invented generator.
 - Dashboard users monitor diesel inventory reports at `/diesel-inventories`, with a summary also shown on the main dashboard.
+- Central action permissions are `wells.readings.delete` and `wells.diesel-inventories.delete`. They are managed at `/permissions`, require base `wells` access, and are checked again server-side before any delete operation.
+- Reading and external-inventory delete actions are soft deletes only. `DELETED_AT`, `DELETED_BY_USER_ID`, `DELETED_BY_NAME`, and `DELETE_REASON` preserve the audit record; normal lists, metrics, reports, exports, mobile history, and chronological previous-row calculations exclude deleted records.
+- A mobile retry with an existing `CLIENT_LOCAL_ID` must search including soft-deleted rows so an administratively deleted reading/inventory cannot be recreated. This lookup is for idempotency acknowledgement only; deleted rows remain absent from mobile history.
+- `Daily Tank` rows come from the external approved fuel program and are not deletable through the Wells inventory screen.
 - Wells dashboard pages use one page-level `.content-wrapper`. Wide inventory tables must remain inside their horizontal scroll container and must not resize or overlap the fixed sidebar.
 - Sidebar active-state matching treats `/wells` as an exact dashboard route; `/wells/diesel-inventories` activates only `جرد السولار`.
 - Wells surfaces, text, borders, inputs, cards, tables, and shadows alias the global `--theme-*` contract in `resources/css/app.css`: light mode follows Fleet and dark mode follows Valves. Wells keeps a restrained blue identity accent for navigation, buttons, highlights, and decorative panels; green, amber, and red are reserved for semantic statuses. Do not introduce a separate Wells base palette in `wells.css`.

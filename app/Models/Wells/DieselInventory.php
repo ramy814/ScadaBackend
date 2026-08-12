@@ -7,10 +7,14 @@ namespace App\Models\Wells;
 use App\Traits\Wells\UppercaseKeys;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class DieselInventory extends Model
 {
+    use SoftDeletes;
     use UppercaseKeys;
+
+    public const DELETED_AT = 'deleted_at';
 
     protected $table = 'diesel_inventories';
 
@@ -44,6 +48,8 @@ class DieselInventory extends Model
             'LATITUDE' => 'decimal:8',
             'LONGITUDE' => 'decimal:8',
             'SYNCED_AT' => 'datetime',
+            'deleted_at' => 'datetime',
+            'deleted_by_user_id' => 'integer',
         ];
     }
 

@@ -47,6 +47,20 @@ class ReadingService
         return $this->readingRepository->findOrFail($id);
     }
 
+    public function deleteReading(
+        int $id,
+        int $actorId,
+        string $actorName,
+        string $reason,
+    ): void {
+        $this->readingRepository->softDelete(
+            $id,
+            $actorId,
+            $actorName,
+            trim($reason),
+        );
+    }
+
     public function processReading(array $data, array $generatorLogs = []): WellReading
     {
         return DB::transaction(function () use ($data, $generatorLogs) {

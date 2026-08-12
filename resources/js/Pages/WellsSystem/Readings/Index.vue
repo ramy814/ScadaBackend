@@ -1,7 +1,8 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { router } from '@inertiajs/vue3'
+import { router, useForm } from '@inertiajs/vue3'
 import AppLayout from '../../../WellsSystem/Layouts/AppLayout.vue'
+import Modal from '../../../WellsSystem/Components/Shared/Modal.vue'
 import Pagination from '../../../WellsSystem/Components/Shared/Pagination.vue'
 import MediaThumbnails from '../../../WellsSystem/Components/Shared/MediaThumbnails.vue'
 import StatsCard from '../../../WellsSystem/Components/Shared/StatsCard.vue'
@@ -15,6 +16,7 @@ const props = defineProps({
     filters: { type: Object, default: () => ({}) },
     reportPreview: { type: Object, default: null },
     reportColumns: { type: Array, default: () => [] },
+    canDelete: { type: Boolean, default: false },
     urls: { type: Object, default: () => ({}) },
 })
 
@@ -35,6 +37,30 @@ const activeView = ref('records')
 const reportLoading = ref(false)
 const preferredFormat = ref('pdf')
 const columnPanelOpen = ref(false)
+const deleteTarget = ref(null)
+const deleteForm = useForm({ reason: '' })
+
+function confirmDelete(reading) {
+    deleteTarget.value = reading
+    deleteForm.reset()
+    deleteForm.clearErrors()
+}
+
+function closeDeleteModal() {
+    if (deleteForm.processing) return
+    deleteTarget.value = null
+    deleteForm.reset()
+    deleteForm.clearErrors()
+}
+
+function deleteReading() {
+    if (!deleteTarget.value) return
+
+    deleteForm.delete(`${props.urls.deleteBase}/${deleteTarget.value.OID}`, {
+        preserveScroll: true,
+        onSuccess: () => { deleteTarget.value = null },
+    })
+}
 
 function defaultColumnKeys() {
     const defaults = props.reportColumns
@@ -337,6 +363,7 @@ onBeforeUnmount(() => window.clearInterval(refreshTimer))
                                     <th>تاريخ إدخال السجل</th>
                                     <th>الصور</th>
                                     <th>المزامنة</th>
+                                    <th v-if="canDelete">إجراء</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -353,9 +380,17 @@ onBeforeUnmount(() => window.clearInterval(refreshTimer))
                                         <span v-if="reading.SYNCED_AT" class="badge badge-active">✓ تم</span>
                                         <span v-else class="badge badge-acceptable">⏳ بانتظار</span>
                                     </td>
+                                    <td v-if="canDelete">
+                                        <button
+                                            type="button"
+                                            class="btn btn-sm btn-danger"
+                                            title="حذف القراءة من العرض والاحتساب"
+                                            @click="confirmDelete(reading)"
+                                        >حذف</button>
+                                    </td>
                                 </tr>
                                 <tr v-if="!readingsList.length">
-                                    <td colspan="9" class="reading-empty-state">
+                                    <td :colspan="canDelete ? 10 : 9" class="reading-empty-state">
                                         لا توجد قراءات مطابقة للفلاتر المحددة
                                     </td>
                                 </tr>
@@ -540,6 +575,34 @@ onBeforeUnmount(() => window.clearInterval(refreshTimer))
                     </div>
                 </template>
             </section>
+
+            <Modal :show="Boolean(deleteTarget)" title="حذف قراءة بئر" @close="closeDeleteModal">
+                <p class="reading-delete-warning">
+                    سيبقى السجل محفوظاً للتدقيق، لكنه لن يظهر أو يدخل في الإحصاءات والتقارير.
+                </p>
+                <div class="form-group">
+                    <label class="form-label" for="reading-delete-reason">سبب الحذف</label>
+                    <textarea
+                        id="reading-delete-reason"
+                        v-model="deleteForm.reason"
+                        class="form-textarea"
+                        rows="4"
+                        maxlength="1000"
+                        placeholder="اكتب سبباً واضحاً للحذف..."
+                    />
+                    <small v-if="deleteForm.errors.reason" class="form-error">
+                        {{ deleteForm.errors.reason }}
+                    </small>
+                </div>
+                <template #footer>
+                    <button type="button" class="btn btn-secondary" :disabled="deleteForm.processing" @click="closeDeleteModal">
+                        إلغاء
+                    </button>
+                    <button type="button" class="btn btn-danger" :disabled="deleteForm.processing" @click="deleteReading">
+                        {{ deleteForm.processing ? 'جارٍ الحذف...' : 'تأكيد الحذف' }}
+                    </button>
+                </template>
+            </Modal>
         </div>
     </AppLayout>
 </template>
@@ -606,6 +669,12 @@ onBeforeUnmount(() => window.clearInterval(refreshTimer))
 
 .reading-table-card-body {
     padding: 0;
+}
+
+.reading-delete-warning {
+    margin: 0 0 16px;
+    color: var(--color-text-secondary);
+    line-height: 1.8;
 }
 
 .reading-report-section,

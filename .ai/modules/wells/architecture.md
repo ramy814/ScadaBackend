@@ -212,6 +212,15 @@ These endpoints are served by this unified backend and consumed by `/Volumes/Sec
 - The Inertia page receives `internalReport`, `externalReport`, `columnSets`, and `unclassifiedWellCount`. Column keys are selected from the service allowlist and the same selection drives the screen, Excel, and PDF. External result defaults include previous balance, supplied quantity, current balance, consumed liters, and actual rate.
 - `resources/views/wells/diesel-inventory-report.blade.php` is the shared dynamic RTL PDF/Excel template.
 
+## Audited Operational Record Deletion
+
+- Routes: `DELETE /wells/readings/{reading}` and `DELETE /wells/diesel-inventories/{inventory}`.
+- Both routes use `DeleteOperationalRecordRequest`, require a deletion reason, check their fail-closed action permission through `SystemPermissionRepository`, then delegate to the existing Wells service/repository layer.
+- `WellReading` and `DieselInventory` use Laravel `SoftDeletes` with the Oracle `DELETED_AT` column. Repositories write actor ID, actor name, time, and reason in one update; they never issue a physical delete.
+- Normal Eloquent queries inherit the global exclusion. Raw chronological subqueries in `ReadingRepository` and `DieselInventoryRepository` explicitly filter `DELETED_AT IS NULL`.
+- Sync idempotency methods query `withTrashed()` by authenticated inspector plus `CLIENT_LOCAL_ID` so retries cannot recreate hidden rows. Mobile history keeps the default scope and does not return them.
+- The Inertia pages receive server-owned `canDelete` flags and `deleteBase` URLs. Vue only displays the action; server authorization remains authoritative. After a successful delete response, the controller flashes `success`, the Wells layout displays the confirmation, and Vue closes the reason modal; validation or authorization failures keep it open.
+
 ## Frontend Structure
 ```
 resources/

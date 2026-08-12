@@ -33,6 +33,7 @@ The Fleet admin area also monitors driver-app adoption at `/admin/driver-apps`. 
 - **Technical Evidence Only**: GPS/permission changes, airplane mode, graceful shutdown/boot, tracking errors, and stale point gaps are supervisor review evidence. They do not prove driver intent, and a sudden power loss or network outage cannot be conclusively distinguished while the phone is offline.
 - **Live Tracking Reference**: `.ai/workflows/live-tracking-flow.md` is the authoritative cross-version flow and deployment-order reference for driver release `1.1.6+29`.
 - **Unified Dashboard Themes**: Fleet, Wells, Valves, the portal, and permissions share the semantic `--theme-*` tokens in `resources/css/app.css`. Light mode is based on Fleet and dark mode is based on Valves; individual systems retain only their identity accents. The selected `light`/`dark` value is shared through `localStorage.theme` and applied as `html[data-theme]`.
+- **Audited Wells Corrections**: Authorized administrators can logically delete Wells readings and external diesel inventories. The physical Oracle row and actor/time/reason remain for audit, while default operational queries and calculations exclude it.
 
 ## Tech Stack
 - **Framework**: Laravel 11.x
@@ -75,5 +76,6 @@ The Fleet admin area also monitors driver-app adoption at `/admin/driver-apps`. 
 - The unified portal (`/`) is the entry point for Fleet, Wells, and Valves.
 - The central permission screen is `/permissions`; it is not part of the Fleet tracking dashboard.
 - Each SSO user can be granted access independently to `fleet`, `wells`, and/or `valves`.
+- Wells access may additionally grant `wells.readings.delete` and `wells.diesel-inventories.delete`; these destructive action checks fail closed and never replace the base `wells` permission.
 - Access to the permission-management screen itself is limited to `MOG_PERMISSIONS_ADMIN_USER_IDS` outside local development.
 - The legacy `FLEET_ADMIN_ALLOWLIST` remains only a global admin gate for entering the backend area; it is not the per-system permission source.

@@ -10,6 +10,8 @@ use App\Models\Wells\NotificationType;
 use App\Models\Wells\Well;
 use App\Models\Wells\WellNotification;
 use App\Models\Wells\WellReading;
+use App\Repositories\Wells\DieselInventoryRepository;
+use App\Repositories\Wells\ReadingRepository;
 use App\Services\Wells\DieselFuelCalculator;
 use App\Services\Wells\WellService;
 use Carbon\Carbon;
@@ -22,6 +24,8 @@ class SyncController extends Controller
     public function __construct(
         private readonly DieselFuelCalculator $fuelCalculator,
         private readonly WellService $wellService,
+        private readonly ReadingRepository $readingRepository,
+        private readonly DieselInventoryRepository $dieselInventoryRepository,
     ) {}
 
     /**
@@ -58,10 +62,10 @@ class SyncController extends Controller
                 $localId = $this->payloadValue($readingData, ['LOCAL_ID', 'local_id']);
                 $reading = $localId === null
                     ? null
-                    : WellReading::query()
-                        ->where('CLIENT_LOCAL_ID', $localId)
-                        ->where('INSPECTOR_OID', $inspector->oid)
-                        ->first();
+                    : $this->readingRepository->findSyncedByLocalIdIncludingDeleted(
+                        $localId,
+                        (int) $inspector->oid,
+                    );
 
                 if ($reading !== null) {
                     $syncedIds[] = $localId;
@@ -141,10 +145,10 @@ class SyncController extends Controller
                 $localId = $invData['LOCAL_ID'] ?? null;
                 $inventory = $localId === null
                     ? null
-                    : DieselInventory::query()
-                        ->where('CLIENT_LOCAL_ID', $localId)
-                        ->where('INSPECTOR_OID', $inspector->oid)
-                        ->first();
+                    : $this->dieselInventoryRepository->findSyncedByLocalIdIncludingDeleted(
+                        $localId,
+                        (int) $inspector->oid,
+                    );
 
                 if ($inventory !== null) {
                     $syncedIds[] = $localId;

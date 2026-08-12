@@ -1,18 +1,20 @@
 <script setup>
 import { computed, ref } from 'vue'
-import { router } from '@inertiajs/vue3'
+import { router, useForm } from '@inertiajs/vue3'
 import AppLayout from '../../../WellsSystem/Layouts/AppLayout.vue'
 import Icon from '../../../WellsSystem/Components/Shared/Icon.vue'
+import Modal from '../../../WellsSystem/Components/Shared/Modal.vue'
 import StatsCard from '../../../WellsSystem/Components/Shared/StatsCard.vue'
 
 const REPORT_TYPES = ['internal', 'external_inventory', 'external_results']
-const STORAGE_PREFIX = 'wells.diesel-inventory.columns.v3.'
+const STORAGE_PREFIX = 'wells.diesel-inventory.columns.v4.'
 
 const props = defineProps({
     internalReport: { type: Object, default: () => ({ rows: [], totals: {} }) },
     externalReport: { type: Object, default: () => ({ rows: [], totals: {} }) },
     columnSets: { type: Object, default: () => ({}) },
     unclassifiedWellCount: { type: Number, default: 0 },
+    canDelete: { type: Boolean, default: false },
     urls: { type: Object, default: () => ({}) },
     wells: { type: Array, default: () => [] },
     inspectors: { type: Array, default: () => [] },
@@ -32,6 +34,30 @@ const activeExternalView = ref(
         : 'inventory',
 )
 const columnPanelOpen = ref(false)
+const deleteTarget = ref(null)
+const deleteForm = useForm({ reason: '' })
+
+function confirmDelete(row) {
+    deleteTarget.value = row
+    deleteForm.reset()
+    deleteForm.clearErrors()
+}
+
+function closeDeleteModal() {
+    if (deleteForm.processing) return
+    deleteTarget.value = null
+    deleteForm.reset()
+    deleteForm.clearErrors()
+}
+
+function deleteInventory() {
+    if (!deleteTarget.value?.row_id) return
+
+    deleteForm.delete(`${props.urls.deleteBase}/${deleteTarget.value.row_id}`, {
+        preserveScroll: true,
+        onSuccess: () => { deleteTarget.value = null },
+    })
+}
 
 const filterWell = ref(props.filters.well_oid || '')
 const filterInspector = ref(props.filters.inspector_oid || '')
@@ -720,6 +746,7 @@ function rowKey(row, index) {
                                 >
                                     {{ column.label }}
                                 </th>
+                                <th v-if="canDelete && reportType !== 'internal'" scope="col">إجراء</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -774,10 +801,18 @@ function rowKey(row, index) {
                                         {{ cellValue(row, column) ?? '-' }}
                                     </span>
                                 </td>
+                                <td v-if="canDelete && reportType !== 'internal'">
+                                    <button
+                                        type="button"
+                                        class="btn btn-sm btn-danger"
+                                        title="حذف سجل الجرد من العرض والاحتساب"
+                                        @click="confirmDelete(row)"
+                                    >حذف</button>
+                                </td>
                             </tr>
                             <tr v-if="!activeRows.length">
                                 <td
-                                    :colspan="visibleColumns.length + 1"
+                                    :colspan="visibleColumns.length + 1 + (canDelete && reportType !== 'internal' ? 1 : 0)"
                                     class="diesel-empty-state"
                                 >
                                     <Icon name="clipboard" size="32" aria-hidden="true" />
@@ -798,11 +833,40 @@ function rowKey(row, index) {
                                     </strong>
                                     <span v-else>—</span>
                                 </td>
+                                <td v-if="canDelete && reportType !== 'internal'">—</td>
                             </tr>
                         </tfoot>
                     </table>
                 </div>
             </section>
+
+            <Modal :show="Boolean(deleteTarget)" title="حذف سجل جرد" @close="closeDeleteModal">
+                <p class="diesel-delete-warning">
+                    سيبقى السجل محفوظاً للتدقيق، لكنه لن يظهر أو يدخل في الحسابات والإحصاءات والتقارير.
+                </p>
+                <div class="form-group">
+                    <label class="form-label" for="diesel-delete-reason">سبب الحذف</label>
+                    <textarea
+                        id="diesel-delete-reason"
+                        v-model="deleteForm.reason"
+                        class="form-textarea"
+                        rows="4"
+                        maxlength="1000"
+                        placeholder="اكتب سبباً واضحاً للحذف..."
+                    />
+                    <small v-if="deleteForm.errors.reason" class="form-error">
+                        {{ deleteForm.errors.reason }}
+                    </small>
+                </div>
+                <template #footer>
+                    <button type="button" class="btn btn-secondary" :disabled="deleteForm.processing" @click="closeDeleteModal">
+                        إلغاء
+                    </button>
+                    <button type="button" class="btn btn-danger" :disabled="deleteForm.processing" @click="deleteInventory">
+                        {{ deleteForm.processing ? 'جارٍ الحذف...' : 'تأكيد الحذف' }}
+                    </button>
+                </template>
+            </Modal>
         </div>
     </AppLayout>
 </template>
@@ -815,6 +879,12 @@ function rowKey(row, index) {
 
 .diesel-page-header {
     margin-bottom: 20px;
+}
+
+.diesel-delete-warning {
+    margin: 0 0 16px;
+    color: var(--color-text-secondary);
+    line-height: 1.8;
 }
 
 .diesel-classification-warning {

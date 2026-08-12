@@ -15,12 +15,28 @@ use Illuminate\Support\Facades\Log;
  * Manages the CONTROL_UNIT.SYSTEM_PERMISSIONS table in Oracle.
  * Controls which systems (fleet, wells, valves) an SSO user may access.
  *
- * Fail-open: if Oracle is unreachable or the table doesn't exist yet,
- * all checks return true so no one is hard-locked out during setup.
+ * System entry checks fail open during setup; destructive action checks fail closed.
  */
 class SystemPermissionRepository
 {
     public const SYSTEM_KEYS = ['fleet', 'wells', 'valves'];
+
+    public const DELETE_WELL_READING = 'wells.readings.delete';
+
+    public const DELETE_DIESEL_INVENTORY = 'wells.diesel-inventories.delete';
+
+    public const ACTION_KEYS = [
+        self::DELETE_WELL_READING,
+        self::DELETE_DIESEL_INVENTORY,
+    ];
+
+    public const PERMISSION_KEYS = [
+        'fleet',
+        'wells',
+        'valves',
+        self::DELETE_WELL_READING,
+        self::DELETE_DIESEL_INVENTORY,
+    ];
 
     public function __construct(private readonly OracleReadiness $readiness) {}
 
@@ -32,6 +48,8 @@ class SystemPermissionRepository
      */
     public function hasAccess(int $userId, string $systemKey): bool
     {
+        $this->assertValidSystem($systemKey);
+
         if (! $this->readiness->available()) {
             Log::warning('SystemPermissionRepository: Oracle unavailable, granting access by default.', [
                 'user_id' => $userId, 'system' => $systemKey,
@@ -56,6 +74,31 @@ class SystemPermissionRepository
     }
 
     /**
+     * Destructive action permissions fail closed when Oracle is unavailable.
+     */
+    public function hasActionPermission(int $userId, string $permissionKey): bool
+    {
+        $this->assertValidAction($permissionKey);
+
+        if (! $this->readiness->available()) {
+            return false;
+        }
+
+        try {
+            return SystemPermission::query()
+                ->where('user_id', $userId)
+                ->where('system_key', $permissionKey)
+                ->exists();
+        } catch (QueryException $e) {
+            if ($this->isTableMissing($e)) {
+                return false;
+            }
+
+            throw $e;
+        }
+    }
+
+    /**
      * Return all system keys accessible to a user.
      *
      * @return Collection<string>
@@ -69,6 +112,7 @@ class SystemPermissionRepository
         try {
             return SystemPermission::query()
                 ->where('user_id', $userId)
+                ->whereIn('system_key', self::SYSTEM_KEYS)
                 ->pluck('system_key');
         } catch (QueryException $e) {
             if ($this->isTableMissing($e)) {
@@ -83,7 +127,7 @@ class SystemPermissionRepository
      */
     public function grant(int $userId, string $systemKey, string $grantedBy): SystemPermission
     {
-        $this->assertValidSystem($systemKey);
+        $this->assertValidPermission($systemKey);
 
         return SystemPermission::query()->firstOrCreate(
             ['user_id' => $userId, 'system_key' => $systemKey],
@@ -96,11 +140,15 @@ class SystemPermissionRepository
      */
     public function revoke(int $userId, string $systemKey): void
     {
-        $this->assertValidSystem($systemKey);
+        $this->assertValidPermission($systemKey);
+
+        $keys = $systemKey === 'wells'
+            ? array_merge(['wells'], self::ACTION_KEYS)
+            : [$systemKey];
 
         SystemPermission::query()
             ->where('user_id', $userId)
-            ->where('system_key', $systemKey)
+            ->whereIn('system_key', $keys)
             ->delete();
     }
 
@@ -113,7 +161,13 @@ class SystemPermissionRepository
     {
         $systemKeys = array_values(array_unique($systemKeys));
         foreach ($systemKeys as $systemKey) {
-            $this->assertValidSystem($systemKey);
+            $this->assertValidPermission($systemKey);
+        }
+
+        if (array_intersect($systemKeys, self::ACTION_KEYS)
+            && ! in_array('wells', $systemKeys, true)
+        ) {
+            throw new \InvalidArgumentException('Wells action permissions require wells access.');
         }
 
         DB::connection('oracle')->transaction(function () use ($userId, $systemKeys, $grantedBy): void {
@@ -240,6 +294,20 @@ class SystemPermissionRepository
     {
         if (! in_array($systemKey, self::SYSTEM_KEYS, true)) {
             throw new \InvalidArgumentException("Invalid system key [{$systemKey}].");
+        }
+    }
+
+    private function assertValidAction(string $permissionKey): void
+    {
+        if (! in_array($permissionKey, self::ACTION_KEYS, true)) {
+            throw new \InvalidArgumentException("Invalid action permission [{$permissionKey}].");
+        }
+    }
+
+    private function assertValidPermission(string $permissionKey): void
+    {
+        if (! in_array($permissionKey, self::PERMISSION_KEYS, true)) {
+            throw new \InvalidArgumentException("Invalid permission key [{$permissionKey}].");
         }
     }
 

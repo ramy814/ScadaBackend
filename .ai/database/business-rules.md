@@ -99,3 +99,11 @@ The `audit_logs` table must never have rows updated or deleted. It is append-onl
 - Operating hours are `current reading - previous reading`. A difference from 0 through 20 hours inclusive is normal; a difference above 20 hours is abnormal.
 - A negative reading or reversed meter is abnormal. A missing previous row is a first reading, while missing current data requires review.
 - Abnormal rows are included in the report's review-required summary count.
+
+## 12. Wells Operational Record Soft Deletion
+
+- A dashboard deletion of `WELL_READINGS` or `DIESEL_INVENTORIES` is logical only; the physical Oracle row is retained.
+- Every deletion requires the correct per-user action permission plus a reason and stores actor ID/name, deletion time, and reason on the row.
+- Deleted rows are outside all normal operational counts, lists, history, reports, exports, balances, and current/previous chronology.
+- A deleted row remains visible only to explicit audit/idempotency queries. A repeated mobile UUID is acknowledged from the retained row and must never create a replacement.
+- Soft-deleted rows still block physical deletion of their linked well or inspector because the foreign-key-backed history remains present.

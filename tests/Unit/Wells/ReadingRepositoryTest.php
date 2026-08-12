@@ -72,6 +72,10 @@ class ReadingRepositoryTest extends TestCase
             $table->decimal('flow_rate')->nullable();
             $table->string('quality')->nullable();
             $table->dateTime('reading_date')->nullable();
+            $table->dateTime('deleted_at')->nullable();
+            $table->integer('deleted_by_user_id')->nullable();
+            $table->string('deleted_by_name')->nullable();
+            $table->string('delete_reason', 1000)->nullable();
             $table->dateTime('created_at')->nullable();
             $table->dateTime('updated_at')->nullable();
         });
@@ -97,6 +101,14 @@ class ReadingRepositoryTest extends TestCase
             ['oid' => 4, 'well_oid' => 1, 'inspector_oid' => 1, 'pump_hours_reading' => 30, 'reading_date' => '2026-07-20 08:00:00'],
             ['oid' => 5, 'well_oid' => 2, 'inspector_oid' => 1, 'pump_hours_reading' => 8, 'reading_date' => '2026-07-05 08:00:00'],
             ['oid' => 6, 'well_oid' => 2, 'inspector_oid' => 1, 'pump_hours_reading' => 14, 'reading_date' => '2026-07-12 08:00:00'],
+        ]);
+        DB::table('well_readings')->insert([
+            'oid' => 7,
+            'well_oid' => 1,
+            'inspector_oid' => 1,
+            'pump_hours_reading' => 24,
+            'reading_date' => '2026-07-11 08:00:00',
+            'deleted_at' => '2026-07-12 08:00:00',
         ]);
 
         $readings = (new ReadingRepository(new WellReading))->getReportReadings([

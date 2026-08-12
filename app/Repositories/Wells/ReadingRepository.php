@@ -43,6 +43,7 @@ class ReadingRepository
                 $newerReading
                     ->selectRaw('1')
                     ->from($table . ' as newer_reading')
+                    ->whereNull('newer_reading.DELETED_AT')
                     ->whereColumn('newer_reading.WELL_OID', $table . '.WELL_OID')
                     ->where(function (QueryBuilder $chronology) use ($table): void {
                         $chronology
@@ -151,6 +152,32 @@ class ReadingRepository
     public function create(array $data): WellReading
     {
         return $this->model->create($data);
+    }
+
+    public function softDelete(
+        int $id,
+        int $actorId,
+        string $actorName,
+        string $reason,
+    ): void {
+        $reading = $this->model->findOrFail($id);
+        $reading->forceFill([
+            'deleted_at' => now(),
+            'deleted_by_user_id' => $actorId,
+            'deleted_by_name' => $actorName,
+            'delete_reason' => $reason,
+        ])->saveOrFail();
+    }
+
+    public function findSyncedByLocalIdIncludingDeleted(
+        string $localId,
+        int $inspectorId,
+    ): ?WellReading {
+        return $this->model
+            ->withTrashed()
+            ->where('CLIENT_LOCAL_ID', $localId)
+            ->where('INSPECTOR_OID', $inspectorId)
+            ->first();
     }
 
     public function findByWell(int $wellId): Collection

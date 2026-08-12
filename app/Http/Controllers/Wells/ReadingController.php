@@ -5,12 +5,16 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Wells;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Wells\DeleteOperationalRecordRequest;
 use App\Http\Requests\Wells\ReadingReportRequest;
+use App\Repositories\SystemPermissionRepository;
 use App\Services\Wells\InspectorService;
 use App\Services\Wells\ReadingService;
 use App\Services\Wells\WellService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Response as HttpResponse;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Inertia\Response;
 use Mpdf\Mpdf;
@@ -21,6 +25,7 @@ class ReadingController extends Controller
         private readonly ReadingService $readingService,
         private readonly WellService $wellService,
         private readonly InspectorService $inspectorService,
+        private readonly SystemPermissionRepository $permissions,
     ) {}
 
     public function index(ReadingReportRequest $request): Response
@@ -37,10 +42,15 @@ class ReadingController extends Controller
             'reportPreview' => Inertia::optional(
                 fn (): array => $this->readingService->getProductionReport($filters)
             ),
+            'canDelete' => $this->permissions->hasActionPermission(
+                (int) Auth::guard('admin')->id(),
+                SystemPermissionRepository::DELETE_WELL_READING,
+            ),
             'urls' => [
                 'index' => route('wells.readings.index', [], false),
                 'reportPdf' => route('wells.readings.report.pdf', [], false),
                 'reportExcel' => route('wells.readings.report.excel', [], false),
+                'deleteBase' => route('wells.readings.index', [], false),
             ],
         ]);
     }
@@ -50,6 +60,30 @@ class ReadingController extends Controller
         return Inertia::render('WellsSystem/Readings/Show', [
             'reading' => $this->readingService->getReading($reading),
         ]);
+    }
+
+    public function destroy(
+        DeleteOperationalRecordRequest $request,
+        int $reading,
+    ): RedirectResponse {
+        $actorId = (int) Auth::guard('admin')->id();
+        abort_unless(
+            $this->permissions->hasActionPermission(
+                $actorId,
+                SystemPermissionRepository::DELETE_WELL_READING,
+            ),
+            403,
+            'ليست لديك صلاحية حذف قراءات الآبار.'
+        );
+
+        $this->readingService->deleteReading(
+            $reading,
+            $actorId,
+            $this->currentActorName(),
+            $request->validated('reason'),
+        );
+
+        return back()->with('success', 'تم حذف القراءة بنجاح.');
     }
 
     public function reportPdf(ReadingReportRequest $request): HttpResponse
@@ -112,5 +146,15 @@ class ReadingController extends Controller
     private function reportFileName(string $extension): string
     {
         return 'wells-production-report-'.now()->format('Ymd_His').'.'.$extension;
+    }
+
+    private function currentActorName(): string
+    {
+        $user = Auth::guard('admin')->user();
+
+        return $user?->full_name
+            ?? $user?->name
+            ?? $user?->email
+            ?? ('admin#'.(string) ($user?->getAuthIdentifier() ?? 'unknown'));
     }
 }

@@ -1,5 +1,20 @@
 # Changelog & Recent Actions
 
+## [2026-08-12] Permissioned Wells Reading And Inventory Soft Deletion
+
+- Added `wells.readings.delete` and `wells.diesel-inventories.delete` to the existing central permissions screen; both require `wells` access and fail closed when permission storage is unavailable.
+- Added reason-required delete actions to the Wells readings register and external diesel-inventory/results tables. `Daily Tank` fuel-program rows are not deletable from this workflow.
+- Successful reading/inventory deletion now displays the Wells success alert and closes the reason modal only after the server confirms the operation; failed validation or authorization leaves the modal open.
+- Added audited soft deletion to `WELL_READINGS` and `DIESEL_INVENTORIES` through `DELETED_AT`, `DELETED_BY_USER_ID`, `DELETED_BY_NAME`, and `DELETE_REASON`; no operational row is physically removed.
+- Normal model queries, statistics, reports, exports, mobile history, previous-reading lookup, and previous-inventory analytics exclude deleted rows. Mobile UUID retry lookup includes deleted rows only to prevent a deleted record from being recreated.
+- Master-data deletion blockers continue counting soft-deleted rows because the physical operational history and foreign keys remain present.
+- Applied migration `2026_08_12_000022_add_soft_deletion_audit_to_wells_activities` and added regression coverage for audit persistence, non-physical deletion, hidden chronology, sync idempotency, and fail-closed action permissions.
+
+## [2026-08-12] External Diesel Inventory Date Visibility
+
+- Renamed the external inventory business-date column to **تاريخ الجرد** and made it visible by default in both the inventory and calculated-results tabs.
+- Advanced the saved column-selection version so existing browser preferences receive the newly required default date column.
+
 ## [2026-08-11] Zero-Supply External Rate
 
 - For an external inventory interval with supplied quantity `0`, calculate consumed fuel as `previous balance - current balance` and divide by the absolute non-zero generator-meter difference.

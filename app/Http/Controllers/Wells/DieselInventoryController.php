@@ -5,12 +5,16 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Wells;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Wells\DeleteOperationalRecordRequest;
 use App\Http\Requests\Wells\DieselInventoryReportRequest;
+use App\Repositories\SystemPermissionRepository;
 use App\Services\Wells\DieselInventoryService;
 use App\Services\Wells\InspectorService;
 use App\Services\Wells\WellService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Response as HttpResponse;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Inertia\Response;
 use Mpdf\Mpdf;
@@ -21,6 +25,7 @@ class DieselInventoryController extends Controller
         private readonly DieselInventoryService $dieselInventoryService,
         private readonly WellService $wellService,
         private readonly InspectorService $inspectorService,
+        private readonly SystemPermissionRepository $permissions,
     ) {}
 
     public function index(DieselInventoryReportRequest $request): Response
@@ -32,16 +37,45 @@ class DieselInventoryController extends Controller
             'externalReport' => $this->dieselInventoryService->getInventoryReport($filters),
             'columnSets' => $this->dieselInventoryService->getReportColumns(),
             'unclassifiedWellCount' => $this->dieselInventoryService->getUnclassifiedWellCount(),
+            'canDelete' => $this->permissions->hasActionPermission(
+                (int) Auth::guard('admin')->id(),
+                SystemPermissionRepository::DELETE_DIESEL_INVENTORY,
+            ),
             'urls' => [
                 'index' => route('wells.diesel-inventories.index', [], false),
                 'reportPdf' => route('wells.diesel-inventories.report.pdf', [], false),
                 'reportExcel' => route('wells.diesel-inventories.report.excel', [], false),
                 'wells' => route('wells.wells.index', [], false),
+                'deleteBase' => route('wells.diesel-inventories.index', [], false),
             ],
             'wells' => $this->wellService->getActiveWells(),
             'inspectors' => $this->inspectorService->getAllInspectors(),
             'filters' => $filters,
         ]);
+    }
+
+    public function destroy(
+        DeleteOperationalRecordRequest $request,
+        int $inventory,
+    ): RedirectResponse {
+        $actorId = (int) Auth::guard('admin')->id();
+        abort_unless(
+            $this->permissions->hasActionPermission(
+                $actorId,
+                SystemPermissionRepository::DELETE_DIESEL_INVENTORY,
+            ),
+            403,
+            'ليست لديك صلاحية حذف جرد السولار.'
+        );
+
+        $this->dieselInventoryService->deleteInventory(
+            $inventory,
+            $actorId,
+            $this->currentActorName(),
+            $request->validated('reason'),
+        );
+
+        return back()->with('success', 'تم حذف سجل الجرد بنجاح.');
     }
 
     public function reportPdf(DieselInventoryReportRequest $request): HttpResponse
@@ -125,5 +159,15 @@ class DieselInventoryController extends Controller
     private function reportFileName(string $extension, string $reportType): string
     {
         return 'wells-diesel-'.$reportType.'-'.now()->format('Ymd_His').'.'.$extension;
+    }
+
+    private function currentActorName(): string
+    {
+        $user = Auth::guard('admin')->user();
+
+        return $user?->full_name
+            ?? $user?->name
+            ?? $user?->email
+            ?? ('admin#'.(string) ($user?->getAuthIdentifier() ?? 'unknown'));
     }
 }

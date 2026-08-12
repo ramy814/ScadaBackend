@@ -107,10 +107,12 @@ Central per-system access table for the unified portal.
 - `id`: Primary key.
 - `user_id`: SSO user ID from `mog_users.users_list` (`id` column, NOT `emp_id`).
 - `system_key`: One of `fleet`, `wells`, or `valves`.
+- Sensitive Wells action keys also use this column: `wells.readings.delete` and `wells.diesel-inventories.delete`; both depend on base `wells` access.
 - `granted_by`: Display name or identifier of the admin who granted access.
 - `granted_at`: Oracle-side grant timestamp.
 - Used by `SystemPermissionRepository`, `PortalController`, and `EnsureSystemAccess`.
 - This table controls access to each integrated system independently; do not use `FLEET_ADMIN_ALLOWLIST` for per-system decisions.
+- System-access checks may fail open during initial Oracle setup, but destructive action-permission checks always fail closed.
 - **CRITICAL NOTE**: The `mog_users.users_list` table contains both `id` (Primary Key) and `emp_id` (Employee ID). The MOG SSO system logs users in using their `id`. Therefore, `SYSTEM_PERMISSIONS.user_id` MUST store the SSO `id`, not `emp_id`. Production example: `رامي عيد سليم غياضة` logs in as `id = 140`, `emp_id = 2541`; permissions must be granted to `USER_ID = 140`. Do not grant by similar display names such as the separate `id = 1061` row.
 - Permission-screen SSO searches must filter `MOG_USERS.USERS_LIST.IS_ACTIVE = 1`; inactive users cannot receive new assignments.
 
@@ -139,6 +141,7 @@ The wells module has its own AI context under `.ai/modules/wells/`.
 - Read `.ai/modules/wells/project-overview.md` before changing wells workflows.
 - Read `.ai/modules/wells/database/tables.md` before changing wells tables or Oracle integrations.
 - External wells generator/quarter references may use schemas such as `G_STORE` and `GAZADATA`; keep that context scoped to the wells module unless the fleet code explicitly needs it.
+- `WELL_READINGS` and `DIESEL_INVENTORIES` retain audited soft-deletion metadata (`DELETED_AT`, `DELETED_BY_USER_ID`, `DELETED_BY_NAME`, `DELETE_REASON`). Default queries exclude these rows; see the Wells module database context for chronology and sync rules.
 
 ## Integrated Valves Module
 The valves module manages municipality valves operations and maintenance logs.

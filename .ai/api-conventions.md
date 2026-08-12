@@ -103,6 +103,12 @@ Valve inspector app accounts are separate from fleet drivers and wells inspector
 - The legacy SCADA Flutter app in `/Volumes/SecondDrive/Scada/scada_flutter` must call `POST /api/valves/auth/login` with `phone` and `password`, then call `GET /api/valves` with the returned Sanctum token.
 - Do not authenticate valve inspectors against wells `INSPECTORS` or fleet driver tables.
 
+## Wells Deleted-Record Sync Contract
+
+- Dashboard deletion of a well reading or diesel inventory is audited soft deletion; no mobile delete endpoint is exposed.
+- Normal Wells history/sync-list responses exclude rows with `DELETED_AT`.
+- Upload idempotency lookup must include soft-deleted rows by authenticated inspector plus `CLIENT_LOCAL_ID`. A retry acknowledges the retained OID/UUID and must not insert a replacement or return the deleted row in history.
+
 ### Valves Mobile Map Source
 - This subsection defines the mobile API contract. The authoritative web-map runtime contract is in `.ai/modules/valves/project-overview.md` under “Current Authoritative Web Map Contract”. Do not merge the two client implementations by assumption.
 - The Flutter inspector app uses OpenStreetMap as its only tile source.

@@ -47,7 +47,9 @@ routes/
 - `SystemPermissionController` is manager-gated by `MOG_PERMISSIONS_ADMIN_USER_IDS` outside local development.
 - `EnsureSystemAccess` protects Fleet, Wells, and Valves route groups with `system.access:{key}` middleware.
 - Valid system keys are `fleet`, `wells`, and `valves`.
+- The same `SYSTEM_PERMISSIONS` table stores fail-closed Wells action keys `wells.readings.delete` and `wells.diesel-inventories.delete`; they do not count as portal systems and require base Wells access.
 - `FLEET_ADMIN_ALLOWLIST` is only the global admin gate; per-system access lives in `CONTROL_UNIT.SYSTEM_PERMISSIONS`.
+- Wells reading/inventory delete routes validate a reason, authorize through `SystemPermissionRepository`, and delegate to their existing service/repository. Models provide the global soft-delete exclusion, while raw analytic queries add an explicit null-deletion predicate.
 
 ## Valves Module Structure
 

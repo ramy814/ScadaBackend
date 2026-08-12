@@ -344,10 +344,16 @@ class DieselInventoryReportTest extends TestCase
         $externalResultDefaults = collect($service->getReportColumns()['external_results'])
             ->where('default', true)
             ->pluck('key');
+        self::assertTrue($externalResultDefaults->contains('inventory_date'));
         self::assertTrue($externalResultDefaults->contains('previous_fuel_balance_liters'));
         self::assertTrue($externalResultDefaults->contains('supplied_fuel_liters'));
         self::assertTrue($externalResultDefaults->contains('consumed_fuel_liters'));
         self::assertTrue($externalResultDefaults->contains('actual_consumption_lph'));
+        self::assertSame(
+            'تاريخ الجرد',
+            collect($service->getReportColumns()['external_inventory'])
+                ->firstWhere('key', 'inventory_date')['label'],
+        );
     }
 
     public function test_paginated_inventory_exposes_the_previous_generator_hours_reading(): void
