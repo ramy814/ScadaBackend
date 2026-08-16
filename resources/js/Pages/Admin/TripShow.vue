@@ -163,7 +163,16 @@
     <div class="panel">
       <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;">
         <div>التوقفات المسجلة</div>
-        <span :class="['badge', trip.stops?.length > 0 ? 'warn' : 'neutral']">{{ trip.stops?.length ?? 0 }} توقف</span>
+        <div class="stops-summary">
+          <span :class="['badge', trip.stops?.length > 0 ? 'warn' : 'neutral']">{{ trip.stops?.length ?? 0 }} توقف</span>
+          <span class="stops-total">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M12 7v5l3 2" />
+            </svg>
+            إجمالي الوقت: <strong>{{ totalWait }}</strong> دقيقة
+          </span>
+        </div>
       </div>
       <div class="table-wrap">
         <table>
@@ -361,7 +370,7 @@ let routeBounds = null;
 let liveRefreshTimer = null;
 
 const totalWait = computed(() =>
-  Math.max(props.stopsMinutes ?? 0, props.trip.wait_minutes ?? 0)
+  Math.round(Math.max(props.stopsMinutes ?? 0, props.trip.wait_minutes ?? 0))
 );
 
 const qualityLabels = {
@@ -749,6 +758,10 @@ onBeforeUnmount(() => {
 .panel { background:var(--surface); border-radius:var(--radius-lg); box-shadow:var(--shadow-lg); overflow:hidden; margin-bottom:24px; }
 .panel-header { padding:16px 24px; border-bottom:1px solid var(--stroke); font-size:16px; font-weight:800; }
 .panel-body { padding:24px; }
+.stops-summary { display:flex; align-items:center; justify-content:flex-end; gap:8px; flex-wrap:wrap; }
+.stops-total { display:inline-flex; align-items:center; gap:5px; border:1px solid color-mix(in srgb,var(--warn) 32%,transparent); border-radius:999px; padding:6px 10px; background:color-mix(in srgb,var(--warn) 10%,transparent); color:var(--warn); font-size:12px; font-weight:700; }
+.stops-total svg { width:15px; height:15px; flex:0 0 auto; }
+.stops-total strong { font-size:14px; }
 .map-panel-header { display:flex; justify-content:space-between; align-items:center; gap:16px; }
 .map-panel-subtitle { color:var(--text-secondary); font-size:12px; font-weight:500; margin-top:4px; }
 .map-header-actions { display:flex; align-items:center; justify-content:flex-end; gap:12px; flex-wrap:wrap; }

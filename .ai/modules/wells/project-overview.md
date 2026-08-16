@@ -36,6 +36,7 @@ A comprehensive well management system consisting of two main applications:
 - The diesel inventory page has separate internal (`Daily Tank`) and external-tank sections. External tanks have separate inventory and calculated-results tabs.
 - Internal-tank rates come from consecutive approved fuel-program fills. External-tank rates use consecutive field inventories, geometric tank balances, and approved deliveries.
 - The page exposes normal/high/unavailable/invalid consumption states and never treats inconsistent readings as high consumption.
+- Internal-tank, external inventory, and external calculated-results tables display 15 rows per page with independent client-side page state. Pagination changes only the visible slice; summary totals, matched counts, filters, and exports continue to use the complete filtered report.
 - Administrators choose an allowlisted set of columns for each report type; the same selection drives the screen, Excel, and PDF.
 - Diesel report PDF output uses a dynamic A3 landscape RTL table. Excel output uses the same Arabic rows, columns, and calculations.
 

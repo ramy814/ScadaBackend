@@ -210,6 +210,7 @@ These endpoints are served by this unified backend and consumed by `/Volumes/Sec
 - Outside the zero-supply exception, meter differences must be positive and cannot exceed elapsed calendar hours plus the one-hour meter/date precision allowance. Reverse, repeated-time, or impossible results are `invalid`, never `high`. A negative balance result remains `invalid` in every case; retain its signed consumption/rate so the inconsistency is visible.
 - Consumption is `high` only when the actual rate is greater than `WELL_GENERATORS.FUEL_CONSUMPTION_LPH + CONSUMPTION_TOLERANCE_LPH`. A null configured rate falls back to `G_STORE.GENERATOR.FUEL_CONSUMPTION`; tolerance defaults to zero.
 - The Inertia page receives `internalReport`, `externalReport`, `columnSets`, and `unclassifiedWellCount`. Column keys are selected from the service allowlist and the same selection drives the screen, Excel, and PDF. External result defaults include previous balance, supplied quantity, current balance, consumed liters, and actual rate.
+- `WellsSystem/DieselInventories/Index.vue` paginates each internal/external view independently at 15 rows per page after receiving the complete filtered report. Keep report totals, tab counts, and exports based on all filtered rows rather than the visible page slice.
 - `resources/views/wells/diesel-inventory-report.blade.php` is the shared dynamic RTL PDF/Excel template.
 
 ## Audited Operational Record Deletion

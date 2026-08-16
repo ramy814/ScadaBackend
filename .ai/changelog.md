@@ -1,5 +1,11 @@
 # Changelog & Recent Actions
 
+## [2026-08-13] Wells Diesel Inventory Pagination
+
+- Added independent client-side pagination to the internal-tank report, external-tank inventory, and external-tank calculated-results views at 15 rows per page.
+- Kept each tab's current page while switching between report views and retained full filtered totals, record counts, column selection, and PDF/Excel exports.
+- Added accessible first/previous/next/last controls with the current page and visible record range; no diesel calculation or Oracle query contract changed.
+
 ## [2026-08-12] Permissioned Wells Reading And Inventory Soft Deletion
 
 - Added `wells.readings.delete` and `wells.diesel-inventories.delete` to the existing central permissions screen; both require `wells` access and fail closed when permission storage is unavailable.

@@ -8,6 +8,7 @@ import StatsCard from '../../../WellsSystem/Components/Shared/StatsCard.vue'
 
 const REPORT_TYPES = ['internal', 'external_inventory', 'external_results']
 const STORAGE_PREFIX = 'wells.diesel-inventory.columns.v4.'
+const PAGE_SIZE = 15
 
 const props = defineProps({
     internalReport: { type: Object, default: () => ({ rows: [], totals: {} }) },
@@ -34,6 +35,7 @@ const activeExternalView = ref(
         : 'inventory',
 )
 const columnPanelOpen = ref(false)
+const currentPages = ref(Object.fromEntries(REPORT_TYPES.map(type => [type, 1])))
 const deleteTarget = ref(null)
 const deleteForm = useForm({ reason: '' })
 
@@ -92,6 +94,20 @@ function reportRows(report) {
 const internalRows = computed(() => reportRows(props.internalReport))
 const externalRows = computed(() => reportRows(props.externalReport))
 const activeRows = computed(() => reportRows(activeReport.value))
+const activePageCount = computed(() => Math.max(1, Math.ceil(activeRows.value.length / PAGE_SIZE)))
+const activePage = computed(() => Math.min(
+    currentPages.value[reportType.value] || 1,
+    activePageCount.value,
+))
+const paginatedRows = computed(() => {
+    const start = (activePage.value - 1) * PAGE_SIZE
+
+    return activeRows.value.slice(start, start + PAGE_SIZE)
+})
+const paginationFrom = computed(() => (
+    activeRows.value.length ? ((activePage.value - 1) * PAGE_SIZE) + 1 : 0
+))
+const paginationTo = computed(() => Math.min(activePage.value * PAGE_SIZE, activeRows.value.length))
 const activeTotals = computed(() => activeReport.value?.totals || {})
 const availableColumns = computed(() => (
     Array.isArray(props.columnSets?.[reportType.value])
@@ -269,6 +285,13 @@ function selectTankGroup(group) {
 function selectExternalView(view) {
     activeExternalView.value = view
     columnPanelOpen.value = false
+}
+
+function goToPage(page) {
+    currentPages.value = {
+        ...currentPages.value,
+        [reportType.value]: Math.min(Math.max(1, page), activePageCount.value),
+    }
 }
 
 function filterParams(includeView = true) {
@@ -751,7 +774,7 @@ function rowKey(row, index) {
                         </thead>
                         <tbody>
                             <tr
-                                v-for="(row, index) in activeRows"
+                                v-for="(row, index) in paginatedRows"
                                 :key="rowKey(row, index)"
                             >
                                 <td class="diesel-row-number">
@@ -838,6 +861,50 @@ function rowKey(row, index) {
                         </tfoot>
                     </table>
                 </div>
+
+                <nav
+                    v-if="activePageCount > 1"
+                    class="pagination diesel-report-pagination"
+                    :aria-label="`صفحات ${activeReportTitle}`"
+                >
+                    <button
+                        type="button"
+                        class="pagination-btn"
+                        :disabled="activePage === 1"
+                        @click="goToPage(1)"
+                    >
+                        الأولى
+                    </button>
+                    <button
+                        type="button"
+                        class="pagination-btn"
+                        :disabled="activePage === 1"
+                        @click="goToPage(activePage - 1)"
+                    >
+                        السابق
+                    </button>
+                    <span class="diesel-pagination-summary" aria-live="polite">
+                        الصفحة {{ formatNumber(activePage) }} من {{ formatNumber(activePageCount) }}
+                        — عرض {{ formatNumber(paginationFrom) }}–{{ formatNumber(paginationTo) }}
+                        من {{ formatNumber(activeRows.length) }}
+                    </span>
+                    <button
+                        type="button"
+                        class="pagination-btn"
+                        :disabled="activePage === activePageCount"
+                        @click="goToPage(activePage + 1)"
+                    >
+                        التالي
+                    </button>
+                    <button
+                        type="button"
+                        class="pagination-btn"
+                        :disabled="activePage === activePageCount"
+                        @click="goToPage(activePageCount)"
+                    >
+                        الأخيرة
+                    </button>
+                </nav>
             </section>
 
             <Modal :show="Boolean(deleteTarget)" title="حذف سجل جرد" @close="closeDeleteModal">
@@ -1332,6 +1399,17 @@ function rowKey(row, index) {
 .diesel-total-label {
     color: var(--color-text-accent) !important;
     font-weight: 800;
+}
+
+.diesel-report-pagination {
+    flex-wrap: wrap;
+    padding-inline: 16px;
+}
+
+.diesel-pagination-summary {
+    padding: 0 8px;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
 }
 
 .diesel-sr-only {
