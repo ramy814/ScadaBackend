@@ -50,6 +50,26 @@
       </div>
     </div>
 
+    <div v-if="gapReviewCount" class="gap-estimate-panel">
+      <div class="gap-estimate-header">
+        <div>
+          <strong>تقدير محافظ لفجوات التتبع</strong>
+          <span>{{ estimatedGapCount }} فجوة قابلة للتقدير<span v-if="unestimatedGapCount">، وتعذّر تقدير {{ unestimatedGapCount }}</span></span>
+        </div>
+        <span class="badge warn">للمراجعة الإشرافية فقط</span>
+      </div>
+      <div v-if="estimatedGapCount" class="gap-estimate-grid">
+        <div><span>المسافة المقدّرة داخل الفجوات</span><strong>{{ estimatedGapDistanceKm }} كم</strong></div>
+        <div><span>المسافة بعد إضافة الفجوات القابلة للتقدير</span><strong>{{ estimatedDistanceWithGapsKm }} كم</strong></div>
+        <div><span>السولار بعد إضافة الفجوات القابلة للتقدير</span><strong>{{ estimatedFuelWithGapsLiters }} لتر</strong></div>
+      </div>
+      <p>
+        التقدير هو خط مستقيم بين طرفي كل فجوة موثوقين، ويُرفض إذا تطلّب سرعة غير منطقية.
+        يمثل حدًا أدنى تقريبيًا وليس المسار الفعلي؛ لا يغيّر المسافة أو السولار الرسميين، ويقرر المشرف مدى الاسترشاد به عند المراجعة.
+      </p>
+      <p v-if="!estimatedGapCount">لا توجد فجوة داخلية بطرفين موثوقين تسمح باستخراج قيمة تقديرية.</p>
+    </div>
+
     <!-- Info Panels -->
     <div class="two-cols">
       <div class="panel">
@@ -341,6 +361,11 @@ const props = defineProps({
   pointsCount: { type: Number, default: 0 },
   mappedSegments: { type: Array, default: () => [] },
   gapConnectors: { type: Array, default: () => [] },
+  estimatedGapDistanceKm: { type: Number, default: 0 },
+  estimatedDistanceWithGapsKm: { type: Number, default: 0 },
+  estimatedFuelWithGapsLiters: { type: Number, default: 0 },
+  estimatedGapCount: { type: Number, default: 0 },
+  unestimatedGapCount: { type: Number, default: 0 },
   recordedStart: { type: Object, default: null },
   recordedEnd: { type: Object, default: null },
   distanceKm: Number,
@@ -371,6 +396,9 @@ let liveRefreshTimer = null;
 
 const totalWait = computed(() =>
   Math.round(Math.max(props.stopsMinutes ?? 0, props.trip.wait_minutes ?? 0))
+);
+const gapReviewCount = computed(() =>
+  props.estimatedGapCount + props.unestimatedGapCount
 );
 
 const qualityLabels = {
@@ -665,6 +693,9 @@ onMounted(async () => {
       ];
       bounds.extend(gapPoints);
       const minutes = Math.max(1, Math.round((connector.seconds ?? 0) / 60));
+      const estimateText = connector.estimate_usable
+        ? `تقدير مباشر ${Number(connector.estimated_distance_km ?? 0).toFixed(2)} كم`
+        : 'تعذّر تقديرها بشكل موثوق';
       L.polyline(gapPoints, {
         ...routeStyle,
         color: '#d97706',
@@ -672,7 +703,7 @@ onMounted(async () => {
         opacity: 0.9,
         dashArray: '10 12',
       })
-        .bindTooltip(`فجوة GPS قرابة ${minutes} دقيقة — غير محتسبة`)
+        .bindTooltip(`فجوة GPS قرابة ${minutes} دقيقة — ${estimateText} — غير محتسبة رسميًا`)
         .addTo(group);
     });
 
@@ -751,6 +782,16 @@ onBeforeUnmount(() => {
 .filtered-distance-card .value { color:var(--ok); }
 .filtering-note { margin-top:-8px; margin-bottom:24px; border-right:4px solid var(--brand); }
 .provisional-fuel-note { margin-top:-8px; margin-bottom:24px; border-right:4px solid var(--warn); }
+.gap-estimate-panel { margin-bottom:24px; border:1px solid color-mix(in srgb,var(--warn) 34%,transparent); border-radius:var(--radius-lg); padding:18px; background:color-mix(in srgb,var(--warn) 7%,var(--surface)); box-shadow:var(--shadow-md); }
+.gap-estimate-header { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:14px; }
+.gap-estimate-header > div { display:flex; flex-direction:column; gap:4px; }
+.gap-estimate-header strong { font-size:15px; }
+.gap-estimate-header span:not(.badge) { color:var(--text-secondary); font-size:12px; }
+.gap-estimate-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+.gap-estimate-grid > div { display:flex; flex-direction:column; gap:5px; border:1px solid var(--stroke); border-radius:var(--radius-md); padding:12px; background:var(--surface); }
+.gap-estimate-grid span { color:var(--text-secondary); font-size:11px; font-weight:700; }
+.gap-estimate-grid strong { color:var(--warn); font-size:18px; }
+.gap-estimate-panel p { margin:12px 0 0; color:var(--text-secondary); font-size:12px; line-height:1.7; }
 .stat-hint { margin-top:6px; color:var(--warn); font-size:11px; font-weight:700; }
 .unit { font-size:14px; color:var(--text-secondary); }
 
@@ -824,6 +865,8 @@ onBeforeUnmount(() => {
 
 @media (max-width:1100px) { .stats-grid-5 { grid-template-columns:repeat(2,1fr); } .two-cols { grid-template-columns:1fr; } }
 @media (max-width:700px) {
+  .gap-estimate-header { flex-direction:column; }
+  .gap-estimate-grid { grid-template-columns:1fr; }
   .map-panel-header { align-items:flex-start; flex-direction:column; }
   .map-header-actions { width:100%; justify-content:space-between; }
   .map-floating-panel { top:12px; right:12px; left:12px; }

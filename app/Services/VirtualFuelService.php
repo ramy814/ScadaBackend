@@ -160,6 +160,9 @@ class VirtualFuelService
         $distanceAnchor = null;
         $acceptedSegments = [];
         $gapConnectors = [];
+        $estimatedGapDistanceMeters = 0.0;
+        $estimatedGapCount = 0;
+        $unestimatedGapCount = 0;
         $recordedStart = null;
         $recordedEnd = null;
         $startTimestamp = $startedAt?->getTimestamp();
@@ -267,15 +270,37 @@ class VirtualFuelService
             $isCoverageGap = $coverageGapSeconds > self::MAX_SEGMENT_GAP_SECONDS;
             $markCoverageGap($coverageGapSeconds);
             if ($isCoverageGap) {
-                if ($includeSegments && $acceptedSegments !== []) {
-                    $previousSegment = $acceptedSegments[array_key_last($acceptedSegments)];
-                    $previousCoordinate = $previousSegment[array_key_last($previousSegment)] ?? null;
-                    if ($previousCoordinate !== null) {
+                if ($includeSegments) {
+                    if ($lastEligible !== null) {
+                        $estimatedDistanceMeters = $this->haversineMeters(
+                            $lastEligible['latitude'],
+                            $lastEligible['longitude'],
+                            $current['latitude'],
+                            $current['longitude'],
+                        );
+                        $estimateUsable = $coverageGapSeconds > 0
+                            && ($estimatedDistanceMeters / $coverageGapSeconds)
+                                <= self::MAX_SPEED_METERS_PER_SECOND;
+
                         $gapConnectors[] = [
-                            'from' => $previousCoordinate,
+                            'from' => $this->coordinate($lastEligible),
                             'to' => $this->coordinate($current),
                             'seconds' => $coverageGapSeconds,
+                            'estimated_distance_km' => round(
+                                $estimatedDistanceMeters / 1000,
+                                3,
+                            ),
+                            'estimate_usable' => $estimateUsable,
                         ];
+
+                        if ($estimateUsable) {
+                            $estimatedGapDistanceMeters += $estimatedDistanceMeters;
+                            $estimatedGapCount++;
+                        } else {
+                            $unestimatedGapCount++;
+                        }
+                    } else {
+                        $unestimatedGapCount++;
                     }
                 }
                 $distanceAnchor = null;
@@ -334,7 +359,11 @@ class VirtualFuelService
         if ($endTimestamp !== null) {
             $coverageStart = $lastEligible['timestamp'] ?? $startTimestamp;
             if ($coverageStart !== null && $endTimestamp >= $coverageStart) {
-                $markCoverageGap($endTimestamp - $coverageStart);
+                $tailGapSeconds = $endTimestamp - $coverageStart;
+                $markCoverageGap($tailGapSeconds);
+                if ($includeSegments && $tailGapSeconds > self::MAX_SEGMENT_GAP_SECONDS) {
+                    $unestimatedGapCount++;
+                }
             }
         }
 
@@ -380,6 +409,21 @@ class VirtualFuelService
         if ($includeSegments) {
             $metrics['accepted_segments'] = $acceptedSegments;
             $metrics['gap_connectors'] = $gapConnectors;
+            $metrics['estimated_gap_distance_km'] = round(
+                $estimatedGapDistanceMeters / 1000,
+                3,
+            );
+            $metrics['estimated_distance_with_gaps_km'] = round(
+                ($distanceMeters + $estimatedGapDistanceMeters) / 1000,
+                3,
+            );
+            $metrics['estimated_fuel_with_gaps_liters'] = round(
+                (($distanceMeters + $estimatedGapDistanceMeters) / 1000)
+                    * self::LITERS_PER_KILOMETER,
+                3,
+            );
+            $metrics['estimated_gap_count'] = $estimatedGapCount;
+            $metrics['unestimated_gap_count'] = $unestimatedGapCount;
         }
         $metrics['recorded_start'] = $recordedStart;
         $metrics['recorded_end'] = $recordedEnd;

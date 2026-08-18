@@ -47,6 +47,10 @@ class TripDataQualityTest extends TestCase
         self::assertContains('tracking_gap', $metrics['quality_flags']);
         self::assertCount(2, $metrics['accepted_segments']);
         self::assertCount(1, $metrics['gap_connectors']);
+        self::assertFalse($metrics['gap_connectors'][0]['estimate_usable']);
+        self::assertSame(0, $metrics['estimated_gap_count']);
+        self::assertSame(2, $metrics['unestimated_gap_count']);
+        self::assertSame(0.0, $metrics['estimated_gap_distance_km']);
     }
 
     public function test_it_caps_duration_and_requires_exact_checksum_integrity(): void
@@ -223,6 +227,19 @@ class TripDataQualityTest extends TestCase
         self::assertCount(2, $metrics['accepted_segments']);
         self::assertCount(1, $metrics['gap_connectors']);
         self::assertSame(120, $metrics['gap_connectors'][0]['seconds']);
+        self::assertTrue($metrics['gap_connectors'][0]['estimate_usable']);
+        self::assertSame(1, $metrics['estimated_gap_count']);
+        self::assertSame(0, $metrics['unestimated_gap_count']);
+        self::assertEqualsWithDelta(
+            0.111,
+            $metrics['estimated_gap_distance_km'],
+            0.01,
+        );
+        self::assertEqualsWithDelta(
+            0.013,
+            $metrics['estimated_fuel_with_gaps_liters'],
+            0.002,
+        );
         self::assertEqualsWithDelta(0.0, $metrics['distance_km'], 0.001);
     }
 

@@ -276,6 +276,20 @@ class AdminAuthController extends Controller
             'pointsCount' => $pointsCount,
             'mappedSegments' => $metrics['accepted_segments'],
             'gapConnectors' => $metrics['gap_connectors'] ?? [],
+            'estimatedGapDistanceKm' => round(
+                (float) ($metrics['estimated_gap_distance_km'] ?? 0),
+                2,
+            ),
+            'estimatedDistanceWithGapsKm' => round(
+                (float) ($metrics['estimated_distance_with_gaps_km'] ?? 0),
+                2,
+            ),
+            'estimatedFuelWithGapsLiters' => round(
+                (float) ($metrics['estimated_fuel_with_gaps_liters'] ?? 0),
+                3,
+            ),
+            'estimatedGapCount' => (int) ($metrics['estimated_gap_count'] ?? 0),
+            'unestimatedGapCount' => (int) ($metrics['unestimated_gap_count'] ?? 0),
             'recordedStart' => $metrics['recorded_start'] ?? null,
             'recordedEnd' => $metrics['recorded_end'] ?? null,
             'distanceKm' => round((float) $metrics['distance_km'], 2),

@@ -75,6 +75,7 @@ resources/
 
 - `TripShow.vue` always displays the recorded distance and also displays the filtered distance when quality filtering is available. Quality-v2 trips are always filtered; legacy trips are filtered only when at least 80% of their samples contain usable GPS accuracy metadata. The map then uses accepted segments without changing stored points; legacy trips with insufficient metadata retain their original trace.
 - Solid blue segments are included in filtered distance/fuel. Amber dashed connectors make GPS coverage gaps understandable but are display-only and never contribute to distance or fuel. Duplicate-time and stationary samples are reported as collapsed, not falsely labeled as invalid or out-of-order.
+- When internal gaps have two eligible endpoints and a plausible implied speed, trip details show their summed straight-line distance, filtered distance plus that estimate, and the corresponding 0.12 liters/km fuel estimate in a clearly labeled supervisor-review panel. These values are conservative read-only guidance and never replace persisted official metrics; gaps without two usable endpoints are counted as unestimated.
 - The trip map does not provide an original/corrected toggle and does not request a server-side or third-party road-matched route.
 - No Docker, OSRM service, Windows service, map-matching environment variables, or external routing API is required for production deployment.
 - Start is a green marker and end is a red marker, both with permanent Arabic labels.

@@ -1,5 +1,11 @@
 # Changelog & Recent Actions
 
+## [2026-08-18] Conservative Trip Gap Estimates
+
+- Added a read-only supervisor estimate for internal GPS gaps using the straight-line distance between eligible endpoints; estimates requiring more than 55 m/s are rejected.
+- Trip details now show estimated gap distance, filtered distance plus gap estimates, estimated fuel at 0.12 liters/km, and counts of estimable/unestimable gaps.
+- Kept official distance, fuel, stored points, checksums, and review decisions unchanged; the estimate is explicitly labeled as conservative review information and introduces no routing service or road matching.
+
 ## [2026-08-13] Wells Diesel Inventory Pagination
 
 - Added independent client-side pagination to the internal-tank report, external-tank inventory, and external-tank calculated-results views at 15 rows per page.
