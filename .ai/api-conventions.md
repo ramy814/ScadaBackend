@@ -8,6 +8,22 @@ All admin-facing routes are handled via web routes mapped to Inertia.js views.
 Driver APIs require a Sanctum token.
 `Authorization: Bearer <token>`
 
+## Global Operational Suspension
+
+- `RejectWhenSystemsSuspended` runs before authentication on every mobile entry point under Driver, Wells, Valves, valve maintenance, and the valves-app dashboard endpoints.
+- While the global switch is active, these routes return HTTP `503` with `Retry-After: 300`, `Cache-Control: no-store`, and:
+```json
+{
+  "message": "سبب الإيقاف الإداري أو رسالة التوقف الافتراضية",
+  "code": "systems_temporarily_suspended",
+  "retryable": true
+}
+```
+- No mobile auth, sync, lookup, upload, or action controller runs while suspended. Existing tokens and locally retained records remain unchanged.
+- Old clients remain compatible: they already treat non-success responses as retryable/offline failures. Do not change payloads or delete local data because of this 503.
+- `/permissions` is the protected recovery control plane and intentionally remains available to configured permission managers while all normal web systems are suspended.
+- `.ai/workflows/system-operational-suspension.md` is the authoritative activation, restoration, deployment, and cross-version compatibility workflow.
+
 ## Response Formatting
 We strictly use Laravel API Resources to format responses. Do not return raw arrays or models from controllers.
 ```php
@@ -20,6 +36,14 @@ return response()->json($trip);
 
 ## The Sync Endpoints
 
+### Transport And TLS Failure Boundary
+
+- A client failure with no HTTP status/response means the request did not reach Laravel. Check device time, DNS, connectivity, and the production TLS certificate before changing request validation or trip business logic.
+- Production incident `2026-08-23`: the `scada.mogaza.org` certificate expired at `2026-08-17 08:09:58 UTC`, causing every driver build to fail before HTTP while the API routes themselves remained available.
+- Recovery verification `2026-08-24`: normal TLS validation succeeds again. Unauthenticated production `/admin/dashboard` reaches SSO with HTTP 302 and `/api/driver/trips` reaches Sanctum with HTTP 401, confirming the host, certificate, and registered routes are reachable.
+- Never solve a certificate outage by disabling TLS verification, accepting an invalid certificate, or changing the app to HTTP. Renew and bind the server certificate so all deployed versions recover without an APK update.
+- Offline-first behavior remains authoritative during a transport failure: keep the trip, points, stops, events, `server_id`, and `points_uploaded` progress locally; mark the attempt retryable and resume through the same idempotent endpoints after secure connectivity returns.
+
 ### 1. `POST /api/driver/trips` (Create/Refresh Trip)
 - **Purpose**: Creates the offline trip snapshot, then refreshes the same active record during live uploads and once more at completion.
 - **Payload**: Requires `local_id`, `vehicle_plate`, `started_at`, `origin`, `destination`, `mission_type`. Release `1.1.0+23` may also send `manual_wait_minutes`, `stops[]` with client UUID/coordinates/source, and `tracking_events[]` with client UUID/type/time/optional coordinates.
@@ -30,8 +54,11 @@ return response()->json($trip);
 ### 2. `POST /api/driver/trips/{trip}/points` (Upload GPS Points)
 - **Purpose**: Called periodically as the vehicle moves, sending batches of GPS coordinates.
 - **Payload**: An array of `points`, each containing a `sequence_number`, `latitude`, `longitude`, `captured_at`, etc.
-- **Behavior**: Inserts points into `trip_points`.
-- **Idempotency**: Uses `sequence_number`. If a batch is sent twice, points with the same sequence number are updated, preventing duplicates.
+- **Batch Limit**: The existing request contract remains 1–500 points so every released app remains compatible.
+- **Behavior**: `TripSyncService` locks only the target trip row, groups points by their supplied field shape, and performs Oracle-compatible upserts in internal chunks of 100. It counts the stored rows once after the batch and refreshes server-owned `TRIPS.POINTS_RECEIVED`.
+- **Idempotency**: Uses the unique `(trip_id, sequence_number)` key. If a batch is sent twice, supplied fields on existing sequence numbers are updated without creating duplicates; omitted optional fields are not erased.
+- **Performance Rule**: Never restore per-point `updateOrCreate` loops. A 500-point request must remain a small bounded number of database statements rather than roughly 1,000 select/write statements.
+- **Concurrency Rule**: The per-trip row lock serializes overlapping uploads for the same trip, preventing stale `points_received` values and Oracle merge races without blocking other trips.
 
 ### 3. `POST /api/driver/trips/{trip}/confirm` (End Trip)
 - **Purpose**: Called when the driver presses "End Trip".
@@ -47,9 +74,15 @@ return response()->json($trip);
 - New confirmed trips read the persisted `TRIPS.DISTANCE_KM` and `TRIPS.DURATION_MINUTES` values. Legacy rows without these columns populated are calculated read-only from their points; they are not silently rewritten by a history request.
 - `App\Services\DriverTripSummaryService` owns response shaping and fallback fuel semantics. Controllers must not duplicate these calculations.
 
+### Admin Trip Gap Estimate
+
+- `GET /admin/trips/{trip}` may include transient Inertia props for conservative gap review: `estimatedGapDistanceKm`, `estimatedDistanceWithGapsKm`, `estimatedFuelWithGapsLiters`, `estimatedGapCount`, and `unestimatedGapCount`.
+- These props are calculated read-only by `VirtualFuelService` from internal gaps over 60 seconds. A gap estimate is the direct endpoint distance and is usable only when its implied speed does not exceed 55 m/s.
+- This is an admin presentation contract, not a driver API or persistence contract. Do not add these estimates to confirmation/history payloads, store them in `TRIPS`, or replace official distance/fuel without a separately approved audited workflow.
+
 ### Driver App Presence
 
-- Current client contract version: driver app `1.1.6+29`; authoritative release defaults are in `config/driver_app.php`.
+- Current client contract version: driver app `1.1.16+39`; authoritative release defaults are in `config/driver_app.php`. Its stale-tracker decision uses the latest provider callback/raw point, while accepted points remain the only source for route distance and fuel.
 - `POST /api/driver/app-presence` is authenticated with the existing driver Sanctum token.
 - Payload: `device_id` (random installation UUID), `app_version`, `build_number`, `package_name`, optional `installer_store`, `installed_at`, and `app_updated_at`.
 - Driver identity and snapshots always come from the authenticated `Beneficiary`; never accept a driver ID, name, phone, or vehicle assignment from this payload.

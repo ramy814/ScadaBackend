@@ -1,0 +1,295 @@
+{
+  "surface": "report",
+  "manifest": {
+    "version": 1,
+    "surface": "report",
+    "title": "تشخيص انقطاع GPS في الرحلتين 1853 و1865",
+    "description": "تشخيص قائم على نقاط Oracle وأحداث التتبع وكود تطبيق السائق.",
+    "generatedAt": "2026-08-23T09:00:00+03:00",
+    "cards": [],
+    "charts": [
+      {
+        "id": "poor_accuracy_trend",
+        "title": "نسبة قراءات الموقع ضعيفة الدقة في رحلات السائق",
+        "subtitle": "14 رحلة مؤكدة من 9 إلى 23 أغسطس 2026؛ النسبة من جميع النقاط المحفوظة محلياً",
+        "type": "line",
+        "dataset": "trip_quality_trend",
+        "sourceId": "trip_quality_query",
+        "valueFormat": "percent",
+        "encodings": {
+          "x": {
+            "field": "started_at",
+            "type": "temporal",
+            "label": "وقت بدء الرحلة"
+          },
+          "y": {
+            "field": "poor_rate",
+            "type": "quantitative",
+            "label": "نسبة القراءات ضعيفة الدقة",
+            "format": "percent"
+          },
+          "tooltip": [
+            {
+              "field": "trip_id",
+              "type": "nominal",
+              "label": "رقم الرحلة"
+            },
+            {
+              "field": "point_count",
+              "type": "quantitative",
+              "label": "عدد النقاط"
+            },
+            {
+              "field": "tracking_gap_events",
+              "type": "quantitative",
+              "label": "أحداث فجوة التتبع"
+            },
+            {
+              "field": "max_raw_gap_seconds",
+              "type": "quantitative",
+              "label": "أطول صمت بين القراءات (ثانية)"
+            }
+          ]
+        },
+        "xAxisTitle": "وقت الرحلة",
+        "yAxisTitle": "قراءات ضعيفة الدقة",
+        "unit": "%",
+        "layout": "full"
+      }
+    ],
+    "tables": [
+      {
+        "id": "focus_trip_evidence",
+        "title": "أدلة الرحلتين محل السؤال",
+        "subtitle": "اكتمال المزامنة لا يعني أن كل قراءة كانت صالحة لحساب المسافة",
+        "dataset": "focus_trips",
+        "sourceId": "focus_trip_query",
+        "density": "comfortable",
+        "defaultSort": {
+          "field": "trip_id",
+          "direction": "asc"
+        },
+        "columns": [
+          {
+            "field": "trip_id",
+            "label": "الرحلة",
+            "type": "number"
+          },
+          {
+            "field": "sync_integrity",
+            "label": "المزامنة",
+            "type": "text"
+          },
+          {
+            "field": "poor_rate",
+            "label": "ضعف الدقة",
+            "type": "percent",
+            "format": "percent"
+          },
+          {
+            "field": "first_valid_delay",
+            "label": "حتى أول قراءة صالحة",
+            "type": "text"
+          },
+          {
+            "field": "max_raw_gap_seconds",
+            "label": "أطول صمت خام",
+            "type": "number",
+            "unit": "ث"
+          },
+          {
+            "field": "tracking_gap_events",
+            "label": "أحداث الفجوة",
+            "type": "number"
+          },
+          {
+            "field": "official_distance_km",
+            "label": "المسافة الرسمية",
+            "type": "number",
+            "unit": "كم"
+          },
+          {
+            "field": "official_fuel",
+            "label": "السولار الرسمي",
+            "type": "text"
+          }
+        ]
+      }
+    ],
+    "sources": [
+      {
+        "id": "trip_quality_query",
+        "label": "Oracle: جودة نقاط رحلات السائق 552"
+      },
+      {
+        "id": "focus_trip_query",
+        "label": "Oracle: تفاصيل الرحلتين 1853 و1865"
+      },
+      {
+        "id": "driver_installation_query",
+        "label": "Oracle: إصدار تطبيق السائق"
+      },
+      {
+        "id": "driver_tracking_code",
+        "label": "كود تطبيق السائق: حارس استئناف التتبع",
+        "path": "driver_app/lib/src/services/trip_local_service.dart"
+      }
+    ],
+    "blocks": [
+      {
+        "id": "title",
+        "type": "markdown",
+        "body": "# تشخيص انقطاع GPS في الرحلتين 1853 و1865"
+      },
+      {
+        "id": "executive_summary",
+        "type": "markdown",
+        "body": "## Executive Summary — الخلاصة التنفيذية\n\n- **لا توجد خسارة نقاط أثناء الرفع.** الرحلتان وصلتا 221/221 و213/213، وتسلسل النقاط مكتمل والـ checksum مطابق بين الهاتف والخادم.\n- **المشكلة الأساسية ضعف دقة الموقع، لا انقطاع الإنترنت.** 44.8% من نقاط الرحلة 1853 و61.0% من نقاط الرحلة 1865 كانت بدقة أسوأ من 50 متراً، لذلك حُفظت للتدقيق ولكن استُبعدت من المسافة والسولار.\n- **في الرحلة 1865 حوّل التطبيق ضعف الدقة إلى توقف فعلي.** لم تظهر أول قراءة صالحة إلا بعد 20 دقيقة و25 ثانية؛ وعند بلوغ 20 دقيقة بلا نقطة صالحة سجّل التطبيق فجوة وأوقف خدمة التتبع طالباً قرار السائق، مع أن قراءات ضعيفة الدقة كانت تصل باستمرار.\n- **السبب الميداني المرجح هو ضعف استقبال GNSS أو تقييد الهاتف للموقع.** لا توجد أحداث إيقاف GPS أو فقد إذن أو وضع طيران في الرحلة 1865، والإصدار نفسه سجّل رحلات أفضل بعد تثبيته؛ لذلك لا تكفي الأدلة لاتهام السائق أو لإثبات عيب إصدار وحده."
+      },
+      {
+        "id": "trend_takeaway",
+        "type": "markdown",
+        "sourceId": "trip_quality_query",
+        "body": "## جودة الموقع تدهورت بوضوح في آخر الرحلات\n\nكان وسيط نسبة القراءات ضعيفة الدقة في 11 رحلة سابقة بين 9 و20 أغسطس **9.2%**. ارتفعت النسبة إلى **44.8%** في الرحلة 1853، ثم **97.7%** في الرحلة 1866، و**61.0%** في الرحلة 1865. هذا تحول حديث على الجهاز نفسه، وليس نمطاً طبيعياً ثابتاً لهذا السائق.\n\nيبين المخطط النسبة من كل النقاط المحفوظة محلياً؛ الارتفاع يعني أن الهاتف كان يعطي إحداثيات، لكنها لم تبلغ حد الدقة المعتمد 50 متراً."
+      },
+      {
+        "id": "trend_chart",
+        "type": "chart",
+        "chartId": "poor_accuracy_trend"
+      },
+      {
+        "id": "focus_takeaway",
+        "type": "markdown",
+        "sourceId": "focus_trip_query",
+        "body": "## الرحلتان مكتملتان تقنياً لكن تغطيتهما المكانية غير موثوقة\n\nفي الرحلة 1853 استمرت القراءات بلا صمت خام يتجاوز 56 ثانية، لكن أول نقطة صالحة تأخرت 18 دقيقة و31 ثانية، ثم ظهرت فترات طويلة من قراءات ضعيفة وصلت دقتها إلى كيلومترات. في الرحلة 1865 ظهرت ثلاثة فواصل خام فقط فوق 60 ثانية، أكبرها 70 ثانية؛ أي أن الحساس لم يبقَ متوقفاً حتى نهاية الرحلة، بل عاد وأكمل التسجيل.\n\nالنتيجة التشغيلية: المسافة الرسمية 0.032 كم للرحلة 1853 و0.927 كم للرحلة 1865 لا تمثلان مساراً ميدانياً كاملاً إذا كانت المركبة قد تحركت فعلاً. كما أن 0.004 لتر في الرحلة 1853 قيمة منخفضة ناتجة من الجزء القليل المقبول فقط، بينما ترك النظام سولار الرحلة 1865 فارغاً بسبب فجوات التغطية الشديدة."
+      },
+      {
+        "id": "focus_table",
+        "type": "table",
+        "tableId": "focus_trip_evidence"
+      },
+      {
+        "id": "software_root_cause",
+        "type": "markdown",
+        "sourceId": "driver_tracking_code",
+        "body": "## منطق التطبيق يخلط بين حياة الحساس وجودة النقطة\n\nحارس الاستئناف الحالي يقيس 20 دقيقة منذ آخر **نقطة صالحة**، وليس منذ آخر callback من مزود الموقع. لذلك عندما تصل قراءات كل 30 ثانية تقريباً لكن دقتها 100–200 متر، يعتبر التطبيق أن التتبع انقطع، يسجل `tracking_gap`، يوقف خدمة الخلفية، ثم يطلب من السائق إنهاء الرحلة أو متابعتها.\n\nهذا ما حدث في الرحلة 1865 عند 05:01:35: كانت أول 32 نقطة ضعيفة الدقة، ثم جاءت أول نقطة صالحة عند 05:02:00. الحد الوقائي المقصود لمنع رحلة عالقة أصبح هنا سبباً لانقطاع إضافي."
+      },
+      {
+        "id": "recommendations",
+        "type": "markdown",
+        "body": "## خطة المعالجة المقترحة\n\n1. **افصل حياة خدمة الموقع عن جودة الإحداثية.** استخدم وقت آخر callback أو `tracking_last_sample_at` لتقرير أن المزود صامت، واستخدم آخر نقطة صالحة فقط لحساب المسافة. لا توقف الخدمة بعد 20 دقيقة إذا كانت قراءات ضعيفة ما زالت تصل.\n2. **أبقِ التتبع يعمل عند ضعف الدقة.** استمر في حفظ العينات المرفوضة، أظهر تنبيهاً للسائق، وحاول إعادة تهيئة GNSS، لكن لا تطلب إنهاء الرحلة إلا عند توقف callbacks/heartbeat فعلياً.\n3. **وسع الحدث التشخيصي.** أرسل سبباً واضحاً مثل `no_usable_fix` أو `provider_silent` مع آخر callback، آخر نقطة صالحة، آخر دقة، مدة السلسلة الضعيفة، طراز الجهاز وإصدار Android وحالة تحسين البطارية ومصدر الموقع. حالياً حقل provider فارغ في نقاط هاتين الرحلتين، لذلك لا يمكن الجزم هل المصدر GPS أم موقع شبكي.\n4. **طبّق فحص جودة إداري.** الرحلات ذات نسبة قراءات ضعيفة مرتفعة أو فترات بلا نقطة صالحة يجب أن تنتقل للمراجعة، ولا يُعتمد سولارها الرسمي تلقائياً حتى لو تطابق العدد والـ checksum.\n5. **نفّذ فحصاً ميدانياً على الهاتف نفسه.** فعّل الموقع الدقيق، ألغِ تقييد البطارية للتطبيق، اسمح بالنشاط في الخلفية والتشغيل التلقائي، ثبّت الهاتف قرب الزجاج بعيداً عن صندوق معدني، ثم اختبر 15 دقيقة في مكان مفتوح. إذا بقيت الدقة 100–200 متر، قارن بهاتف ثانٍ في المركبة نفسها لعزل عطل هوائي الهاتف عن ظروف المكان."
+      },
+      {
+        "id": "further_questions",
+        "type": "markdown",
+        "body": "## ما الذي يجب التحقق منه في الاختبار التالي؟\n\n- هل تتكرر المشكلة على الهاتف نفسه خارج المركبة وفي سماء مفتوحة؟\n- هل يسجل هاتف ثانٍ دقة أقل من 30 متراً في الوقت والمكان نفسيهما؟\n- هل نظام Android يضع التطبيق في وضع بطارية «مقيّد» أو يسحب صلاحية الموقع الدقيق أثناء التشغيل؟\n- هل تحدث القفزة إلى 100 أو 200 متر عند وضع الهاتف في موضع معين داخل المركبة؟"
+      },
+      {
+        "id": "caveats",
+        "type": "markdown",
+        "body": "## حدود التشخيص والافتراضات\n\nلا يسجل النظام حالياً عدد الأقمار أو طراز الجهاز أو حالة تحسين البطارية أو مزود الموقع الفعلي، لذلك لا يمكن إثبات السبب الفيزيائي النهائي من Oracle وحدها. كما أن أحداث التتبع أدلة تقنية للمراجعة وليست دليلاً على تصرف متعمد. الاستنتاج المؤكد هو اكتمال الرفع، واستمرار وصول قراءات كثيرة ضعيفة الدقة، وتفعيل حد 20 دقيقة بلا نقطة صالحة في الرحلة 1865."
+      }
+    ]
+  },
+  "snapshot": {
+    "version": 1,
+    "generatedAt": "2026-08-23T09:00:00+03:00",
+    "status": "ready",
+    "datasets": {
+      "trip_quality_trend": [
+        {"trip_id": 1594, "started_at": "2026-08-09T05:02:13Z", "point_count": 2994, "poor_points": 394, "poor_rate": 0.132, "tracking_gap_events": 0, "max_raw_gap_seconds": 54, "distance_km": 25.881},
+        {"trip_id": 1609, "started_at": "2026-08-10T04:46:07Z", "point_count": 3035, "poor_points": 337, "poor_rate": 0.111, "tracking_gap_events": 0, "max_raw_gap_seconds": 1413, "distance_km": 28.000},
+        {"trip_id": 1663, "started_at": "2026-08-11T04:44:38Z", "point_count": 3219, "poor_points": 274, "poor_rate": 0.085, "tracking_gap_events": 0, "max_raw_gap_seconds": 38, "distance_km": 30.850},
+        {"trip_id": 1669, "started_at": "2026-08-12T04:40:55Z", "point_count": 2938, "poor_points": 151, "poor_rate": 0.051, "tracking_gap_events": 0, "max_raw_gap_seconds": 71, "distance_km": 30.923},
+        {"trip_id": 1703, "started_at": "2026-08-13T04:42:09Z", "point_count": 2015, "poor_points": 186, "poor_rate": 0.092, "tracking_gap_events": 0, "max_raw_gap_seconds": 109, "distance_km": 20.482},
+        {"trip_id": 1705, "started_at": "2026-08-15T04:33:19Z", "point_count": 2897, "poor_points": 153, "poor_rate": 0.053, "tracking_gap_events": 0, "max_raw_gap_seconds": 59, "distance_km": 36.884},
+        {"trip_id": 1712, "started_at": "2026-08-16T04:36:32Z", "point_count": 1714, "poor_points": 86, "poor_rate": 0.050, "tracking_gap_events": 1, "max_raw_gap_seconds": 5681, "distance_km": 20.753},
+        {"trip_id": 1720, "started_at": "2026-08-17T04:34:02Z", "point_count": 1845, "poor_points": 180, "poor_rate": 0.098, "tracking_gap_events": 0, "max_raw_gap_seconds": 88, "distance_km": 24.533},
+        {"trip_id": 1765, "started_at": "2026-08-18T04:29:31Z", "point_count": 1740, "poor_points": 236, "poor_rate": 0.136, "tracking_gap_events": 0, "max_raw_gap_seconds": 87, "distance_km": 24.788},
+        {"trip_id": 1811, "started_at": "2026-08-19T04:35:25Z", "point_count": 1232, "poor_points": 54, "poor_rate": 0.044, "tracking_gap_events": 29, "max_raw_gap_seconds": 2517, "distance_km": 25.702},
+        {"trip_id": 1852, "started_at": "2026-08-20T04:34:02Z", "point_count": 1054, "poor_points": 122, "poor_rate": 0.116, "tracking_gap_events": 5, "max_raw_gap_seconds": 4189, "distance_km": 14.840},
+        {"trip_id": 1853, "started_at": "2026-08-22T04:46:44Z", "point_count": 221, "poor_points": 99, "poor_rate": 0.448, "tracking_gap_events": 0, "max_raw_gap_seconds": 56, "distance_km": 0.032},
+        {"trip_id": 1866, "started_at": "2026-08-22T06:37:32Z", "point_count": 44, "poor_points": 43, "poor_rate": 0.977, "tracking_gap_events": 5, "max_raw_gap_seconds": 11949, "distance_km": 0.000},
+        {"trip_id": 1865, "started_at": "2026-08-23T04:41:35Z", "point_count": 213, "poor_points": 130, "poor_rate": 0.610, "tracking_gap_events": 1, "max_raw_gap_seconds": 70, "distance_km": 0.927}
+      ],
+      "focus_trips": [
+        {
+          "trip_id": 1853,
+          "sync_integrity": "221/221؛ checksum مطابق",
+          "point_count": 221,
+          "poor_points": 99,
+          "poor_rate": 0.448,
+          "first_valid_delay": "18د 31ث",
+          "max_raw_gap_seconds": 56,
+          "tracking_gap_events": 0,
+          "official_distance_km": 0.032,
+          "official_fuel": "0.004 لتر",
+          "first_valid_at": "2026-08-22T05:05:15Z",
+          "last_valid_to_end_seconds": 486
+        },
+        {
+          "trip_id": 1865,
+          "sync_integrity": "213/213؛ checksum مطابق",
+          "point_count": 213,
+          "poor_points": 130,
+          "poor_rate": 0.610,
+          "first_valid_delay": "20د 25ث",
+          "max_raw_gap_seconds": 70,
+          "tracking_gap_events": 1,
+          "official_distance_km": 0.927,
+          "official_fuel": "غير محسوب",
+          "first_valid_at": "2026-08-23T05:02:00Z",
+          "last_valid_to_end_seconds": 3
+        }
+      ]
+    }
+  },
+  "sources": [
+    {
+      "id": "trip_quality_query",
+      "label": "Oracle: جودة نقاط رحلات السائق 552",
+      "query": {
+        "engine": "Oracle",
+        "language": "sql",
+        "executed_at": "2026-08-23T09:00:00+03:00",
+        "sql": "SELECT t.id AS trip_id, t.started_at, COUNT(p.id) AS point_count, SUM(CASE WHEN NVL(p.client_is_valid, 1) = 0 OR p.quality_reason = 'poor_accuracy' THEN 1 ELSE 0 END) AS poor_points, SUM(CASE WHEN NVL(p.client_is_valid, 1) = 0 OR p.quality_reason = 'poor_accuracy' THEN 1 ELSE 0 END) / NULLIF(COUNT(p.id), 0) AS poor_rate, t.distance_km FROM trips t JOIN trip_points p ON p.trip_id = t.id WHERE t.oracle_driver_id = '552' AND t.status = 'confirmed' AND t.started_at >= TIMESTAMP '2026-08-09 00:00:00' AND t.started_at < TIMESTAMP '2026-08-24 00:00:00' GROUP BY t.id, t.started_at, t.distance_km ORDER BY t.started_at",
+        "description": "يجمع نسبة نقاط poor_accuracy لكل رحلة مؤكدة للسائق 552 ويقارنها زمنياً.",
+        "tables_used": ["TRIPS", "TRIP_POINTS", "TRIP_TRACKING_EVENTS"],
+        "filters": ["ORACLE_DRIVER_ID = 552", "STATUS = confirmed", "STARTED_AT من 9 إلى 23 أغسطس 2026", "النقاط المحفوظة فقط"],
+        "metric_definitions": ["نسبة ضعف الدقة = نقاط client_is_valid = 0 أو quality_reason = poor_accuracy ÷ جميع النقاط المحفوظة", "حد قبول الدقة في التطبيق والخادم هو 50 متراً"]
+      }
+    },
+    {
+      "id": "focus_trip_query",
+      "label": "Oracle: تفاصيل الرحلتين 1853 و1865",
+      "query": {
+        "engine": "Oracle",
+        "language": "sql",
+        "executed_at": "2026-08-23T09:00:00+03:00",
+        "sql": "SELECT t.id AS trip_id, t.points_expected, t.points_received, t.client_checksum, t.server_checksum, t.distance_km, t.virtual_fuel_liters, p.sequence_number, p.accuracy, p.captured_at, p.recorded_at, p.client_is_valid, p.quality_reason FROM trips t JOIN trip_points p ON p.trip_id = t.id WHERE t.id IN (1853, 1865) ORDER BY t.id, p.sequence_number",
+        "description": "يفحص اكتمال المزامنة وتسلسل النقاط ودقتها وفواصلها الزمنية والقيم الرسمية للرحلتين.",
+        "tables_used": ["TRIPS", "TRIP_POINTS", "TRIP_TRACKING_EVENTS"],
+        "filters": ["TRIP_ID IN (1853, 1865)", "كل النقاط مرتبة حسب SEQUENCE_NUMBER"],
+        "metric_definitions": ["اكتمال المزامنة = expected يساوي received مع تطابق checksum", "الصمت الخام = الفرق بين captured_at لنقطتين متتاليتين", "التأخر حتى أول قراءة صالحة = أول client_is_valid = 1 ناقص started_at"]
+      }
+    },
+    {
+      "id": "driver_installation_query",
+      "label": "Oracle: إصدار تطبيق السائق",
+      "query": {
+        "engine": "Oracle",
+        "language": "sql",
+        "executed_at": "2026-08-23T09:00:00+03:00",
+        "sql": "SELECT oracle_driver_id, app_version, build_number, app_updated_at, last_seen_at FROM driver_app_installations WHERE oracle_driver_id = '552' ORDER BY last_seen_at DESC FETCH FIRST 1 ROW ONLY",
+        "description": "يجلب آخر إصدار أبلغ عنه هاتف السائق وتاريخ تحديثه.",
+        "tables_used": ["DRIVER_APP_INSTALLATIONS"],
+        "filters": ["ORACLE_DRIVER_ID = 552", "آخر جهاز حسب LAST_SEEN_AT"]
+      }
+    },
+    {
+      "id": "driver_tracking_code",
+      "label": "كود تطبيق السائق: حارس استئناف التتبع",
+      "path": "driver_app/lib/src/services/trip_local_service.dart"
+    }
+  ]
+}

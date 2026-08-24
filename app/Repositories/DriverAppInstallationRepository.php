@@ -39,4 +39,14 @@ class DriverAppInstallationRepository
             ->latest('last_seen_at')
             ->get();
     }
+
+    public function reportingDriverIds(): array
+    {
+        return DriverAppInstallation::query()
+            ->distinct()
+            ->pluck('oracle_driver_id')
+            ->map(fn ($id): string => (string) $id)
+            ->values()
+            ->all();
+    }
 }

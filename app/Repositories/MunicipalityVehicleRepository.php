@@ -110,6 +110,36 @@ class MunicipalityVehicleRepository
         }
     }
 
+    public function countActiveAssignedToDrivers(array $oracleDriverIds): int
+    {
+        $ids = collect($oracleDriverIds)
+            ->filter(fn ($id): bool => filled($id))
+            ->map(fn ($id): string => (string) $id)
+            ->unique()
+            ->values();
+
+        if ($ids->isEmpty() || ! $this->readiness->available()) {
+            return 0;
+        }
+
+        $table = $this->vehiclesTable();
+        $columns = $this->vehicleColumns();
+
+        try {
+            return (int) DB::connection('oracle')
+                ->table($table)
+                ->whereIn($columns['beneficiary_id'], $ids->all())
+                ->where($columns['active'], 1)
+                ->whereNotNull($columns['plate'])
+                ->distinct()
+                ->count($columns['id']);
+        } catch (QueryException $e) {
+            $this->logOracleReadFailure('count_active_tracking_app_vehicles', $e);
+
+            return 0;
+        }
+    }
+
     public function findByDriverMobile(string $mobileNum): Collection
     {
         if (! $this->readiness->available()) {

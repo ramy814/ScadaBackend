@@ -12,7 +12,7 @@ use App\Http\Controllers\Wells\WellController;
 use App\Http\Controllers\Wells\WellMediaController;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware(['web', 'auth:admin', 'system.access:wells'])->prefix('wells')->group(function () {
+Route::middleware(['web', 'auth:admin', 'systems.operational', 'system.access:wells'])->prefix('wells')->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->name('wells.dashboard');
 
     Route::resource('wells', WellController::class)->names('wells.wells');

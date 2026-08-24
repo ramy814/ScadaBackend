@@ -9,9 +9,10 @@ The project strictly enforces the separation of concerns:
 
 ## 2. Offline-First Design
 The Flutter mobile application is designed to function entirely offline during a trip. The backend APIs must support this paradigm:
-- **Idempotency Keys**: Both `trips` (`local_id`) and `trip_points` (`sequence_number`) use client-generated identifiers as unique constraints (`updateOrCreate`). This allows the mobile app to safely retry requests if a network connection drops mid-flight.
+- **Idempotency Keys**: Trips use `local_id`, while points use the unique `(trip_id, sequence_number)` key through batch upsert. This allows the mobile app to safely retry requests if a network connection drops mid-flight without restoring per-row `updateOrCreate` traffic.
 - **Eventual Consistency**: Trips are created in an `uploaded` state. They are only marked as `confirmed` once the mobile app sends a final payload with a `client_checksum` that matches the server's calculated `server_checksum`.
 - **Active Uploads**: Repeated `POST /api/driver/trips` calls refresh the same `local_id`; point, stop, and telemetry identifiers remain idempotent. An active trip may be visible in the dashboard but cannot be confirmed until it has ended and the full checksum arrives.
+- **Bounded Point Writes**: Point requests retain the public 500-point contract, while `TripSyncService` performs Oracle `MERGE`/upsert work in 100-row chunks under a per-trip lock. Database work scales by chunks, not by two queries for every GPS sample.
 - **Snapshot Data**: Because drivers and vehicles might change in the Oracle database over time, the `trips` table stores a complete snapshot of the driver and vehicle details at the exact moment the trip was initiated.
 
 ## 3. Administrative Review Constraints
@@ -27,8 +28,11 @@ Once a trip is `confirmed` by the system, it enters the administrative review pi
 - **State**: The `usePage()` hook is the primary way to access global state (like the authenticated user or flash messages) in the frontend.
 - **Trip Map Source of Truth**: `TripShow.vue` renders only the original ordered `trip_points`. Do not introduce road matching, route snapping, OSRM, Docker, or an external routing API unless the product owner explicitly reverses this decision.
 - **Map Interpretation**: The map may show GPS segments crossing buildings because it visualizes recorded coordinates directly. Never move or overwrite authoritative GPS points merely to make the route look aligned with streets.
+- **Gap Estimate Boundary**: `VirtualFuelService` may calculate a dashboard-only conservative estimate for an internal gap by measuring the direct Haversine distance between its two eligible endpoints. The estimate is usable only when its implied speed is at most 55 m/s. Do not use road matching, routing, a distance multiplier, or rejected/raw samples to invent the missing path. Do not write the estimate to `TRIPS.DISTANCE_KM` or `TRIPS.VIRTUAL_FUEL_LITERS`.
 - **Lightweight Driver History Maps**: The confirmed-trip list remains summary-only. `GET /api/driver/trips/{trip}/route-preview` authorizes ownership and returns at most 100 accurate ordered coordinates through `DriverTripRoutePreviewService` and `TripRepository`; this preview is never used for distance, fuel, checksum, or stored route mutation.
 - **Live Monitoring**: Dashboard and active `TripShow` Inertia props may reload every 15 seconds. `last_point_at` plus the latest tracking event drive a technical freshness badge; do not label it as proven deliberate tampering. Active trips remain visible even before reaching 50 points. After a trip ends, fewer than 50 stored points classifies it as experimental dashboard display data, hidden by default and available through `show_experimental=1`.
+- **Dashboard Query Boundary**: Experimental visibility uses the exact server-maintained `TRIPS.POINTS_RECEIVED` counter instead of repeating correlated counts over `TRIP_POINTS`. Dashboard status KPIs use one conditional aggregate query, and period fuel uses one aggregate query.
+- **Fleet KPI Sources**: The dashboard active-driver and active-vehicle KPIs are app-adoption intersections, not raw Oracle totals. Start with distinct `DRIVER_APP_INSTALLATIONS.ORACLE_DRIVER_ID` values, then require the matching `G_STORE.BENEFICIARIES.IS_ACTIVE = 1` driver or assigned `G_STORE.VEHICLE.IS_ACTIVE = 1` vehicle through their repositories. Official period fuel is the sum of non-null `TRIPS.VIRTUAL_FUEL_LITERS` on confirmed, dashboard-visible trips whose `STARTED_AT` is inside the selected range; never include provisional gap fuel.
 
 ## 5. Security & Authentication
 - **Admin**: Uses the Municipality's MOG SSO package. Authentication state is stored in the session.
@@ -56,3 +60,14 @@ Once a trip is `confirmed` by the system, it enters the administrative review pi
 - `TripRepository::latestUsageByDriver()` supplies legacy users who have trips but no new telemetry.
 - `MunicipalityVehicleRepository::findManyByDriverOracleIds()` supplies live Oracle vehicle assignments in one query.
 - `DriverAppUsageController` renders `Admin/DriverApps`; it must not duplicate classification or merge logic.
+
+## 8. Global Operational Control
+
+- Permission managers control one global emergency switch from `/permissions`; it is separate from per-user system permissions.
+- `SystemOperationalStateRepository` is the only database layer for `SYSTEM_OPERATIONAL_STATES`. `SystemOperationalStateService` owns state changes and audit logging. `RejectWhenSystemsSuspended` enforces the state before normal web/mobile controllers.
+- Operational-state reads use a five-second file-cache entry, refreshed immediately after a successful manager update. This prevents one extra Oracle query on every web/mobile request while bounding cross-worker staleness.
+- Suspended mobile routes return retryable HTTP 503 JSON. Suspended Fleet, Wells, Valves, and portal routes return the standalone Arabic maintenance view.
+- `/permissions` plus administrative authentication/logout infrastructure remain exempt so an authorized manager cannot lock out the recovery control plane.
+- State reads fail open when Oracle/the table is unavailable; update attempts fail with a visible error. This prevents an infrastructure fault from silently becoming a global shutdown.
+- This control blocks server access only. It never remotely deletes mobile SQLite data, disables device GNSS, or bypasses offline-first retention; queued records upload normally after restoration.
+- See `.ai/workflows/system-operational-suspension.md` for the authoritative coverage, recovery, deployment, and legacy-client contract.

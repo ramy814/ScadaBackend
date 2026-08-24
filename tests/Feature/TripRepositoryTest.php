@@ -21,6 +21,8 @@ class TripRepositoryTest extends TestCase
             $table->string('status')->nullable();
             $table->string('review_status')->nullable();
             $table->text('clarification_response')->nullable();
+            $table->decimal('virtual_fuel_liters', 10, 3)->nullable();
+            $table->unsignedInteger('points_received')->default(0);
             $table->timestamp('started_at');
             $table->timestamp('ended_at')->nullable();
         });
@@ -171,6 +173,7 @@ class TripRepositoryTest extends TestCase
                 'driver_name' => 'سائق فعلي',
                 'status' => 'confirmed',
                 'review_status' => 'pending',
+                'points_received' => 50,
                 'started_at' => $now,
                 'ended_at' => $now->copy()->addMinutes(10),
             ],
@@ -180,6 +183,7 @@ class TripRepositoryTest extends TestCase
                 'driver_name' => 'سائق تجريبي',
                 'status' => 'confirmed',
                 'review_status' => 'pending',
+                'points_received' => 49,
                 'started_at' => $now->copy()->subMinute(),
                 'ended_at' => $now->copy()->addMinutes(5),
             ],
@@ -189,6 +193,7 @@ class TripRepositoryTest extends TestCase
                 'driver_name' => 'سائق مباشر',
                 'status' => 'uploaded',
                 'review_status' => 'pending',
+                'points_received' => 1,
                 'started_at' => $now->copy()->addSecond(),
                 'ended_at' => null,
             ],
@@ -226,5 +231,77 @@ class TripRepositoryTest extends TestCase
         $this->assertSame([12, 10, 11], $allTrips->getCollection()->pluck('id')->all());
         $this->assertSame(2, $repository->dashboardCounts()['todayTrips']);
         $this->assertSame(3, $repository->dashboardCounts(true)['todayTrips']);
+    }
+
+    public function test_dashboard_fuel_uses_confirmed_visible_trips_in_the_selected_range(): void
+    {
+        $now = now();
+
+        DB::table('trips')->insert([
+            [
+                'id' => 20,
+                'vehicle_plate' => '20-0001',
+                'driver_name' => 'سائق محسوب',
+                'status' => 'confirmed',
+                'review_status' => 'pending',
+                'virtual_fuel_liters' => 2.5,
+                'points_received' => 50,
+                'started_at' => $now,
+                'ended_at' => $now->copy()->addHour(),
+            ],
+            [
+                'id' => 21,
+                'vehicle_plate' => '20-0002',
+                'driver_name' => 'سائق تجريبي',
+                'status' => 'confirmed',
+                'review_status' => 'pending',
+                'virtual_fuel_liters' => 1.25,
+                'points_received' => 49,
+                'started_at' => $now,
+                'ended_at' => $now->copy()->addHour(),
+            ],
+            [
+                'id' => 22,
+                'vehicle_plate' => '20-0003',
+                'driver_name' => 'سائق غير مؤكد',
+                'status' => 'uploaded',
+                'review_status' => 'pending',
+                'virtual_fuel_liters' => 4,
+                'points_received' => 50,
+                'started_at' => $now,
+                'ended_at' => $now->copy()->addHour(),
+            ],
+            [
+                'id' => 23,
+                'vehicle_plate' => '20-0004',
+                'driver_name' => 'سائق خارج الفترة',
+                'status' => 'confirmed',
+                'review_status' => 'pending',
+                'virtual_fuel_liters' => 8,
+                'points_received' => 50,
+                'started_at' => $now->copy()->subDays(3),
+                'ended_at' => $now->copy()->subDays(3)->addHour(),
+            ],
+        ]);
+
+        foreach ([20 => 50, 21 => 49, 22 => 50, 23 => 50] as $tripId => $pointCount) {
+            DB::table('trip_points')->insert(collect(range(1, $pointCount))->map(fn (int $id): array => [
+                'trip_id' => $tripId,
+                'recorded_at' => $now->copy()->addSeconds($id),
+            ])->all());
+        }
+
+        $repository = app(TripRepository::class);
+        $from = $now->copy()->subDay();
+        $to = $now->copy()->addDay();
+
+        $this->assertSame([
+            'fuelConsumptionLiters' => 2.5,
+            'fuelConsumptionTrips' => 1,
+        ], $repository->dashboardFuelConsumption($from, $to));
+        $this->assertSame([
+            'fuelConsumptionLiters' => 3.75,
+            'fuelConsumptionTrips' => 2,
+        ], $repository->dashboardFuelConsumption($from, $to, true));
     }
 }

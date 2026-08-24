@@ -1,5 +1,52 @@
 # Changelog & Recent Actions
 
+## [2026-08-24] Trip Point Write Pressure And Fleet Dashboard Recovery
+
+- Reviewed the registered Fleet routes and driver sync contract. `POST /api/driver/trips/{trip}/points` remains authenticated, operational-switch protected, and compatible with the existing 1–500 point payload used by all released apps.
+- Replaced per-point `updateOrCreate` persistence (roughly a select plus write for every GPS sample) with shape-preserving Oracle upserts in chunks of 100. A 500-point request now performs five point merges plus bounded lock/count/update work instead of roughly 1,000 point statements.
+- Added a row lock on only the target trip so overlapping uploads cannot race `POINTS_RECEIVED` or duplicate the same sequence while unrelated trips continue independently. Unique `(TRIP_ID, SEQUENCE_NUMBER)`, checksums, endpoint paths, and mobile resume offsets are unchanged.
+- Changed dashboard experimental visibility to use exact server-maintained `TRIPS.POINTS_RECEIVED` rather than correlated `TRIP_POINTS` counts. Collapsed seven status-card scans into one conditional aggregate and fuel sum/count into one aggregate.
+- Added migration `2026_08_24_000024_add_trip_tracking_performance_indexes.php` for trip-period/visibility, latest-point, and tracking-event queries. It is pending because the configured Oracle account is locked.
+- Removed the operational switch's per-request Oracle read by adding a five-second file-cache entry refreshed immediately after a manager change.
+- Diagnosed the reported Fleet page outage before its controller: logs show `ORA-12170` connectivity timeouts followed by repeated `ORA-28000` for `CONTROL_UNIT`. Oracle later accepted connections again; the earlier lock still requires DBA password/profile review because application code cannot bypass it safely.
+- Measured the recovered live dataset at 1,698 trips and 2,784,917 point rows. Trip `850` has 80,500 received/135,216 expected points, confirming that the old per-point select/write loop could generate extreme statement volume.
+- Verified the optimized page against the recovered Oracle connection: local dev login redirected to Fleet and `/admin/dashboard` returned HTTP 200, 58 KB, in about 0.95 seconds before the pending index migration was applied.
+- Verified current production reachability without bypasses: TLS validation passed, `/admin/dashboard` redirected to SSO with HTTP 302, and `/api/driver/trips` reached Sanctum with HTTP 401. These probes verify transport/routes only; the local optimization still requires normal deployment.
+- Added batch-query/idempotency, dashboard, route, and operational-cache regression coverage. All 90 Laravel tests pass with 304 assertions. The in-app browser session was unavailable, so the page was verified through an authenticated local HTTP request and Laravel server timing.
+
+## [2026-08-24] Global Portal And Mobile Services Shutdown
+
+- Added one emergency operational control to `/permissions` for authorized permission managers. Activating it requires a reason and suspends the unified portal plus every Fleet Driver, Wells Inspector, and Valves Inspector mobile API entry point.
+- Added `SYSTEM_OPERATIONAL_STATES`, `SystemOperationalStateRepository`, `SystemOperationalStateService`, and `RejectWhenSystemsSuspended`. API requests receive stable HTTP 503 JSON with `code = systems_temporarily_suspended`, `retryable = true`, `Retry-After: 300`, and no authentication/business controller execution.
+- Web system routes receive a lightweight Arabic HTTP 503 maintenance page. Administrative SSO/login/logout infrastructure and `/permissions` remain outside the suspension middleware so an authorized manager can always restore service.
+- Mobile local data remains authoritative: suspension never deletes or confirms offline records. Old and new apps keep their normal retry behavior and resume through the unchanged idempotent endpoints after reopening.
+- Reads fail open if Oracle or the new table is unavailable so a storage incident cannot accidentally stop all systems; writes fail with a clear administrative error. The latest actor, reason, and change time are stored and every change is logged.
+- Added middleware/repository/validation/route-coverage tests, passed the full Laravel suite, and completed the Vite production build. The Oracle migration could not be applied locally because the configured Oracle account was locked (`ORA-28000`).
+- Added `.ai/workflows/system-operational-suspension.md` as the single operational reference for activation, restoration, route coverage, deployment checks, and old/new mobile compatibility.
+
+## [2026-08-23] Production TLS Certificate Upload Failure
+
+- Diagnosed driver trip `7810a248-03e5-42b4-8b8d-95bdc25bd248` on build `1.1.16+39`: all `POST /api/driver/trips` attempts failed before receiving an HTTP response (`DioExceptionType.unknown`, `status = null`). The trip remained intact in SQLite with 8 points, `server_id = null`, `points_uploaded = 0`, and `sync_status = failed` for automatic retry.
+- Verified device time and DNS/network reachability, then confirmed that the production leaf certificate for `scada.mogaza.org` expired on `2026-08-17 08:09:58 UTC`. Diagnostic requests succeed only when certificate verification is bypassed and reach the existing Sanctum/API routes, proving Laravel and the trip routes are still available.
+- The correct cross-version repair is to renew and bind the production TLS certificate. Never disable certificate verification or replace HTTPS in the Flutter app: every old and new build uses the same host and resumes through the unchanged idempotent trip endpoints after certificate renewal.
+- Re-ran backend rolling-compatibility coverage: 18 trip synchronization/data-quality tests passed with 72 assertions. No driver API, payload, database, or GPS-liveness code change is required for this incident.
+
+## [2026-08-23] Driver GPS Activity And Quality Separation
+
+- Diagnosed confirmed trips `1853` and `1865`: both uploaded every locally recorded point with matching checksums, while 44.8% and 61.0% of their samples respectively were rejected for accuracy above 50 meters.
+- Verified trip `1865` reached the old 20-minute open-trip guard before its first accepted fix, even though weak callbacks continued; the guard used the latest valid point as a liveness signal and stopped the tracker.
+- Released driver app `1.1.16+39` with provider liveness based on `tracking_last_sample_at` or the latest raw persisted point. Weak samples still do not contribute to distance/fuel, but they no longer trigger the stale-tracker decision.
+- Reset per-trip sample/success timestamps atomically at trip creation and cleanup, retained the 45-second real provider-silence recovery, and added regression tests for weak-callback and raw-point fallbacks.
+- Advanced the backend app-presence defaults to version `1.1.16`, build `39`. No API or Oracle migration is required.
+
+## [2026-08-20] Fleet Dashboard App Adoption And Fuel KPI
+
+- Changed the Fleet performance KPIs so active vehicles and active drivers are counted only when the Oracle record is active and the assigned/authenticated driver has at least one accepted row in `DRIVER_APP_INSTALLATIONS`.
+- `DriverAppUsageService::dashboardActiveCounts()` owns the shared presence-ID intersection. `MunicipalityVehicleRepository` applies active vehicle/assignment rules, while `MunicipalityDriverRepository` applies the active driver rule; the dashboard controller performs no direct Oracle query.
+- Added official diesel consumption for the selected dashboard period by summing non-null `TRIPS.VIRTUAL_FUEL_LITERS` only from confirmed trips. The calculation follows the dashboard experimental-trip visibility rule and excludes provisional gap estimates.
+- Kept the existing daily, weekly, and monthly period tabs and added an inclusive custom `date_from`/`date_to` range validated by `DashboardIndexRequest`.
+- Moved the custom date controls below the diesel KPI, formatted the liter value with English digits, and adjusted the KPI spacing so diesel occupies a full row inside the performance card.
+
 ## [2026-08-18] Conservative Trip Gap Estimates
 
 - Added a read-only supervisor estimate for internal GPS gaps using the straight-line distance between eligible endpoints; estimates requiring more than 55 m/s are rejected.

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\DashboardIndexRequest;
 use App\Models\AuditLog;
 use App\Models\MissionLocation;
 use App\Models\MissionType;
@@ -9,13 +10,14 @@ use App\Models\Trip;
 use App\Repositories\MunicipalityDriverRepository;
 use App\Repositories\MunicipalityVehicleRepository;
 use App\Repositories\TripRepository;
+use App\Services\DriverAppUsageService;
 use App\Services\VirtualFuelService;
+use Carbon\Carbon;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 use Mog\ProjectHelper\AuthHelpers;
@@ -46,19 +48,23 @@ class AdminAuthController extends Controller
     }
 
     public function dashboard(
-        MunicipalityVehicleRepository $vehicleRepository,
+        DashboardIndexRequest $request,
         MunicipalityDriverRepository $driverRepository,
         TripRepository $tripRepository,
+        DriverAppUsageService $driverAppUsage,
     ): InertiaResponse {
-        $period = request()->query('period', 'daily');
-        $responseStatus = request()->query('response_status', 'all');
-        $search = trim((string) request()->query('search', ''));
-        $showExperimental = request()->boolean('show_experimental');
-        [$from, $to] = $this->periodRange($period);
+        $filters = $request->validated();
+        $period = $filters['period'] ?? 'daily';
+        $responseStatus = $filters['response_status'] ?? 'all';
+        $search = trim((string) ($filters['search'] ?? ''));
+        $showExperimental = $request->boolean('show_experimental');
+        $dateFrom = $filters['date_from'] ?? null;
+        $dateTo = $filters['date_to'] ?? null;
+        [$from, $to] = $this->periodRange($period, $dateFrom, $dateTo);
 
         $tripCounts = $tripRepository->dashboardCounts($showExperimental);
-        $activeVehicles = DB::connection('oracle')->table('g_store.VEHICLE')->where('IS_ACTIVE', 1)->count();
-        $activeDrivers = DB::connection('oracle')->table('g_store.BENEFICIARIES')->where('IS_ACTIVE', 1)->count();
+        $fuelConsumption = $tripRepository->dashboardFuelConsumption($from, $to, $showExperimental);
+        $activeAppCounts = $driverAppUsage->dashboardActiveCounts();
 
         $recentTrips = $tripRepository->paginateForDashboard(
             $from,
@@ -71,9 +77,11 @@ class AdminAuthController extends Controller
 
         return Inertia::render('Admin/Dashboard', [
             ...$tripCounts,
-            'activeVehicles' => $activeVehicles,
-            'activeDrivers' => $activeDrivers,
+            ...$fuelConsumption,
+            ...$activeAppCounts,
             'period' => $period,
+            'dateFrom' => $dateFrom,
+            'dateTo' => $dateTo,
             'responseStatus' => $responseStatus,
             'search' => $search,
             'showExperimental' => $showExperimental,
@@ -468,6 +476,8 @@ class AdminAuthController extends Controller
                     ? ['trip' => $trip->id]
                     : [
                         'period' => $request->input('period', $request->query('period', 'daily')),
+                        'date_from' => $request->input('date_from', $request->query('date_from')),
+                        'date_to' => $request->input('date_to', $request->query('date_to')),
                         'response_status' => $request->input('response_status', $request->query('response_status', 'all')),
                         'search' => $request->input('search', $request->query('search', '')),
                         'show_experimental' => $request->boolean('show_experimental'),
@@ -477,9 +487,19 @@ class AdminAuthController extends Controller
             ->with('ok', $message);
     }
 
-    private function periodRange(string $period): array
-    {
+    private function periodRange(
+        string $period,
+        ?string $dateFrom = null,
+        ?string $dateTo = null,
+    ): array {
         $now = now();
+
+        if ($period === 'custom' && $dateFrom !== null && $dateTo !== null) {
+            return [
+                Carbon::createFromFormat('Y-m-d', $dateFrom)->startOfDay(),
+                Carbon::createFromFormat('Y-m-d', $dateTo)->endOfDay(),
+            ];
+        }
 
         return match ($period) {
             'weekly' => [$now->copy()->subWeek(), $now],

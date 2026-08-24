@@ -6,11 +6,11 @@
         <Link
           v-for="p in periods"
           :key="p.value"
-          :href="dashboardUrl({ period: p.value })"
+          :href="dashboardUrl({ period: p.value, date_from: '', date_to: '' })"
           :class="{ active: period === p.value }"
         >{{ p.label }}</Link>
       </div>
-      <div style="display: flex; gap: 12px; align-items: center;">
+      <div class="toolbar-actions">
         <form @submit.prevent="submitSearch" style="display:flex; gap:8px; align-items:center;">
           <input
             v-model="searchTerm"
@@ -79,8 +79,27 @@
         </div>
         <div class="stat-items">
           <div class="stat-item"><div class="label">رحلات اليوم</div><div class="value">{{ todayTrips }}</div></div>
-          <div class="stat-item"><div class="label">المركبات الفعالة</div><div class="value">{{ activeVehicles }}</div></div>
-          <div class="stat-item"><div class="label">السائقون الفعالون</div><div class="value">{{ activeDrivers }}</div></div>
+          <div class="stat-item"><div class="label">المركبات الفعالة على التطبيق</div><div class="value">{{ activeVehicles }}</div></div>
+          <div class="stat-item"><div class="label">السائقون الفعالون على التطبيق</div><div class="value">{{ activeDrivers }}</div></div>
+          <div class="stat-item fuel-stat">
+            <div class="label">استهلاك السولار للفترة</div>
+            <div class="value fuel-value">
+              <span class="fuel-number" dir="ltr">{{ formatLiters(fuelConsumptionLiters) }}</span>
+              <small>لتر</small>
+            </div>
+            <div class="metric-note">من {{ fuelConsumptionTrips }} رحلة مؤكدة محسوبة</div>
+            <form class="date-range-form" @submit.prevent="submitDateRange">
+              <label>
+                <span>من</span>
+                <input v-model="dateFromInput" type="date" aria-label="من تاريخ" required />
+              </label>
+              <label>
+                <span>إلى</span>
+                <input v-model="dateToInput" type="date" :min="dateFromInput" aria-label="إلى تاريخ" required />
+              </label>
+              <button type="submit">تطبيق الفترة</button>
+            </form>
+          </div>
         </div>
       </div>
 
@@ -269,12 +288,16 @@ const props = defineProps({
   confirmedTrips: Number,
   activeVehicles: Number,
   activeDrivers: Number,
+  fuelConsumptionLiters: Number,
+  fuelConsumptionTrips: Number,
   approvedTrips: Number,
   rejectedTrips: Number,
   clarificationTrips: Number,
   clarificationPendingResponse: Number,
   clarificationResponded: Number,
   period: String,
+  dateFrom: String,
+  dateTo: String,
   responseStatus: String,
   search: String,
   showExperimental: Boolean,
@@ -284,6 +307,8 @@ const props = defineProps({
 const now = new Date().toLocaleString('ar-EG', { hour12: false });
 const clarifyNotes = ref({});
 const searchTerm = ref(props.search ?? '');
+const dateFromInput = ref(props.dateFrom ?? '');
+const dateToInput = ref(props.dateTo ?? '');
 let liveRefreshTimer = null;
 
 const periods = [
@@ -300,6 +325,10 @@ const responseFilters = [
 function formatDate(dateStr) {
   if (!dateStr) return '-';
   return new Date(dateStr).toLocaleString('sv-SE', { hour12: false }).replace('T', ' ').slice(0, 16);
+}
+
+function formatLiters(value) {
+  return new Intl.NumberFormat('en-US', { maximumFractionDigits: 3 }).format(Number(value) || 0);
 }
 
 function statusBadge(s) {
@@ -379,34 +408,44 @@ onBeforeUnmount(() => {
 });
 
 function dashboardUrl(overrides = {}) {
-  const params = new URLSearchParams({
+  const params = new URLSearchParams();
+  const values = {
     period: props.period ?? 'daily',
     response_status: props.responseStatus ?? 'all',
-  });
-  const nextSearch = Object.prototype.hasOwnProperty.call(overrides, 'search')
-    ? overrides.search
-    : props.search;
-  const nextShowExperimental = Object.prototype.hasOwnProperty.call(overrides, 'show_experimental')
-    ? overrides.show_experimental
-    : props.showExperimental;
+    date_from: props.dateFrom,
+    date_to: props.dateTo,
+    search: props.search,
+    show_experimental: props.showExperimental,
+    ...overrides,
+  };
 
-  Object.entries(overrides).forEach(([key, value]) => {
-    if (!['search', 'show_experimental'].includes(key)) params.set(key, value);
+  Object.entries(values).forEach(([key, value]) => {
+    if (value === true) params.set(key, '1');
+    else if (value !== false && value !== null && value !== undefined && value !== '') params.set(key, value);
   });
-
-  if (nextSearch) {
-    params.set('search', nextSearch);
-  }
-  if (nextShowExperimental) {
-    params.set('show_experimental', '1');
-  }
 
   return `${page.props.urls.dashboard}?${params.toString()}`;
+}
+
+function submitDateRange() {
+  router.get(page.props.urls.dashboard, {
+    period: 'custom',
+    date_from: dateFromInput.value,
+    date_to: dateToInput.value,
+    response_status: props.responseStatus,
+    search: props.search,
+    show_experimental: props.showExperimental ? 1 : undefined,
+  }, {
+    preserveState: true,
+    preserveScroll: true,
+  });
 }
 
 function submitSearch() {
   router.get(page.props.urls.dashboard, {
     period: props.period,
+    date_from: props.dateFrom,
+    date_to: props.dateTo,
     response_status: props.responseStatus,
     search: searchTerm.value,
     show_experimental: props.showExperimental ? 1 : undefined,
@@ -419,6 +458,8 @@ function submitSearch() {
 function submitReview(action, tripId) {
   router.post(`${page.props.urls.trips_base}/${tripId}/${action}`, {
     period: props.period,
+    date_from: props.dateFrom,
+    date_to: props.dateTo,
     response_status: props.responseStatus,
     search: props.search,
     show_experimental: props.showExperimental ? 1 : undefined,
@@ -430,6 +471,8 @@ function confirmReject(tripId) {
   if (!confirm('رفض هذه الرحلة؟')) return;
   router.post(`${page.props.urls.trips_base}/${tripId}/reject`, {
     period: props.period,
+    date_from: props.dateFrom,
+    date_to: props.dateTo,
     response_status: props.responseStatus,
     search: props.search,
     show_experimental: props.showExperimental ? 1 : undefined,
@@ -441,13 +484,87 @@ function submitClarify(tripId, note) {
   if (!note) return;
   router.post(
     `${page.props.urls.trips_base}/${tripId}/clarify`,
-    { note, period: props.period, response_status: props.responseStatus, search: props.search, show_experimental: props.showExperimental ? 1 : undefined, page: props.recentTrips.current_page },
+    { note, period: props.period, date_from: props.dateFrom, date_to: props.dateTo, response_status: props.responseStatus, search: props.search, show_experimental: props.showExperimental ? 1 : undefined, page: props.recentTrips.current_page },
     { onSuccess: () => { clarifyNotes.value[tripId] = ''; } }
   );
 }
 </script>
 
 <style scoped>
+.date-range-form {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid var(--stroke);
+  border-radius: 10px;
+  background: var(--bg-color);
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.date-range-form label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.toolbar-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.fuel-stat {
+  grid-column: 1 / -1;
+  margin-top: 8px;
+  padding-top: 16px;
+  border-top: 1px solid var(--stroke);
+}
+
+.fuel-value {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.fuel-number {
+  unicode-bidi: isolate;
+}
+
+.date-range-form input,
+.date-range-form button {
+  height: 38px;
+  border: 1px solid var(--stroke);
+  border-radius: 8px;
+  background: var(--card-bg);
+  color: var(--text-primary);
+  padding: 0 9px;
+  font-family: inherit;
+}
+
+.date-range-form button {
+  border-color: var(--brand);
+  background: var(--brand);
+  color: #fff;
+  cursor: pointer;
+  font-weight: 700;
+  padding-inline: 16px;
+}
+
+.value small {
+  font-size: 12px;
+}
+
+.metric-note {
+  margin-top: 3px;
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
 .table-heading {
   display: flex;
   align-items: baseline;

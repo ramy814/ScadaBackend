@@ -31,17 +31,21 @@ if (config('app.env') === 'local') {
     })->name('admin.dev-login');
 }
 
-// ─── Protected: require authenticated admin + allowlist check ─────────────────
-Route::middleware(['auth:admin', 'admin.allowlisted'])->group(function () {
-
-    // ─── Portal: landing page with system cards ───────────────────────────────
-    Route::get('/', [PortalController::class, 'index'])->name('portal');
-
-    // ─── Portal permissions: central per-system access management ─────────────
+// ─── Recovery control plane: remains available during a global shutdown ───────
+Route::middleware('auth:admin')->group(function () {
     Route::get('/permissions', [SystemPermissionController::class, 'index'])->name('portal.permissions');
     Route::get('/permissions/search-users', [SystemPermissionController::class, 'searchUsers'])->name('portal.permissions.search-users');
     Route::post('/permissions', [SystemPermissionController::class, 'store'])->name('portal.permissions.store');
     Route::delete('/permissions/{userId}/{systemKey}', [SystemPermissionController::class, 'destroy'])->name('portal.permissions.destroy');
+    Route::put('/permissions/operational-state', [SystemPermissionController::class, 'updateOperationalState'])
+        ->name('portal.permissions.operational-state');
+});
+
+// ─── Protected: require authenticated admin + allowlist + operational state ───
+Route::middleware(['auth:admin', 'admin.allowlisted', 'systems.operational'])->group(function () {
+
+    // ─── Portal: landing page with system cards ───────────────────────────────
+    Route::get('/', [PortalController::class, 'index'])->name('portal');
 
     // ─── Fleet: vehicle tracking dashboard ───────────────────────────────────
     Route::middleware('system.access:fleet')->group(function () {

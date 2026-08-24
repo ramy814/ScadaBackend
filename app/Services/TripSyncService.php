@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Beneficiary;
 use App\Models\Trip;
+use App\Models\TripPoint;
 use App\Repositories\MunicipalityVehicleRepository;
 use DateTimeImmutable;
 use DateTimeInterface;
@@ -16,6 +17,8 @@ use Illuminate\Support\Facades\Schema;
 
 class TripSyncService
 {
+    private const POINT_UPSERT_CHUNK_SIZE = 100;
+
     public function __construct(
         private readonly MunicipalityVehicleRepository $vehicles,
         private readonly VirtualFuelService $fuel,
@@ -429,33 +432,66 @@ SQL,
 
     public function uploadPoints(Trip $trip, array $points): int
     {
-        if ($trip->status === 'confirmed') {
-            return $trip->points()->count();
-        }
+        return DB::transaction(function () use ($trip, $points): int {
+            $lockedTrip = Trip::query()
+                ->whereKey($trip->getKey())
+                ->lockForUpdate()
+                ->firstOrFail();
 
-        foreach ($points as $point) {
-            $trip->points()->updateOrCreate(
-                ['sequence_number' => $point['sequence_number']],
-                Arr::only($point, [
-                    'latitude',
-                    'longitude',
-                    'accuracy',
-                    'speed',
-                    'heading',
-                    'battery_level',
-                    'provider',
-                    'captured_at',
-                    'recorded_at',
-                    'client_is_valid',
-                    'quality_reason',
-                ]),
-            );
-        }
+            if ($lockedTrip->status === 'confirmed') {
+                return $lockedTrip->points()->count();
+            }
 
-        $count = $trip->points()->count();
-        $trip->update(['points_received' => $count]);
+            $rowsByShape = collect($points)
+                ->map(function (array $point) use ($lockedTrip): array {
+                    $model = new TripPoint;
+                    $model->setConnection($lockedTrip->getConnectionName());
+                    $model->forceFill([
+                        'trip_id' => $lockedTrip->getKey(),
+                        'sequence_number' => (int) $point['sequence_number'],
+                        ...Arr::only($point, [
+                            'latitude',
+                            'longitude',
+                            'accuracy',
+                            'speed',
+                            'heading',
+                            'battery_level',
+                            'provider',
+                            'captured_at',
+                            'recorded_at',
+                            'client_is_valid',
+                            'quality_reason',
+                        ]),
+                    ]);
 
-        return $count;
+                    $attributes = $model->getAttributes();
+                    ksort($attributes);
+
+                    return $attributes;
+                })
+                ->groupBy(fn (array $row): string => implode('|', array_keys($row)));
+
+            foreach ($rowsByShape as $rows) {
+                $firstRow = $rows->first();
+                $updateColumns = array_values(array_diff(
+                    array_keys($firstRow),
+                    ['trip_id', 'sequence_number'],
+                ));
+
+                foreach (array_chunk($rows->all(), self::POINT_UPSERT_CHUNK_SIZE) as $chunk) {
+                    $lockedTrip->points()->upsert(
+                        $chunk,
+                        ['trip_id', 'sequence_number'],
+                        $updateColumns,
+                    );
+                }
+            }
+
+            $count = $lockedTrip->points()->count();
+            $lockedTrip->update(['points_received' => $count]);
+
+            return $count;
+        });
     }
 
     public function confirm(Trip $trip, int $expected, string $checksum): Trip

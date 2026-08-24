@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Beneficiary;
 use App\Repositories\DriverAppInstallationRepository;
+use App\Repositories\MunicipalityDriverRepository;
 use App\Repositories\MunicipalityVehicleRepository;
 use App\Repositories\TripRepository;
 use Carbon\CarbonInterface;
@@ -16,6 +17,7 @@ class DriverAppUsageService
         private readonly DriverAppInstallationRepository $installations,
         private readonly TripRepository $trips,
         private readonly MunicipalityVehicleRepository $vehicles,
+        private readonly MunicipalityDriverRepository $drivers,
     ) {}
 
     public function record(Beneficiary $driver, array $telemetry): array
@@ -99,6 +101,16 @@ class DriverAppUsageService
                 'build' => (int) config('driver_app.latest_build'),
                 'recent_days' => (int) config('driver_app.recent_days'),
             ],
+        ];
+    }
+
+    public function dashboardActiveCounts(): array
+    {
+        $driverIds = $this->installations->reportingDriverIds();
+
+        return [
+            'activeVehicles' => $this->vehicles->countActiveAssignedToDrivers($driverIds),
+            'activeDrivers' => $this->drivers->countActiveUsingApp($driverIds),
         ];
     }
 

@@ -1,5 +1,10 @@
 <?php
 
+use App\Http\Middleware\EnsureAdminIsAllowlisted;
+use App\Http\Middleware\EnsureSystemAccess;
+use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Middleware\RejectWhenSystemsSuspended;
+use App\Support\AutoDeployCacheClearer;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -8,7 +13,7 @@ $basePath = dirname(__DIR__);
 
 require_once $basePath.'/app/Support/AutoDeployCacheClearer.php';
 
-\App\Support\AutoDeployCacheClearer::clearWhenGitHeadChanges($basePath);
+AutoDeployCacheClearer::clearWhenGitHeadChanges($basePath);
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -24,15 +29,15 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->web(append: [
-            \App\Http\Middleware\HandleInertiaRequests::class,
+            HandleInertiaRequests::class,
         ]);
 
         $middleware->alias([
-            'admin.allowlisted' => \App\Http\Middleware\EnsureAdminIsAllowlisted::class,
-            'system.access'     => \App\Http\Middleware\EnsureSystemAccess::class,
+            'admin.allowlisted' => EnsureAdminIsAllowlisted::class,
+            'system.access' => EnsureSystemAccess::class,
+            'systems.operational' => RejectWhenSystemsSuspended::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
     })->create();
-

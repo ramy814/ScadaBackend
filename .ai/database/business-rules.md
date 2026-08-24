@@ -7,6 +7,8 @@ This transition happens strictly when:
 2. OR `points_expected` is exactly `0` (This handles a rare edge case where a trip finishes immediately without tracking any GPS data).
 3. AND The `client_checksum` exactly matches the `server_checksum`.
 
+Point ingestion preserves this integrity contract while using batch upserts. `POINTS_RECEIVED` is refreshed from the actual unique stored-row count after each accepted batch and again during confirmation; it is never trusted from a mobile claim.
+
 ## 2. Oracle Data Encapsulation
 Oracle data is volatile from the perspective of this application. A driver's assigned vehicle may change tomorrow. 
 Therefore:
@@ -53,6 +55,15 @@ The `audit_logs` table must never have rows updated or deleted. It is append-onl
 - “Updated from store” requires both a current build and a recognized Android installer-store identifier. Do not infer a store update from the version number alone.
 - `not_reported` is not proof that the driver failed to update: first confirm the production presence endpoint is deployed. If `/api/driver/app-presence` returns 404, every installation will remain unreported regardless of its local version.
 
+## 6.1 Global Operational Suspension
+
+- Only configured permission managers may change the global state, and enabling suspension requires a reason.
+- Suspension applies before authentication/business controllers to portal, Fleet, Wells, Valves, and all mobile API services. APIs return retryable HTTP 503; web systems return the Arabic maintenance page.
+- `/permissions` and administrative authentication/logout remain available so service can be restored without database manipulation.
+- Suspension must not revoke tokens, mutate trips/readings/actions, confirm uploads, or delete mobile data. Offline queues resume normally after restoration.
+- Missing/unavailable operational-state storage reads as operational. A failed update must be shown to the manager and must not pretend that shutdown succeeded.
+- The operational-state middleware must use the repository's five-second non-database cache. A successful manager change refreshes that cache immediately; do not query Oracle once per protected request.
+
 ## 7. Automatic Wait And Live Tracking Evidence
 
 - For clients that send `manual_wait_minutes`, `TRIPS.WAIT_MINUTES` is recalculated as manual minutes plus whole minutes from completed `trip_stops` whose source is `automatic`.
@@ -69,7 +80,15 @@ The `audit_logs` table must never have rows updated or deleted. It is append-onl
 - The default dashboard list and all trip-derived dashboard statistics exclude these completed short trips.
 - An active trip is never classified as experimental while `ended_at` is null, even when its current point count is below 50. It must remain visible for live supervision.
 - Query parameter `show_experimental=1` includes completed short trips. The page labels them **تجريبية** and preserves the option across period/status filters, search, pagination, live refresh, and dashboard review actions.
-- Classification uses the stored `trip_points` relationship, not a client claim. The rule is presentation-only and must not delete rows, alter confirmation/checksum state, change reports, or block direct trip-detail access.
+- Classification uses server-maintained `TRIPS.POINTS_RECEIVED`, which is derived from actual unique `trip_points` rows after batch upload/confirmation and is not a client claim. The rule is presentation-only and must not delete rows, alter confirmation/checksum state, change reports, or block direct trip-detail access.
+
+## 8.1 Fleet Dashboard Adoption And Fuel KPIs
+
+- An active app driver is a distinct driver with at least one accepted `DRIVER_APP_INSTALLATIONS` row whose matching `G_STORE.BENEFICIARIES` row has `IS_ACTIVE = 1`. Presence does not require the latest build, a recognized store, or recent activity unless a future requirement explicitly adds that rule.
+- An active app vehicle is a distinct `G_STORE.VEHICLE.OID` with `IS_ACTIVE = 1`, a non-null plate, and `BENEFICIARY_OID` belonging to a driver with at least one accepted app-presence row.
+- Dashboard diesel consumption uses only confirmed trips with non-null persisted `TRIPS.VIRTUAL_FUEL_LITERS` and `STARTED_AT` inside the selected range. Rejected trips still represent consumed fuel and remain included; uploaded trips, null official fuel, provisional driver-summary fuel, and gap-review estimates are excluded.
+- The default dashboard visibility rule still applies: completed trips with fewer than 50 stored points are excluded unless `show_experimental=1`; enabling that toggle also includes their official fuel in the KPI.
+- Daily, weekly, and monthly use the dashboard's existing rolling ranges. A custom range includes the entire `date_from` and `date_to` calendar days using start-of-day and end-of-day boundaries.
 
 ## 9. Wells Diesel Consumption Status
 

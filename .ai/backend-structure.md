@@ -50,6 +50,9 @@ routes/
 - The same `SYSTEM_PERMISSIONS` table stores fail-closed Wells action keys `wells.readings.delete` and `wells.diesel-inventories.delete`; they do not count as portal systems and require base Wells access.
 - `FLEET_ADMIN_ALLOWLIST` is only the global admin gate; per-system access lives in `CONTROL_UNIT.SYSTEM_PERMISSIONS`.
 - Wells reading/inventory delete routes validate a reason, authorize through `SystemPermissionRepository`, and delegate to their existing service/repository. Models provide the global soft-delete exclusion, while raw analytic queries add an explicit null-deletion predicate.
+- `/permissions` also exposes the global operational switch through `SystemPermissionController::updateOperationalState()` and `UpdateSystemOperationalStateRequest`.
+- Operational persistence belongs to `SystemOperationalStateRepository`; business/audit behavior belongs to `SystemOperationalStateService`; request enforcement belongs to `RejectWhenSystemsSuspended` through the `systems.operational` middleware alias.
+- Normal portal/Fleet/Wells/Valves web routes and all field-app APIs use this middleware. Permission routes remain exempt as the authenticated recovery control plane.
 
 ## Valves Module Structure
 
@@ -69,14 +72,21 @@ Do not reuse wells `Team` or `Inspector` classes for valves features.
 - Admin: `GET /admin/driver-apps` → `DriverAppUsageController` → `Admin/DriverApps.vue`.
 - Managed data: `DriverAppInstallation` through `DriverAppInstallationRepository`.
 - Release policy: `config/driver_app.php`; change the configured version/build for every published Android release.
+- Fleet KPI adoption: `DriverAppInstallationRepository::reportingDriverIds()` supplies distinct reporting drivers. `DriverAppUsageService::dashboardActiveCounts()` sends those IDs to `MunicipalityDriverRepository::countActiveUsingApp()` and `MunicipalityVehicleRepository::countActiveAssignedToDrivers()`.
+- Fleet period fuel: `TripRepository::dashboardFuelConsumption()` returns the official liters total and contributing confirmed-trip count for the selected date range while reusing the dashboard experimental visibility rule.
+- `DashboardIndexRequest` validates daily/weekly/monthly/custom period inputs. A custom range requires `date_from` and `date_to`; `AdminAuthController` only resolves the range and coordinates repository/service results.
 
 ## Driver Live Tracking
 
 - `StoreTripRequest` accepts the unchanged legacy trip payload plus optional `manual_wait_minutes`, stop UUID/coordinates/source, and allowlisted tracking events.
 - `TripSyncService` owns idempotent trip, stop, and event persistence and recomputes automatic waiting without trusting a client-computed automatic total.
+- `TripSyncService::uploadPoints()` uses a per-trip `FOR UPDATE` lock and shape-preserving 100-row upserts. The public endpoint still accepts up to 500 points, and omitted optional fields remain untouched on a retry.
 - `TripRepository::paginateForDashboard()` adds `last_point_at`, eager-loads the latest tracking event, counts GPS-disable, airplane-on, and explicit tracking-gap events per trip, and keeps active trips visible outside the selected completed-trip period.
-- `TripRepository` owns the shared dashboard visibility rule used by both pagination and `dashboardCounts()`: active trips are always visible; completed trips require at least 50 stored `trip_points` unless `show_experimental=1` is requested.
+- `TripRepository` owns the shared dashboard visibility rule used by pagination, counts, and fuel: active trips are always visible; completed trips require server-maintained `points_received >= 50` unless `show_experimental=1` is requested. Do not reintroduce relationship counts over the full points table for this filter.
+- `dashboardCounts()` is one conditional aggregate query and `dashboardFuelConsumption()` is one aggregate query. Keep these bounded instead of cloning and executing one full query per card.
 - The experimental filter never deletes or updates a trip and does not apply to reports or direct trip-detail routes.
 - `AdminAuthController::showTrip()` loads stop locations and ordered technical events for `Admin/TripShow.vue`.
+- The same trip-details flow requests segment metrics from `VirtualFuelService`. With segment output enabled, the service returns `estimated_gap_distance_km`, `estimated_distance_with_gaps_km`, `estimated_fuel_with_gaps_liters`, `estimated_gap_count`, and `unestimated_gap_count`. These are transient Inertia props only; no migration or database write belongs in this workflow.
 - `Admin/Dashboard.vue` and `Admin/TripShow.vue` refresh active data every 15 seconds. This is polling over the existing Inertia/API data; there is no WebSocket service.
 - The schema change is `2026_07_29_000021_add_live_tracking_telemetry.php`. See `.ai/workflows/live-tracking-flow.md` for the authoritative end-to-end and rollout contract.
+- Tracking performance indexes are added by `2026_08_24_000024_add_trip_tracking_performance_indexes.php`; schedule this migration only after Oracle connectivity/account health is restored.

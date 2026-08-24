@@ -6,17 +6,21 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\SystemPermissionRequest;
 use App\Http\Requests\SystemPermissionUserSearchRequest;
+use App\Http\Requests\UpdateSystemOperationalStateRequest;
 use App\Repositories\SystemPermissionRepository;
+use App\Services\SystemOperationalStateService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Inertia\Response;
+use RuntimeException;
 
 class SystemPermissionController extends Controller
 {
     public function __construct(
-        private readonly SystemPermissionRepository $permissions
+        private readonly SystemPermissionRepository $permissions,
+        private readonly SystemOperationalStateService $operationalState,
     ) {}
 
     public function index(): Response
@@ -30,7 +34,40 @@ class SystemPermissionController extends Controller
             'permissionsUrl' => route('portal.permissions'),
             'searchUsersUrl' => route('portal.permissions.search-users'),
             'portalUrl' => route('portal'),
+            'operationalState' => $this->operationalState->current(),
+            'operationalStateUrl' => route('portal.permissions.operational-state'),
         ]);
+    }
+
+    public function updateOperationalState(
+        UpdateSystemOperationalStateRequest $request,
+    ): RedirectResponse {
+        $this->authorizeManager();
+
+        $validated = $request->validated();
+        $shutdownEnabled = (bool) $validated['shutdown_enabled'];
+
+        try {
+            $this->operationalState->update(
+                $shutdownEnabled,
+                $validated['reason'] ?? null,
+                $this->currentActorId(),
+                $this->currentActor(),
+            );
+        } catch (RuntimeException $exception) {
+            return redirect()
+                ->route('portal.permissions')
+                ->with('error', $exception->getMessage());
+        }
+
+        return redirect()
+            ->route('portal.permissions')
+            ->with(
+                'ok',
+                $shutdownEnabled
+                    ? 'تم إيقاف البوابة وخدمات تطبيقات الموبايل.'
+                    : 'تمت إعادة تشغيل البوابة وخدمات تطبيقات الموبايل.',
+            );
     }
 
     public function store(SystemPermissionRequest $request): RedirectResponse
@@ -131,6 +168,11 @@ class SystemPermissionController extends Controller
 
         return $user?->name
             ?? $user?->email
-            ?? ('admin#' . (string) ($user?->getAuthIdentifier() ?? 'unknown'));
+            ?? ('admin#'.(string) ($user?->getAuthIdentifier() ?? 'unknown'));
+    }
+
+    private function currentActorId(): int
+    {
+        return (int) Auth::guard('admin')->id();
     }
 }

@@ -9,10 +9,18 @@ const props = defineProps({
   permissionsUrl: { type: String, required: true },
   searchUsersUrl: { type: String, required: true },
   portalUrl: { type: String, required: true },
+  operationalState: { type: Object, required: true },
+  operationalStateUrl: { type: String, required: true },
 })
 
 const page = usePage()
 const flash = computed(() => page.props.flash ?? {})
+const shutdownActive = computed(() => Boolean(props.operationalState.shutdown_enabled))
+
+const operationalForm = useForm({
+  shutdown_enabled: shutdownActive.value,
+  reason: props.operationalState.reason ?? '',
+})
 
 const form = useForm({
   user_id: '',
@@ -63,6 +71,35 @@ function submit() {
     onSuccess: () => {
       form.reset()
       selectedUserName.value = ''
+    },
+  })
+}
+
+function changeOperationalState() {
+  const activating = !shutdownActive.value
+
+  if (activating && operationalForm.reason.trim().length < 3) {
+    operationalForm.setError('reason', 'اكتب سبباً واضحاً للإيقاف الشامل.')
+    return
+  }
+
+  const confirmed = window.confirm(
+    activating
+      ? 'سيتم إيقاف البوابة وجميع خدمات تطبيقات الموبايل فوراً. هل تريد المتابعة؟'
+      : 'سيتم السماح للبوابة وتطبيقات الموبايل بالعمل والرفع مجدداً. هل تريد المتابعة؟',
+  )
+
+  if (!confirmed) return
+
+  operationalForm.clearErrors()
+  operationalForm.shutdown_enabled = activating
+  if (!activating) operationalForm.reason = ''
+
+  operationalForm.put(props.operationalStateUrl, {
+    preserveScroll: true,
+    onSuccess: () => {
+      operationalForm.shutdown_enabled = Boolean(props.operationalState.shutdown_enabled)
+      operationalForm.reason = props.operationalState.reason ?? ''
     },
   })
 }
@@ -131,6 +168,57 @@ function selectUser(user) {
       <transition name="fade">
         <div v-if="flash.error" class="alert error">{{ flash.error }}</div>
       </transition>
+
+      <section class="panel operation-panel" :class="{ suspended: shutdownActive }">
+        <div class="operation-copy">
+          <div class="operation-heading">
+            <span class="operation-status" :class="shutdownActive ? 'off' : 'on'">
+              {{ shutdownActive ? 'الأنظمة متوقفة' : 'الأنظمة تعمل' }}
+            </span>
+            <h2>التحكم الشامل بتشغيل الأنظمة</h2>
+          </div>
+          <p>
+            يوقف البوابة وجميع طلبات تطبيقات السائق والآبار والمحابس. تبقى بيانات الأجهزة
+            محفوظة محلياً وتستأنف المزامنة بعد إعادة التشغيل.
+          </p>
+          <p v-if="operationalState.changed_at" class="operation-audit">
+            آخر تغيير: {{ operationalState.changed_at }}
+            <span v-if="operationalState.changed_by_name">— {{ operationalState.changed_by_name }}</span>
+          </p>
+        </div>
+
+        <div class="operation-controls">
+          <label v-if="!shutdownActive" class="field operation-reason">
+            <span>سبب الإيقاف الشامل</span>
+            <textarea
+              v-model="operationalForm.reason"
+              rows="3"
+              maxlength="1000"
+              placeholder="مثال: صيانة طارئة على قاعدة البيانات"
+            ></textarea>
+            <small v-if="operationalForm.errors.reason">{{ operationalForm.errors.reason }}</small>
+          </label>
+
+          <div v-else class="current-reason">
+            <strong>سبب الإيقاف</strong>
+            <p>{{ operationalState.reason || 'لم يتم تسجيل سبب.' }}</p>
+          </div>
+
+          <button
+            type="button"
+            class="btn operation-action"
+            :class="shutdownActive ? 'primary' : 'danger'"
+            :disabled="operationalForm.processing"
+            @click="changeOperationalState"
+          >
+            {{ operationalForm.processing
+              ? 'جاري التنفيذ...'
+              : shutdownActive
+                ? 'إعادة تشغيل جميع الأنظمة'
+                : 'تفعيل الإيقاف الشامل' }}
+          </button>
+        </div>
+      </section>
 
       <section class="panel form-panel">
         <div class="panel-title">
@@ -352,7 +440,8 @@ h1 {
 }
 
 input[type="number"],
-input[type="text"] {
+input[type="text"],
+textarea {
   width: 100%;
   min-height: 44px;
   border: 1px solid var(--theme-border);
@@ -364,7 +453,8 @@ input[type="text"] {
 }
 
 input[type="number"]:focus,
-input[type="text"]:focus {
+input[type="text"]:focus,
+textarea:focus {
   outline: 2px solid #38bdf8;
   outline-offset: 2px;
 }
@@ -467,6 +557,99 @@ small,
 .btn.danger {
   background: #7f1d1d;
   color: #fee2e2;
+}
+
+.operation-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(300px, 0.75fr);
+  gap: 28px;
+  border-color: #166534;
+}
+
+.operation-panel.suspended {
+  border-color: #991b1b;
+  box-shadow: 0 20px 45px rgba(127, 29, 29, 0.2);
+}
+
+.operation-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.operation-heading h2 {
+  font-size: 20px;
+}
+
+.operation-copy > p {
+  color: var(--theme-text-muted);
+  line-height: 1.8;
+}
+
+.operation-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  border-radius: 999px;
+  padding: 0 11px;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.operation-status.on {
+  background: #064e3b;
+  color: #d1fae5;
+}
+
+.operation-status.off {
+  background: #7f1d1d;
+  color: #fee2e2;
+}
+
+.operation-audit {
+  margin-top: 14px !important;
+  font-size: 13px;
+}
+
+.operation-controls {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+}
+
+.operation-reason {
+  max-width: none;
+}
+
+.operation-reason textarea {
+  min-height: 92px;
+  padding: 12px 14px;
+  resize: vertical;
+  font: inherit;
+}
+
+.current-reason {
+  padding: 14px;
+  border: 1px solid #7f1d1d;
+  border-radius: 8px;
+  background: rgba(127, 29, 29, 0.16);
+}
+
+.current-reason strong {
+  display: block;
+  margin-bottom: 7px;
+  color: #fecaca;
+}
+
+.current-reason p {
+  color: var(--theme-text);
+  line-height: 1.7;
+}
+
+.operation-action {
+  width: 100%;
 }
 
 .btn.compact {
@@ -583,6 +766,10 @@ td span {
   }
 
   .systems-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .operation-panel {
     grid-template-columns: 1fr;
   }
 }

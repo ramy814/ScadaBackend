@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\DriverAppInstallation;
 use App\Repositories\DriverAppInstallationRepository;
+use App\Repositories\MunicipalityDriverRepository;
 use App\Repositories\MunicipalityVehicleRepository;
 use App\Repositories\TripRepository;
 use App\Services\DriverAppUsageService;
@@ -126,6 +127,7 @@ class DriverAppUsageServiceTest extends TestCase
             new DriverAppInstallationRepository,
             new TripRepository,
             $vehicles,
+            Mockery::mock(MunicipalityDriverRepository::class),
         ))->overview([], '/admin/driver-apps');
 
         $rows = collect($result['usage']->items())->keyBy('oracle_driver_id');
@@ -161,6 +163,7 @@ class DriverAppUsageServiceTest extends TestCase
             new DriverAppInstallationRepository,
             new TripRepository,
             $vehicles,
+            Mockery::mock(MunicipalityDriverRepository::class),
         ))->overview(
             ['version_status' => 'outdated'],
             '/admin/driver-apps',
@@ -168,5 +171,44 @@ class DriverAppUsageServiceTest extends TestCase
 
         $this->assertSame(1, $result['usage']->total());
         $this->assertSame(20, $result['usage']->items()[0]['build_number']);
+    }
+
+    public function test_dashboard_active_counts_require_app_presence_and_active_records(): void
+    {
+        foreach (['101', '102'] as $driverId) {
+            DriverAppInstallation::query()->create([
+                'oracle_driver_id' => $driverId,
+                'device_id' => sprintf('00000000-0000-4000-8000-%012d', (int) $driverId),
+                'app_version' => '1.0.20',
+                'build_number' => 21,
+                'package_name' => 'ps.gov.gaza.driver',
+                'first_seen_at' => now(),
+                'last_seen_at' => now(),
+            ]);
+        }
+
+        $vehicles = Mockery::mock(MunicipalityVehicleRepository::class);
+        $vehicles->shouldReceive('countActiveAssignedToDrivers')
+            ->once()
+            ->with(['101', '102'])
+            ->andReturn(2);
+
+        $drivers = Mockery::mock(MunicipalityDriverRepository::class);
+        $drivers->shouldReceive('countActiveUsingApp')
+            ->once()
+            ->with(['101', '102'])
+            ->andReturn(2);
+
+        $counts = (new DriverAppUsageService(
+            new DriverAppInstallationRepository,
+            new TripRepository,
+            $vehicles,
+            $drivers,
+        ))->dashboardActiveCounts();
+
+        $this->assertSame([
+            'activeVehicles' => 2,
+            'activeDrivers' => 2,
+        ], $counts);
     }
 }

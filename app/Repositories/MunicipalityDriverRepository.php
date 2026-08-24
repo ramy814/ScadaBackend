@@ -36,14 +36,14 @@ class MunicipalityDriverRepository
 
         $variations = [$phone, $normalized, $clean];
         if ($national) {
-            $variations[] = '0' . $national;
+            $variations[] = '0'.$national;
             $variations[] = $national;
-            $variations[] = '970' . $national;
-            $variations[] = '9700' . $national;
-            $variations[] = '+970' . $national;
-            $variations[] = '+9700' . $national;
-            $variations[] = '00970' . $national;
-            $variations[] = '009700' . $national;
+            $variations[] = '970'.$national;
+            $variations[] = '9700'.$national;
+            $variations[] = '+970'.$national;
+            $variations[] = '+9700'.$national;
+            $variations[] = '00970'.$national;
+            $variations[] = '009700'.$national;
         }
 
         $variations = array_values(array_unique(array_filter($variations)));
@@ -234,6 +234,35 @@ class MunicipalityDriverRepository
         }
     }
 
+    public function countActiveUsingApp(array $oracleDriverIds): int
+    {
+        $ids = collect($oracleDriverIds)
+            ->filter(fn ($id): bool => filled($id))
+            ->map(fn ($id): string => (string) $id)
+            ->unique()
+            ->values();
+
+        if ($ids->isEmpty() || ! $this->readiness->available()) {
+            return 0;
+        }
+
+        $table = $this->driversTable();
+        $columns = $this->driverColumns();
+
+        try {
+            return (int) DB::connection('oracle')
+                ->table($table)
+                ->whereIn($columns['id'], $ids->all())
+                ->where($columns['active'], 1)
+                ->distinct()
+                ->count($columns['id']);
+        } catch (QueryException $e) {
+            $this->logOracleReadFailure('count_active_tracking_app_drivers', $e);
+
+            return 0;
+        }
+    }
+
     private function logOracleReadFailure(string $operation, QueryException $e): void
     {
         Log::warning('Municipality driver Oracle read failed.', [
@@ -260,14 +289,14 @@ class MunicipalityDriverRepository
 
         $variations = [$phone, $normalized, $clean];
         if ($national) {
-            $variations[] = '0' . $national;
+            $variations[] = '0'.$national;
             $variations[] = $national;
-            $variations[] = '970' . $national;
-            $variations[] = '9700' . $national;
-            $variations[] = '+970' . $national;
-            $variations[] = '+9700' . $national;
-            $variations[] = '00970' . $national;
-            $variations[] = '009700' . $national;
+            $variations[] = '970'.$national;
+            $variations[] = '9700'.$national;
+            $variations[] = '+970'.$national;
+            $variations[] = '+9700'.$national;
+            $variations[] = '00970'.$national;
+            $variations[] = '009700'.$national;
         }
 
         $variations = array_values(array_unique(array_filter($variations)));
@@ -309,5 +338,4 @@ class MunicipalityDriverRepository
             'active' => 'IS_ACTIVE',
         ];
     }
-
 }

@@ -98,19 +98,49 @@ class TripRepository
 
     public function dashboardCounts(bool $showExperimental = false): array
     {
-        $trips = $this->dashboardTrips($showExperimental);
+        $todayStart = now()->startOfDay();
+        $todayEnd = now()->endOfDay();
+        $counts = $this->dashboardTrips($showExperimental)
+            ->selectRaw(
+                <<<'SQL'
+                    SUM(CASE WHEN started_at BETWEEN ? AND ? THEN 1 ELSE 0 END) AS today_trips,
+                    SUM(CASE WHEN status = 'confirmed' THEN 1 ELSE 0 END) AS confirmed_trips,
+                    SUM(CASE WHEN review_status = 'approved' THEN 1 ELSE 0 END) AS approved_trips,
+                    SUM(CASE WHEN review_status = 'rejected' THEN 1 ELSE 0 END) AS rejected_trips,
+                    SUM(CASE WHEN review_status = 'needs_clarification' THEN 1 ELSE 0 END) AS clarification_trips,
+                    SUM(CASE WHEN review_status = 'needs_clarification' AND clarification_response IS NULL THEN 1 ELSE 0 END) AS clarification_pending_response,
+                    SUM(CASE WHEN clarification_response IS NOT NULL THEN 1 ELSE 0 END) AS clarification_responded
+                SQL,
+                [$todayStart, $todayEnd],
+            )
+            ->first();
 
         return [
-            'todayTrips' => (clone $trips)->whereDate('started_at', now()->toDateString())->count(),
-            'confirmedTrips' => (clone $trips)->where('status', 'confirmed')->count(),
-            'approvedTrips' => (clone $trips)->where('review_status', 'approved')->count(),
-            'rejectedTrips' => (clone $trips)->where('review_status', 'rejected')->count(),
-            'clarificationTrips' => (clone $trips)->where('review_status', 'needs_clarification')->count(),
-            'clarificationPendingResponse' => (clone $trips)
-                ->where('review_status', 'needs_clarification')
-                ->whereNull('clarification_response')
-                ->count(),
-            'clarificationResponded' => (clone $trips)->whereNotNull('clarification_response')->count(),
+            'todayTrips' => (int) ($counts?->today_trips ?? 0),
+            'confirmedTrips' => (int) ($counts?->confirmed_trips ?? 0),
+            'approvedTrips' => (int) ($counts?->approved_trips ?? 0),
+            'rejectedTrips' => (int) ($counts?->rejected_trips ?? 0),
+            'clarificationTrips' => (int) ($counts?->clarification_trips ?? 0),
+            'clarificationPendingResponse' => (int) ($counts?->clarification_pending_response ?? 0),
+            'clarificationResponded' => (int) ($counts?->clarification_responded ?? 0),
+        ];
+    }
+
+    public function dashboardFuelConsumption(
+        DateTimeInterface $from,
+        DateTimeInterface $to,
+        bool $showExperimental = false,
+    ): array {
+        $fuel = $this->dashboardTrips($showExperimental)
+            ->where('status', 'confirmed')
+            ->whereNotNull('virtual_fuel_liters')
+            ->whereBetween('started_at', [$from, $to])
+            ->selectRaw('SUM(virtual_fuel_liters) AS fuel_liters, COUNT(*) AS trip_count')
+            ->first();
+
+        return [
+            'fuelConsumptionLiters' => round((float) ($fuel?->fuel_liters ?? 0), 3),
+            'fuelConsumptionTrips' => (int) ($fuel?->trip_count ?? 0),
         ];
     }
 
@@ -122,6 +152,6 @@ class TripRepository
             ? $query
             : $query->where(fn (Builder $query) => $query
                 ->whereNull('ended_at')
-                ->orWhereHas('points', fn (Builder $query) => $query, '>=', 50));
+                ->orWhere('points_received', '>=', 50));
     }
 }
