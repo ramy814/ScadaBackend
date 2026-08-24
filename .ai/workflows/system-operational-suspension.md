@@ -72,3 +72,5 @@ Administrative authentication/logout infrastructure and `/permissions` are inten
 7. Restore service and verify the same routes resume without token or local-data changes.
 
 Do not activate the switch in production until the migration exists and the recovery manager can reach `/permissions`.
+
+Production verification on 2026-08-24 applied migration 23 in batch 29, activated the switch for the tracking-index maintenance window, observed the documented Driver API 503 response, then restored service. Subsequent Driver, Wells, Valves, and admin probes reached their normal authentication/validation layers.

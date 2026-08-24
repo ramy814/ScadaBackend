@@ -55,7 +55,7 @@ Migration `2026_08_24_000024_add_trip_tracking_performance_indexes.php` adds:
 - `TRIP_POINTS(TRIP_ID, RECORDED_AT)` for per-trip latest-point lookup.
 - `TRIP_TRACKING_EVENTS(TRIP_ID, EVENT_TYPE)` and `(TRIP_ID, DETECTED_AT)` for event counts and latest-event lookup.
 
-The migration remains pending. Oracle connectivity recovered during the 2026-08-24 recheck, but `TRIP_POINTS` already contains 2,784,917 rows; coordinate index creation with the DBA in a maintenance window instead of adding that load during active field synchronization.
+The migration was applied to production in batch 30 on 2026-08-24 while the global operational switch temporarily paused field synchronization. Building the indexes over 2,784,917 `TRIP_POINTS` rows took about two minutes; all six indexes were verified `VALID` before services reopened.
 
 ### `trip_stops`
 Periods where the vehicle was stationary during a trip.
