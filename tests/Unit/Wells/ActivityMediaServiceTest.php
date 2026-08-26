@@ -11,6 +11,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 use Mockery;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\TestCase;
 
 class ActivityMediaServiceTest extends TestCase
@@ -72,6 +73,10 @@ class ActivityMediaServiceTest extends TestCase
     public function test_retry_reuses_existing_client_photo_without_duplicate_file(): void
     {
         $existing = new WellActivityMedia;
+        $existing->forceFill([
+            'ACTIVITY_TYPE' => ActivityMediaService::TYPE_NOTIFICATION,
+            'ACTIVITY_OID' => 22,
+        ]);
         $repository = Mockery::mock(ActivityMediaRepository::class);
         $repository->shouldReceive('findByClientLocalId')
             ->once()
@@ -87,6 +92,30 @@ class ActivityMediaServiceTest extends TestCase
 
         self::assertSame($existing, $result[0]);
         self::assertSame([], Storage::disk('local')->allFiles());
+    }
+
+    public function test_retry_rejects_a_photo_id_used_for_another_activity(): void
+    {
+        $existing = new WellActivityMedia;
+        $existing->forceFill([
+            'ACTIVITY_TYPE' => ActivityMediaService::TYPE_READING,
+            'ACTIVITY_OID' => 14,
+        ]);
+        $repository = Mockery::mock(ActivityMediaRepository::class);
+        $repository->shouldReceive('findByClientLocalId')
+            ->once()
+            ->andReturn($existing);
+        $repository->shouldNotReceive('create');
+
+        $this->expectException(HttpException::class);
+        $this->expectExceptionCode(0);
+
+        (new ActivityMediaService($repository))->storeMany(
+            ActivityMediaService::TYPE_NOTIFICATION,
+            22,
+            [UploadedFile::fake()->create('signal.jpg', 700, 'image/jpeg')],
+            ['236fc94f-6709-4d4b-9b8e-66843d23d2a9'],
+        );
     }
 
     public function test_dashboard_media_url_is_relative_to_the_current_host(): void

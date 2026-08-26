@@ -64,11 +64,19 @@ The `audit_logs` table must never have rows updated or deleted. It is append-onl
 - Missing/unavailable operational-state storage reads as operational. A failed update must be shown to the manager and must not pretend that shutdown succeeded.
 - The operational-state middleware must use the repository's five-second non-database cache. A successful manager change refreshes that cache immediately; do not query Oracle once per protected request.
 
+## 6.2 Mobile Token Isolation
+
+- Issue exactly one Sanctum ability per mobile identity: `driver`, `wells`, or `scada`. Never use the default wildcard ability for newly issued mobile tokens.
+- Every protected mobile route must enforce both its ability and the corresponding principal model. Ability checks alone are insufficient because legacy wildcard tokens can satisfy every Sanctum ability.
+- Narrow existing recognized tokens in place during deployment; do not revoke them or change plaintext tokens, because older offline-first app versions must continue uploading without a forced login.
+
 ## 7. Automatic Wait And Live Tracking Evidence
 
 - For clients that send `manual_wait_minutes`, `TRIPS.WAIT_MINUTES` is recalculated as manual minutes plus whole minutes from completed `trip_stops` whose source is `automatic`.
 - Clients that omit `manual_wait_minutes` keep the legacy rule: preserve the greater of submitted `wait_minutes` and computed automatic duration. This is required for rolling deployment compatibility.
 - Stop and telemetry UUIDs are idempotency keys. Repeated active-trip uploads must update existing rows.
+- Every mobile sync request is bounded before entering a transaction. Driver points are limited to 500 per request and 100 per Oracle upsert; trip passengers/stops/events are bounded and reject duplicate client identities. Wells parent records are limited to 500 per request and 50 per transaction.
+- Wells and SCADA retries must reuse the persisted client operation ID. A repeated ID acknowledges the existing row and must not repeat side effects. Legacy clients that omit the newly optional SCADA `local_id` continue to work, but only upgraded clients receive retry deduplication.
 - Dashboard freshness combines `last_point_at` with the latest device-state event. Every dashboard trip row also receives separate server-side counts for `gps_disabled` and `airplane_mode_on`, including completed trips, so recovery/end events cannot hide earlier interruptions. These counts require review but cannot prove deliberate action or distinguish every offline/power scenario.
 - `stationary_heartbeat` points prove recent GPS coverage but are excluded from filtered distance and fuel. Finite client speeds from 0 through 1 m/s are treated as stationary by driver build 26 and later, preventing low-speed coordinate drift from becoming vehicle movement.
 - Any interval over 60 seconds splits the filtered route before `stationary_heartbeat` handling. The dashboard must retain a gap connector even when the first post-gap point is stationary, and the connector never contributes to distance or fuel. Dashboard trip rows count explicit `tracking_gap` events alongside GPS-disable and airplane-mode events.

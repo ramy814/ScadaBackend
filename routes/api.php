@@ -20,7 +20,12 @@ Route::middleware('systems.operational')->prefix('driver/auth')->group(function 
 
 // Deployment trigger v2
 
-Route::middleware(['systems.operational', 'auth:sanctum'])->prefix('driver')->group(function (): void {
+Route::middleware([
+    'systems.operational',
+    'auth:sanctum',
+    'abilities:driver',
+    'mobile.principal:driver',
+])->prefix('driver')->group(function (): void {
     Route::post('/auth/logout', [AuthController::class, 'logout']);
     Route::get('/me', [BeneficiaryProfileController::class, 'show']);
     Route::post('/app-presence', [DriverAppPresenceController::class, 'store']);
@@ -42,7 +47,11 @@ Route::middleware(['systems.operational', 'auth:sanctum'])->prefix('driver')->gr
 Route::middleware('systems.operational')->prefix('wells')->group(function (): void {
     Route::post('/auth/login', [App\Http\Controllers\Api\Wells\AuthController::class, 'login']);
 
-    Route::middleware('auth:sanctum')->group(function (): void {
+    Route::middleware([
+        'auth:sanctum',
+        'abilities:wells',
+        'mobile.principal:wells',
+    ])->group(function (): void {
         Route::get('/sync/wells', [SyncController::class, 'wells']);
         Route::get('/sync/notification-types', [SyncController::class, 'notificationTypes']);
         Route::post('/readings/sync', [SyncController::class, 'syncReadings']);

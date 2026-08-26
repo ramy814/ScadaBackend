@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Valves;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Valves\StoreValveActionRequest;
 use App\Models\Valves\Valve;
 use App\Models\Valves\ValveInspector;
-use App\Models\Valves\ValveLog;
-use App\Models\Valves\ValveMaintenanceReport;
+use App\Services\Valves\ValveActionService;
 use App\Services\Valves\ValveService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -17,8 +17,7 @@ class ValveController extends Controller
 {
     public function __construct(
         private readonly ValveService $valveService,
-    ) {
-    }
+    ) {}
 
     public function index(Request $request): JsonResponse
     {
@@ -41,41 +40,17 @@ class ValveController extends Controller
     /**
      * Inspector action: open, close, maintenance, or replacement on a valve.
      */
-    public function action(Request $request, Valve $valve): JsonResponse
-    {
-        $validated = $request->validate([
-            'action' => 'required|in:open,close,maintenance,replacement',
-            'note' => 'nullable|string|max:500',
-        ]);
-
-        $action = $validated['action'];
-        $note = $validated['note'] ?? null;
+    public function action(
+        StoreValveActionRequest $request,
+        Valve $valve,
+        ValveActionService $actions,
+    ): JsonResponse {
         $user = $request->user();
         $this->authorizeInspectorValveAccess($request, $valve);
-        $userOid = (int) ($user->oid ?? $user->OID ?? $user->id);
-
-        ValveLog::create([
-            'VALVE_OID' => $valve->oid,
-            'USER_OID' => $userOid,
-            'ACTION' => $action,
-            'NOTE' => $note,
-            'ACTION_AT' => now(),
-        ]);
-
-        // If maintenance or replacement, create a maintenance report
-        if (in_array($action, ['maintenance', 'replacement'])) {
-            $description = $action === 'maintenance'
-                ? ($note ?? 'يحتاج صيانة')
-                : ($note ?? 'يحتاج تعزيل/استبدال');
-
-            ValveMaintenanceReport::create([
-                'VALVE_OID' => $valve->oid,
-                'REPORTED_BY' => $userOid,
-                'DESCRIPTION' => $description,
-                'PRIORITY' => $action === 'replacement' ? 'high' : 'medium',
-                'STATUS' => 'pending',
-            ]);
-        }
+        abort_unless($user instanceof ValveInspector, 403);
+        $validated = $request->validated();
+        $actions->record($user, $valve, $validated);
+        $action = $validated['action'];
 
         $actionTexts = [
             'open' => 'فتح',
@@ -104,7 +79,7 @@ class ValveController extends Controller
     {
         $user = $request->user();
 
-        if (!$user instanceof ValveInspector) {
+        if (! $user instanceof ValveInspector) {
             return;
         }
 

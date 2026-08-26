@@ -30,7 +30,7 @@ class ActivityMediaController extends Controller
             'photos' => ['required', 'array', 'min:1', 'max:4'],
             'photos.*' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
             'photo_local_ids' => ['required', 'array', 'min:1', 'max:4'],
-            'photo_local_ids.*' => ['required', 'uuid'],
+            'photo_local_ids.*' => ['required', 'uuid', 'distinct'],
         ]);
 
         abort_unless(

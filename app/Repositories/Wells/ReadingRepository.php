@@ -42,27 +42,27 @@ class ReadingRepository
             ->whereNotExists(function (QueryBuilder $newerReading) use ($filters, $table): void {
                 $newerReading
                     ->selectRaw('1')
-                    ->from($table . ' as newer_reading')
+                    ->from($table.' as newer_reading')
                     ->whereNull('newer_reading.DELETED_AT')
-                    ->whereColumn('newer_reading.WELL_OID', $table . '.WELL_OID')
+                    ->whereColumn('newer_reading.WELL_OID', $table.'.WELL_OID')
                     ->where(function (QueryBuilder $chronology) use ($table): void {
                         $chronology
-                            ->whereColumn('newer_reading.READING_DATE', '>', $table . '.READING_DATE')
+                            ->whereColumn('newer_reading.READING_DATE', '>', $table.'.READING_DATE')
                             ->orWhere(function (QueryBuilder $sameDate) use ($table): void {
                                 $sameDate
-                                    ->whereColumn('newer_reading.READING_DATE', $table . '.READING_DATE')
-                                    ->whereColumn('newer_reading.OID', '>', $table . '.OID');
+                                    ->whereColumn('newer_reading.READING_DATE', $table.'.READING_DATE')
+                                    ->whereColumn('newer_reading.OID', '>', $table.'.OID');
                             })
                             ->orWhere(function (QueryBuilder $missingCurrentDate) use ($table): void {
                                 $missingCurrentDate
-                                    ->whereNull($table . '.READING_DATE')
+                                    ->whereNull($table.'.READING_DATE')
                                     ->where(function (QueryBuilder $datedOrNewerUndated) use ($table): void {
                                         $datedOrNewerUndated
                                             ->whereNotNull('newer_reading.READING_DATE')
                                             ->orWhere(function (QueryBuilder $newerUndated) use ($table): void {
                                                 $newerUndated
                                                     ->whereNull('newer_reading.READING_DATE')
-                                                    ->whereColumn('newer_reading.OID', '>', $table . '.OID');
+                                                    ->whereColumn('newer_reading.OID', '>', $table.'.OID');
                                             });
                                     });
                             });
@@ -111,20 +111,20 @@ class ReadingRepository
     private function applyFilters($query, array $filters, string $columnPrefix = ''): void
     {
         if (! empty($filters['well_oid'])) {
-            $query->where($columnPrefix . 'WELL_OID', $filters['well_oid']);
+            $query->where($columnPrefix.'WELL_OID', $filters['well_oid']);
         }
 
         if (! empty($filters['inspector_oid'])) {
-            $query->where($columnPrefix . 'INSPECTOR_OID', $filters['inspector_oid']);
+            $query->where($columnPrefix.'INSPECTOR_OID', $filters['inspector_oid']);
         }
 
         if (! empty($filters['quality'])) {
-            $query->where($columnPrefix . 'QUALITY', $filters['quality']);
+            $query->where($columnPrefix.'QUALITY', $filters['quality']);
         }
 
         if (! empty($filters['date_from'])) {
             $query->where(
-                $columnPrefix . 'READING_DATE',
+                $columnPrefix.'READING_DATE',
                 '>=',
                 Carbon::parse($filters['date_from'])->startOfDay(),
             );
@@ -132,7 +132,7 @@ class ReadingRepository
 
         if (! empty($filters['date_to'])) {
             $query->where(
-                $columnPrefix . 'READING_DATE',
+                $columnPrefix.'READING_DATE',
                 '<=',
                 Carbon::parse($filters['date_to'])->endOfDay(),
             );
@@ -178,6 +178,21 @@ class ReadingRepository
             ->where('CLIENT_LOCAL_ID', $localId)
             ->where('INSPECTOR_OID', $inspectorId)
             ->first();
+    }
+
+    public function findSyncedByLocalIdsIncludingDeleted(
+        array $localIds,
+        int $inspectorId,
+    ): Collection {
+        if ($localIds === []) {
+            return new Collection;
+        }
+
+        return $this->model
+            ->withTrashed()
+            ->where('INSPECTOR_OID', $inspectorId)
+            ->whereIn('CLIENT_LOCAL_ID', $localIds)
+            ->get();
     }
 
     public function findByWell(int $wellId): Collection

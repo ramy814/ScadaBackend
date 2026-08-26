@@ -81,6 +81,9 @@ Do not reuse wells `Team` or `Inspector` classes for valves features.
 - `StoreTripRequest` accepts the unchanged legacy trip payload plus optional `manual_wait_minutes`, stop UUID/coordinates/source, and allowlisted tracking events.
 - `TripSyncService` owns idempotent trip, stop, and event persistence and recomputes automatic waiting without trusting a client-computed automatic total.
 - `TripSyncService::uploadPoints()` uses a per-trip `FOR UPDATE` lock and shape-preserving 100-row upserts. The public endpoint still accepts up to 500 points, and omitted optional fields remain untouched on a retry.
+- Trip metadata arrays are bounded at 50 passengers, 500 stops, and 500 tracking events, with duplicate stop/event UUIDs and point sequence numbers rejected before persistence.
+- `TripSyncService::confirm()` serializes on the trip row, validates count/checksum, calculates summary metrics once, and persists distance, duration, and official fuel. Driver history/reconciliation only shape those stored columns and never scan points; missing legacy summaries remain null until an explicit offline backfill.
+- `TripRepository::routePreviewPoints()` owns the only driver-history coordinate sampling path. It reads eligible count/min/max, generates at most 100 evenly distributed sequence targets, and lets Oracle resolve them through `(TRIP_ID, SEQUENCE_NUMBER)`; `DriverTripRoutePreviewService` must not reload or downsample the full collection.
 - `TripRepository::paginateForDashboard()` adds `last_point_at`, eager-loads the latest tracking event, counts GPS-disable, airplane-on, and explicit tracking-gap events per trip, and keeps active trips visible outside the selected completed-trip period.
 - `TripRepository` owns the shared dashboard visibility rule used by pagination, counts, and fuel: active trips are always visible; completed trips require server-maintained `points_received >= 50` unless `show_experimental=1` is requested. Do not reintroduce relationship counts over the full points table for this filter.
 - `dashboardCounts()` is one conditional aggregate query and `dashboardFuelConsumption()` is one aggregate query. Keep these bounded instead of cloning and executing one full query per card.
@@ -89,4 +92,10 @@ Do not reuse wells `Team` or `Inspector` classes for valves features.
 - The same trip-details flow requests segment metrics from `VirtualFuelService`. With segment output enabled, the service returns `estimated_gap_distance_km`, `estimated_distance_with_gaps_km`, `estimated_fuel_with_gaps_liters`, `estimated_gap_count`, and `unestimated_gap_count`. These are transient Inertia props only; no migration or database write belongs in this workflow.
 - `Admin/Dashboard.vue` and `Admin/TripShow.vue` refresh active data every 15 seconds. This is polling over the existing Inertia/API data; there is no WebSocket service.
 - The schema change is `2026_07_29_000021_add_live_tracking_telemetry.php`. See `.ai/workflows/live-tracking-flow.md` for the authoritative end-to-end and rollout contract.
+
+## Mobile Sync Resource Boundaries
+
+- `App\Services\Wells\MobileSyncService` owns Wells parent-record synchronization. It chunks each accepted request into 50-record transactions, performs one bulk idempotency lookup per chunk through repositories, and acknowledges existing records on retry.
+- Wells controllers validate and delegate only; do not restore row-by-row writes or direct sync queries in controllers.
+- `App\Services\Valves\ValveActionService` records SCADA actions and any maintenance report in one transaction. `CLIENT_LOCAL_ID` is optional for released-app compatibility and idempotent when supplied.
 - Tracking performance indexes are added by `2026_08_24_000024_add_trip_tracking_performance_indexes.php`; schedule this migration only after Oracle connectivity/account health is restored.

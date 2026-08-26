@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\SmsLoginCode;
 use App\Repositories\MunicipalityDriverRepository;
+use App\Repositories\MunicipalityVehicleRepository;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Support\Facades\Hash;
@@ -13,7 +14,7 @@ class SmsAuthService
 {
     public function __construct(
         private readonly MunicipalityDriverRepository $drivers,
-        private readonly \App\Repositories\MunicipalityVehicleRepository $vehicles
+        private readonly MunicipalityVehicleRepository $vehicles
     ) {}
 
     public function sendCode(string $phone): void
@@ -126,7 +127,7 @@ class SmsAuthService
 
         abort_unless($driverVehicles->isNotEmpty(), 403, 'لا يوجد مركبات لهذا الرقم');
 
-        $token = $beneficiary->createToken($deviceName ?: 'driver-android')->plainTextToken;
+        $token = $beneficiary->createToken($deviceName ?: 'driver-android', ['driver'])->plainTextToken;
 
         return ['token' => $token, 'user' => $beneficiary->toAuthPayload()];
     }

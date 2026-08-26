@@ -10,17 +10,56 @@ use Illuminate\Support\Collection;
 
 class TripRepository
 {
-    public function routePreviewPoints(Trip $trip): Collection
+    private const ROUTE_PREVIEW_POINTS = 100;
+
+    /** @return array{original_points: int, points: Collection<int, mixed>} */
+    public function routePreviewPoints(Trip $trip): array
     {
-        return $trip->points()
+        $eligible = $trip->points()
             ->where('client_is_valid', true)
             ->where(function ($query): void {
                 $query->whereNull('quality_reason')
                     ->orWhere('quality_reason', '!=', 'stationary_heartbeat');
-            })
+            });
+
+        $stats = (clone $eligible)
+            ->selectRaw(
+                'COUNT(*) AS original_points, MIN(sequence_number) AS first_sequence, MAX(sequence_number) AS last_sequence'
+            )
+            ->first();
+        $originalPoints = (int) ($stats?->original_points ?? 0);
+        if ($originalPoints === 0) {
+            return ['original_points' => 0, 'points' => collect()];
+        }
+
+        if ($originalPoints <= self::ROUTE_PREVIEW_POINTS) {
+            return [
+                'original_points' => $originalPoints,
+                'points' => $eligible
+                    ->orderBy('sequence_number')
+                    ->get(['latitude', 'longitude'])
+                    ->values(),
+            ];
+        }
+
+        $firstSequence = (int) $stats->first_sequence;
+        $lastSequence = (int) $stats->last_sequence;
+        $sampleSize = min(self::ROUTE_PREVIEW_POINTS, $originalPoints);
+        $sequenceNumbers = collect(range(0, $sampleSize - 1))
+            ->map(fn (int $index): int => (int) round(
+                $firstSequence
+                + ($index * ($lastSequence - $firstSequence) / max(1, $sampleSize - 1))
+            ))
+            ->unique()
+            ->values();
+
+        $points = $eligible
+            ->whereIn('sequence_number', $sequenceNumbers->all())
             ->orderBy('sequence_number')
             ->get(['latitude', 'longitude'])
             ->values();
+
+        return ['original_points' => $originalPoints, 'points' => $points];
     }
 
     public function latestUsageByDriver(): Collection

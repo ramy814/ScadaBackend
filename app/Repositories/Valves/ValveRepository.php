@@ -6,6 +6,8 @@ namespace App\Repositories\Valves;
 
 use App\Models\Valves\Valve;
 use App\Models\Valves\ValveInspector;
+use App\Models\Valves\ValveLog;
+use App\Models\Valves\ValveMaintenanceReport;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -13,8 +15,7 @@ class ValveRepository
 {
     public function __construct(
         private readonly Valve $model,
-    ) {
-    }
+    ) {}
 
     public function all(): Collection
     {
@@ -38,7 +39,7 @@ class ValveRepository
                 fn ($team): bool => (bool) ($team->assign_all_valves ?? $team->ASSIGN_ALL_VALVES),
             );
 
-            if (!$hasAllValvesAccess) {
+            if (! $hasAllValvesAccess) {
                 $teamIds = $teams->pluck('oid');
 
                 $query->whereHas('teams', function ($teamQuery) use ($teamIds): void {
@@ -47,11 +48,11 @@ class ValveRepository
             }
         }
 
-        if (!empty($filters['area'])) {
+        if (! empty($filters['area'])) {
             $query->where('W4_SOURCE', $filters['area']);
         }
 
-        if (!empty($filters['status'])) {
+        if (! empty($filters['status'])) {
             $query->where('W4_STATUS', strtoupper((string) $filters['status']));
         }
 
@@ -68,6 +69,24 @@ class ValveRepository
     public function exists(int $id): bool
     {
         return $this->model->whereKey($id)->exists();
+    }
+
+    public function findActionByLocalId(string $localId, int $inspectorId): ?ValveLog
+    {
+        return ValveLog::query()
+            ->where('CLIENT_LOCAL_ID', $localId)
+            ->where('USER_OID', $inspectorId)
+            ->first();
+    }
+
+    public function createAction(array $data): ValveLog
+    {
+        return ValveLog::query()->create($data);
+    }
+
+    public function createMaintenanceReport(array $data): ValveMaintenanceReport
+    {
+        return ValveMaintenanceReport::query()->create($data);
     }
 
     private function attachWgs84Coordinates(Collection $valves): Collection
@@ -97,7 +116,7 @@ class ValveRepository
         return $valves->each(function (Valve $valve) use ($byValve): void {
             $coordinate = $byValve->get((int) $valve->getKey());
 
-            if (!$coordinate) {
+            if (! $coordinate) {
                 return;
             }
 

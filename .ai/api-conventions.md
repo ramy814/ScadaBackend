@@ -5,8 +5,12 @@ All driver-facing APIs use the `/api` prefix.
 All admin-facing routes are handled via web routes mapped to Inertia.js views.
 
 ## Authentication
-Driver APIs require a Sanctum token.
+Mobile APIs require a Sanctum token with exactly one system ability: `driver` for Fleet Driver, `wells` for Wells, or `scada` for the SCADA/Valves app.
 `Authorization: Bearer <token>`
+
+- Protected routes enforce both the token ability and its tokenable model (`Beneficiary`, Wells `Inspector`, or `ValveInspector`). A token from one mobile system must receive HTTP `403` from the other two systems, including a legacy wildcard token.
+- Login response shapes and bearer-token transport are unchanged, so released apps do not need a client update. Migration `2026_08_26_000025_scope_mobile_access_tokens.php` narrows current and recognized legacy tokens in place without changing their plaintext value or forcing a new login.
+- Never issue new mobile tokens with Sanctum's default `['*']` ability.
 
 ## Global Operational Suspension
 
@@ -69,7 +73,7 @@ return response()->json($trip);
 
 ### Driver Trip History Summary
 
-- `GET /api/driver/trips/{trip}/route-preview` is authenticated, driver-owned, and confirmed-trip-only. It is requested only when server trip details need a map, never by the history list. `DriverTripRoutePreviewService` uses `TripRepository` to exclude client-invalid and `stationary_heartbeat` points, preserves the ordered first/last endpoints, and returns at most 100 latitude/longitude pairs rounded to six decimals. The preview is presentation-only and never changes authoritative points or metrics.
+- `GET /api/driver/trips/{trip}/route-preview` is authenticated, driver-owned, and confirmed-trip-only. It is requested only when server trip details need a map, never by the history list. `TripRepository` first reads eligible count/min/max, then asks Oracle for at most 100 evenly distributed sequence numbers through the indexed `(TRIP_ID, SEQUENCE_NUMBER)` key; PHP never loads the full route. Client-invalid and `stationary_heartbeat` points are excluded, ordered endpoints are preserved, and `DriverTripRoutePreviewService` only rounds the returned latitude/longitude pairs to six decimals. The preview is presentation-only and never changes authoritative points or metrics.
 - `GET /api/driver/trips` and `GET /api/driver/trips/reconcile` expose the same driver summary fields.
 - Confirmation locks the target trip row, validates count/checksum, calculates the summary once, and persists `TRIPS.DISTANCE_KM`, `TRIPS.DURATION_MINUTES`, and official `TRIPS.VIRTUAL_FUEL_LITERS` before changing the status to `confirmed`. A repeated confirmation returns the stored row without recalculation.
 - `GET /api/driver/trips` and reconciliation never query `TRIP_POINTS` to build summaries. Legacy rows without persisted distance/duration return unavailable (`null`) values until an explicit offline backfill is run; a history request must never calculate or rewrite them.
@@ -131,7 +135,7 @@ Valve inspector app accounts are separate from fleet drivers and wells inspector
 - Payload: `phone`, `password`
 - `PHONE` is the username and must match a row in `VALVE_INSPECTORS`.
 - `IS_ACTIVE` must be enabled for login.
-- Successful login returns a Sanctum token plus the inspector profile and assigned valve teams.
+- Successful login returns a Sanctum token with only the `scada` ability plus the inspector profile and assigned valve teams.
 - Authenticated valve inspector API access is scoped to valves assigned through the inspector's valve teams.
 - If any assigned valve team has `ASSIGN_ALL_VALVES = true`, the inspector receives and can act on all valves.
 - The legacy SCADA Flutter app in `/Volumes/SecondDrive/Scada/scada_flutter` must call `POST /api/valves/auth/login` with `phone` and `password`, then call `GET /api/valves` with the returned Sanctum token.
@@ -142,6 +146,14 @@ Valve inspector app accounts are separate from fleet drivers and wells inspector
 - Dashboard deletion of a well reading or diesel inventory is audited soft deletion; no mobile delete endpoint is exposed.
 - Normal Wells history/sync-list responses exclude rows with `DELETED_AT`.
 - Upload idempotency lookup must include soft-deleted rows by authenticated inspector plus `CLIENT_LOCAL_ID`. A retry acknowledges the retained OID/UUID and must not insert a replacement or return the deleted row in history.
+
+## Bounded Mobile Sync Contract
+
+- Driver point uploads accept 1–500 points per request and persist through 100-row Oracle upserts keyed by `(TRIP_ID, SEQUENCE_NUMBER)`. Trip metadata accepts at most 50 passengers, 500 stops, and 500 tracking events; repeated sequence numbers and local IDs inside one request are rejected. Driver Flutter repeats the idempotent trip-create request in those same metadata batch sizes before uploading points.
+- Wells reading, diesel-inventory, and notification uploads accept 1–500 records per request. `MobileSyncService` processes them in independent 50-record transactions and bulk-loads existing `CLIENT_LOCAL_ID` values once per chunk instead of performing one lookup per row.
+- Wells Flutter sends pending parent records in 100-record requests. The API normalizes legacy lowercase record keys, keeps `LOCAL_ID` optional, and derives a deterministic server idempotency key when an older app omits it.
+- Activity-media sync remains limited to four files and rejects duplicate photo IDs in one request. A retry may reuse an existing photo ID only for the same activity type and parent OID.
+- `POST /api/valves/{valve}/action` accepts optional `local_id` (up to 64 characters). New SCADA builds send the existing pending-action ID on the first attempt and every retry. `VALVE_LOGS` enforces uniqueness per inspector; replay returns the existing action and never creates a second maintenance report. Requests from older builds without `local_id` remain valid.
 
 ### Valves Mobile Map Source
 - This subsection defines the mobile API contract. The authoritative web-map runtime contract is in `.ai/modules/valves/project-overview.md` under “Current Authoritative Web Map Contract”. Do not merge the two client implementations by assumption.

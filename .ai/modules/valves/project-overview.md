@@ -111,6 +111,8 @@ Backend valve records are read from `EME.WATER_VALVES`. Because its `GEOMETRY` c
   - `/valves/teams`
   - `/valves/inspectors`
 - API login route: `POST /api/valves/auth/login`
+- SCADA login issues only the Sanctum `scada` ability. All `/api/dashboard`, `/api/valves`, and `/api/valve-maintenance` endpoints require both that ability and a `ValveInspector` principal; Fleet Driver and Wells tokens are rejected before controllers run.
+- Valve actions accept optional `local_id`. New SCADA builds send their persisted pending-action ID on both initial send and retry; `VALVE_LOGS` has unique `(USER_OID, CLIENT_LOCAL_ID)`, and `ValveActionService` atomically reuses an existing action without duplicating its maintenance report. Keep the field optional for older builds.
 - Authenticated valve inspectors are scoped to valves assigned to their teams.
 - The SCADA Flutter app lives outside this repo at `/Volumes/SecondDrive/Scada/scada_flutter`; keep it pointed at this backend's `/api/valves/auth/login` and `/api/valves` endpoints.
 - The SCADA Flutter map must use OpenStreetMap plus team-scoped markers from `/api/valves`; it does not share web GeoServer layers or `ValvesMapService`.

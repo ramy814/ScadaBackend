@@ -50,8 +50,9 @@ The Fleet dashboard performance card uses the same authenticated presence source
 - **CSS Framework**: Custom CSS (No Tailwind)
 - **PDF Generation**: mPDF
 - **Authentication (Admin)**: MOG SSO (External SAML/OAuth via package)
-- **Authentication (Driver)**: Custom SMS OTP issuing Sanctum Tokens
-- **Authentication (Valve Inspectors)**: Phone/password against `VALVE_INSPECTORS`, issuing Sanctum Tokens for valves app APIs.
+- **Authentication (Mobile)**: Sanctum tokens are isolated by exact ability and account model: `driver` for Fleet, `wells` for Wells, and `scada` for Valves/SCADA. Cross-system use is rejected.
+- **Authentication (Driver)**: Custom SMS OTP issuing `driver`-only Sanctum tokens.
+- **Authentication (Valve Inspectors)**: Phone/password against `VALVE_INSPECTORS`, issuing `scada`-only Sanctum tokens for valves app APIs.
 
 ## Typical User Flow
 1. A driver logs into the mobile app via SMS OTP.
@@ -60,9 +61,10 @@ The Fleet dashboard performance card uses the same authenticated presence source
 4. The driver ends the trip. The mobile app sends a confirmation payload with a checksum.
 5. The backend verifies the checksum and marks the trip as `confirmed`.
 6. Confirmation persists the trusted distance and duration, calculates official fuel when quality permits, and returns a driver-facing summary. The driver app caches the summary and shows distance, fuel, and duration per trip.
-7. Confirmed server-history details request a separate lightweight route preview only when opened. The response is capped at 100 accurate ordered points so the normal history list remains small.
-8. An administrator logs into the dashboard via SSO.
-9. The administrator reviews the trip path, wait markers/durations, and tracking-state evidence on a map, then approves/rejects the trip. When estimable internal GPS gaps exist, the details page also shows their conservative straight-line distance and resulting review-only distance/fuel totals. The supervisor may use this context when approving, rejecting, or requesting clarification, but the system does not persist that judgment as an official metric.
+7. Confirmed server-history details request a separate lightweight route preview only when opened. Oracle reads eligible count/min/max and then fetches at most 100 indexed sequence numbers; PHP never hydrates the full route, and the normal history list remains summary-only.
+8. Offline upload queues use stable client IDs. Driver and Wells requests are sent with bounded arrays, and SCADA valve retries reuse the same operation ID so a lost response cannot repeat an action or maintenance report.
+9. An administrator logs into the dashboard via SSO.
+10. The administrator reviews the trip path, wait markers/durations, and tracking-state evidence on a map, then approves/rejects the trip. When estimable internal GPS gaps exist, the details page also shows their conservative straight-line distance and resulting review-only distance/fuel totals. The supervisor may use this context when approving, rejecting, or requesting clarification, but the system does not persist that judgment as an official metric.
 
 ## Integrated Field Modules
 - **Wells**: Has its own wells, teams, inspectors, readings, diesel inventories, and notifications context under `.ai/modules/wells/`.

@@ -10,7 +10,7 @@ class UploadTripPointsRequest extends FormRequest
     {
         return [
             'points' => ['required', 'array', 'min:1', 'max:500'],
-            'points.*.sequence_number' => ['required', 'integer', 'min:1'],
+            'points.*.sequence_number' => ['required', 'integer', 'min:1', 'distinct'],
             'points.*.latitude' => ['required', 'numeric', 'between:-90,90'],
             'points.*.longitude' => ['required', 'numeric', 'between:-180,180'],
             'points.*.accuracy' => ['nullable', 'numeric', 'min:0'],

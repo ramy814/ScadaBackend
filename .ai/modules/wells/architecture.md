@@ -122,11 +122,15 @@ These endpoints are served by this unified backend and consumed by `/Volumes/Sec
 | POST | `/api/wells/activity-media/sync` | Yes | Upload up to 4 compressed images for one synced reading or notification |
 | GET | `/api/wells/sync/history` | Yes | Download recent readings, inventories, and notifications |
 
+Every authenticated Wells endpoint requires the token's `wells` ability and a Wells `Inspector` principal. Driver and SCADA tokens are rejected before the controller runs. Wells login issues only `['wells']`; do not restore wildcard token creation.
+
+Reading, diesel-inventory, and notification sync requests are capped at 500 records. `MobileSyncService` processes 50 records per database transaction, bulk-fetches existing local IDs per chunk, and uses `CLIENT_LOCAL_ID` for replay acknowledgement. The Flutter app sends these queues in 100-record HTTP batches. Lowercase record keys and missing `LOCAL_ID` remain accepted for older installed versions; missing IDs receive a deterministic server-side key.
+
 ## Activity Image Contract
 - Multipart fields are `activity_type` (`reading` or `notification`), `activity_oid`, `photo_local_ids[]`, and `photos[]`.
 - Each request accepts 1–4 JPEG/PNG/WebP files, each no larger than 2 MB. The mobile target is 1.75 MB per file to remain safely below PHP request limits.
 - The authenticated inspector must own the parent reading/notification. Do not trust an inspector ID from the payload.
-- `CLIENT_LOCAL_ID` is unique and makes a retry return the existing media row without creating a duplicate file.
+- `CLIENT_LOCAL_ID` is unique and makes a retry return the existing media row without creating a duplicate file. Reuse for another parent/type returns HTTP 409, and duplicate photo IDs in one request are rejected.
 - Store files on Laravel's private `local` disk under `wells/activity-media/{type}/{oid}`. Admin display uses `GET /wells/activity-media/{media}` behind `auth:admin` and `system.access:wells`.
 - Media URLs returned to Inertia must be relative (`/wells/activity-media/{oid}`), never tied to `APP_URL`, localhost, or a development port.
 - Reading and notification repository results eager-load `media`. The Wells dashboard and readings index use compact thumbnails. The notifications index renders a labeled attachment gallery and opens images in a same-page lightbox with previous/next, close, counter, and authorized open-original controls.

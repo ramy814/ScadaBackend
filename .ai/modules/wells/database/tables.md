@@ -149,6 +149,8 @@ Activity media rules:
 | LONGITUDE | DECIMAL NULL | Inspector GPS |
 | SYNCED_AT | TIMESTAMP NULL | When synced from mobile |
 | CLIENT_LOCAL_ID | VARCHAR(64) NULL UNIQUE | Stable mobile reading UUID; prevents duplicate parent rows on retry |
+
+Sync lookup includes soft-deleted readings and is performed in sets of at most 50 IDs. For legacy payloads without `LOCAL_ID`, the server stores a deterministic SHA-256 key derived from the normalized payload and authenticated inspector.
 | DELETED_AT | TIMESTAMP NULL | Soft-deletion time; null means operationally visible |
 | DELETED_BY_USER_ID | INTEGER NULL | SSO `mog_users.users_list.id` that performed the deletion |
 | DELETED_BY_NAME | VARCHAR(255) NULL | Actor display-name snapshot |
@@ -183,6 +185,8 @@ Reading date rules:
 | NOTES | TEXT NULL | Field notes |
 | SYNCED_AT | TIMESTAMP NULL | When synced from mobile |
 | CLIENT_LOCAL_ID | VARCHAR(64) NULL UNIQUE | Stable mobile inventory UUID; prevents duplicate rows on retry |
+
+Inventory sync bulk-loads existing IDs and referenced wells once per 50-record transaction; do not restore per-row well/idempotency queries.
 | DELETED_AT | TIMESTAMP NULL | Soft-deletion time; null means operationally visible |
 | DELETED_BY_USER_ID | INTEGER NULL | SSO `mog_users.users_list.id` that performed the deletion |
 | DELETED_BY_NAME | VARCHAR(255) NULL | Actor display-name snapshot |
@@ -242,6 +246,8 @@ Diesel report classification and formulas:
 | IS_READ | INTEGER/BOOLEAN | Store as `1` or `0` |
 | READ_AT | TIMESTAMP NULL | |
 | CLIENT_LOCAL_ID | VARCHAR(64) NULL UNIQUE | Stable mobile signal UUID; prevents duplicate parent rows on retry |
+
+Notification sync uses the same 500-record request ceiling and 50-record transaction boundary as readings and inventories.
 | CREATED_AT | TIMESTAMP | |
 | UPDATED_AT | TIMESTAMP | |
 

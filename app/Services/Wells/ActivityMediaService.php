@@ -73,6 +73,15 @@ class ActivityMediaService
         $existing = $this->repository->findByClientLocalId($clientLocalId);
 
         if ($existing !== null) {
+            abort_unless(
+                (string) ($existing->getAttribute('activity_type')
+                    ?? $existing->getAttribute('ACTIVITY_TYPE')) === $activityType
+                && (int) ($existing->getAttribute('activity_oid')
+                    ?? $existing->getAttribute('ACTIVITY_OID')) === $activityId,
+                409,
+                'معرف الصورة مستخدم لنشاط آخر.',
+            );
+
             return $existing;
         }
 

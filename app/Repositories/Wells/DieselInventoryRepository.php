@@ -73,6 +73,21 @@ class DieselInventoryRepository
             ->first();
     }
 
+    public function findSyncedByLocalIdsIncludingDeleted(
+        array $localIds,
+        int $inspectorId,
+    ): Collection {
+        if ($localIds === []) {
+            return new Collection;
+        }
+
+        return $this->model
+            ->withTrashed()
+            ->where('INSPECTOR_OID', $inspectorId)
+            ->whereIn('CLIENT_LOCAL_ID', $localIds)
+            ->get();
+    }
+
     /**
      * Return the preceding inventory reading for each supplied inventory.
      *

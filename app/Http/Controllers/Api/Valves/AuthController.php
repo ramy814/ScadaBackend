@@ -14,8 +14,7 @@ class AuthController extends Controller
 {
     public function __construct(
         private readonly ValveInspectorService $inspectorService,
-    ) {
-    }
+    ) {}
 
     public function login(LoginValveInspectorRequest $request): JsonResponse
     {
@@ -26,13 +25,13 @@ class AuthController extends Controller
             $validated['password'],
         );
 
-        if (!$inspector) {
+        if (! $inspector) {
             throw ValidationException::withMessages([
                 'phone' => ['بيانات الدخول غير صحيحة أو الحساب غير فعال.'],
             ]);
         }
 
-        $token = $inspector->createToken('valves_app')->plainTextToken;
+        $token = $inspector->createToken('valves_app', ['scada'])->plainTextToken;
         $teams = $inspector->teams()->get(['valve_teams.oid', 'valve_teams.NAME', 'valve_teams.ASSIGN_ALL_VALVES']);
 
         return response()->json([

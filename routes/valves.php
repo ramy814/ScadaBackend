@@ -22,12 +22,24 @@ Route::prefix('api/valves')->middleware(['api', 'systems.operational'])->group(f
         ->name('api.valves.auth.login');
 });
 
-Route::prefix('api/dashboard')->middleware(['api', 'systems.operational', 'auth:sanctum'])->group(function () {
+Route::prefix('api/dashboard')->middleware([
+    'api',
+    'systems.operational',
+    'auth:sanctum',
+    'abilities:scada',
+    'mobile.principal:scada',
+])->group(function () {
     Route::get('/stats', [DashboardController::class, 'stats'])->name('api.dashboard.stats');
     Route::get('/recent-activity', [DashboardController::class, 'recentActivity'])->name('api.dashboard.recent-activity');
 });
 
-Route::prefix('api/valves')->middleware(['api', 'systems.operational', 'auth:sanctum'])->group(function () {
+Route::prefix('api/valves')->middleware([
+    'api',
+    'systems.operational',
+    'auth:sanctum',
+    'abilities:scada',
+    'mobile.principal:scada',
+])->group(function () {
     Route::get('/', [ValveController::class, 'index'])->name('api.valves.index');
     Route::get('/{valve}', [ValveController::class, 'show'])->name('api.valves.show');
 
@@ -36,7 +48,13 @@ Route::prefix('api/valves')->middleware(['api', 'systems.operational', 'auth:san
     Route::get('/{valve}/logs', [ValveController::class, 'logs'])->name('api.valves.logs');
 });
 
-Route::prefix('api/valve-maintenance')->middleware(['api', 'systems.operational', 'auth:sanctum'])->group(function () {
+Route::prefix('api/valve-maintenance')->middleware([
+    'api',
+    'systems.operational',
+    'auth:sanctum',
+    'abilities:scada',
+    'mobile.principal:scada',
+])->group(function () {
     Route::get('/', [ValveMaintenanceController::class, 'index'])->name('api.valve_maintenance.index');
     Route::put('/{maintenanceReport}', [ValveMaintenanceController::class, 'update'])->name('api.valve_maintenance.update');
 });

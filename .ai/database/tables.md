@@ -46,6 +46,7 @@ Individual GPS coordinates forming the path of a trip.
 - `accuracy`, `speed`, `heading`, `battery_level`, `provider`: Telemetry data.
 - `captured_at`: Timestamp when the point was recorded by the device.
 - Unique key `(trip_id, sequence_number)` is the idempotency constraint used by Oracle batch upsert.
+- The same unique key is the route-preview sampling access path: after eligible count/min/max, Oracle fetches at most 100 targeted sequence values instead of returning every coordinate to PHP.
 - Performance index `(trip_id, recorded_at)` supports recent-point/freshness lookup without scanning unrelated trips.
 
 ### Fleet Tracking Performance Indexes
@@ -56,6 +57,12 @@ Migration `2026_08_24_000024_add_trip_tracking_performance_indexes.php` adds:
 - `TRIP_TRACKING_EVENTS(TRIP_ID, EVENT_TYPE)` and `(TRIP_ID, DETECTED_AT)` for event counts and latest-event lookup.
 
 The migration was applied to production in batch 30 on 2026-08-24 while the global operational switch temporarily paused field synchronization. Building the indexes over 2,784,917 `TRIP_POINTS` rows took about two minutes; all six indexes were verified `VALID` before services reopened.
+
+### `personal_access_tokens`
+
+- Mobile tokens must store one exact ability: `driver`, `wells`, or `scada`; new mobile tokens must never use `*`.
+- Migration `2026_08_26_000025_scope_mobile_access_tokens.php` updates current and recognized legacy tokenable model names in place. The token hash/identifier is unchanged, preserving installed-app sessions.
+- Route middleware also validates the authenticated tokenable model, so an unknown or wildcard token cannot cross mobile-system boundaries.
 
 ### `trip_stops`
 Periods where the vehicle was stationary during a trip.
@@ -180,6 +187,7 @@ The valves module manages municipality valves operations and maintenance logs.
 - `App\Models\Valves\Valve` maps to `EME.WATER_VALVES` with primary key `W4_GENERAL_ID` and avoids selecting the Oracle Spatial `GEOMETRY` column by default.
 - `ValveRepository::forMap()` transforms `GEOMETRY` to WGS84 without selecting the spatial object through normal PDO hydration. `ValveService::getMapValves()` excludes missing coordinates and values outside the Gaza bounding box before serializing the web-map payload; outliers are neither modified nor deleted in Oracle.
 - Managed features in `CONTROL_UNIT`: `VALVE_LOGS`, `VALVE_MAINTENANCE_REPORTS`, `VALVE_TEAMS`, `VALVE_TEAM_VALVES`, `VALVE_INSPECTORS`, and `VALVE_INSPECTOR_TEAMS`.
+- `VALVE_LOGS.CLIENT_LOCAL_ID` is nullable for legacy SCADA compatibility. Unique `(USER_OID, CLIENT_LOCAL_ID)` makes supplied offline-action IDs idempotent without causing collisions between inspectors.
 - `VALVE_OID` columns store `EME.WATER_VALVES.W4_GENERAL_ID`; they are not foreign keys to a local `VALVES` table.
 - Context is located under `.ai/modules/valves/`.
 - Valve teams and inspectors are separate from wells teams and inspectors. Do not use wells tables for valves assignments or valve app accounts.

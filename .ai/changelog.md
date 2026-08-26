@@ -1,5 +1,28 @@
 # Changelog & Recent Actions
 
+## [2026-08-26] Bounded and Idempotent Mobile Synchronization
+
+- Capped Wells reading, diesel, and notification requests at 500 records; moved persistence to `MobileSyncService`, which uses 50-record transactions, one bulk idempotency lookup per chunk, and bulk well lookup for diesel calculations.
+- Updated Wells Flutter to upload parent queues in 100-record HTTP batches. Preserved lowercase-key and missing-`LOCAL_ID` compatibility; legacy records receive deterministic server-side keys.
+- Bounded Driver trip passengers/stops/events, rejected duplicate client identities within requests, and retained the existing 500-point request/100-row Oracle upsert path. Driver Flutter now repeats the idempotent metadata request in matching 50/500/500 chunks for long trips.
+- Hardened activity-photo retries so a photo UUID can only be replayed for its original parent and type.
+- Added optional SCADA action `local_id`, unique per inspector in `VALVE_LOGS`, and atomic action/report persistence. Updated SCADA Flutter to send its existing pending-operation ID on first attempt and retry; older builds remain accepted.
+- Added focused validation, transaction-boundary, retry, conflict, and side-effect tests. Dart analysis passed for both modified mobile applications.
+
+## [2026-08-26] Mobile Sanctum Token Isolation
+
+- Replaced wildcard token issuance with one exact ability per mobile app: `driver`, `wells`, and `scada`.
+- Protected Fleet Driver, Wells, SCADA dashboard, valves, and valve-maintenance API groups with Sanctum ability checks plus `EnsureMobilePrincipal`, preventing cross-system use even by a legacy wildcard token.
+- Added migration `2026_08_26_000025_scope_mobile_access_tokens.php` to narrow current and recognized legacy tokens in place without changing token values or forcing installed apps to sign in again.
+- Added regression coverage for route guards, exact ability checks, every cross-system principal combination, public login compatibility, and legacy-token migration/rollback.
+
+## [2026-08-26] Oracle-Indexed Route Preview Sampling
+
+- Moved driver route-preview sampling out of PHP. `TripRepository` now obtains eligible count/min/max and requests at most 100 evenly distributed sequence numbers through the existing unique `(TRIP_ID, SEQUENCE_NUMBER)` Oracle index.
+- Kept client-invalid and stationary-heartbeat exclusions, original eligible count, sequence ordering, and exact first/last eligible endpoints. Routes with at most 100 eligible points are returned in full even when their sequence numbers contain gaps.
+- Removed the service's full-collection downsampling; it now only rounds the already bounded repository result.
+- Verified on Oracle trip 925: 9,903 eligible points produced 100 preview points in about 50 ms through two queries with no measurable PHP peak-memory increase. The rejected analytic-window approach took about 16.9 seconds and was not retained.
+
 ## [2026-08-26] Persisted Trip Summaries Without GET Point Scans
 
 - Made confirmation serialize on the target trip row, calculate distance/duration/fuel once after checksum integrity succeeds, and persist the result before committing `confirmed`; repeated confirmation returns the stored summary without recalculation.

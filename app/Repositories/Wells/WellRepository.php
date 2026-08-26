@@ -65,6 +65,15 @@ class WellRepository
             ->find($id);
     }
 
+    public function findManyByIds(array $ids): Collection
+    {
+        if ($ids === []) {
+            return new Collection;
+        }
+
+        return $this->model->whereKey($ids)->get();
+    }
+
     public function findOrFail(int $id): Well
     {
         return $this->withSourceWellCode($this->model->newQuery())

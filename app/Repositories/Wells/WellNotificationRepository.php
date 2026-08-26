@@ -37,6 +37,18 @@ class WellNotificationRepository
         return $this->model->create($data);
     }
 
+    public function findSyncedByLocalIds(array $localIds, int $inspectorId): Collection
+    {
+        if ($localIds === []) {
+            return new Collection;
+        }
+
+        return $this->model
+            ->where('INSPECTOR_OID', $inspectorId)
+            ->whereIn('CLIENT_LOCAL_ID', $localIds)
+            ->get();
+    }
+
     public function findOrFail(int $id): WellNotification
     {
         return $this->model->findOrFail($id);

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\EnsureAdminIsAllowlisted;
+use App\Http\Middleware\EnsureMobilePrincipal;
 use App\Http\Middleware\EnsureSystemAccess;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\RejectWhenSystemsSuspended;
@@ -8,6 +9,7 @@ use App\Support\AutoDeployCacheClearer;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Laravel\Sanctum\Http\Middleware\CheckAbilities;
 
 $basePath = dirname(__DIR__);
 
@@ -33,6 +35,8 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'admin.allowlisted' => EnsureAdminIsAllowlisted::class,
+            'abilities' => CheckAbilities::class,
+            'mobile.principal' => EnsureMobilePrincipal::class,
             'system.access' => EnsureSystemAccess::class,
             'systems.operational' => RejectWhenSystemsSuspended::class,
         ]);

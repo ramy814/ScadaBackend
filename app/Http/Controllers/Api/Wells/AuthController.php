@@ -28,7 +28,7 @@ class AuthController extends Controller
             ]);
         }
 
-        $token = $inspector->createToken('wells_app')->plainTextToken;
+        $token = $inspector->createToken('wells_app', ['wells'])->plainTextToken;
 
         // Get the first team for the mobile app format
         $team = $inspector->teams()->first();

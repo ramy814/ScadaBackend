@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Trip;
 use App\Repositories\TripRepository;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -30,7 +31,12 @@ class TripRepositoryTest extends TestCase
         Schema::create('trip_points', function (Blueprint $table): void {
             $table->id();
             $table->foreignId('trip_id');
-            $table->timestamp('recorded_at');
+            $table->unsignedInteger('sequence_number')->nullable();
+            $table->decimal('latitude', 10, 7)->nullable();
+            $table->decimal('longitude', 10, 7)->nullable();
+            $table->boolean('client_is_valid')->default(true);
+            $table->string('quality_reason')->nullable();
+            $table->timestamp('recorded_at')->nullable();
         });
 
         Schema::create('trip_tracking_events', function (Blueprint $table): void {
@@ -82,6 +88,77 @@ class TripRepositoryTest extends TestCase
         );
 
         $this->assertSame([42], $trips->getCollection()->pluck('id')->all());
+    }
+
+    public function test_route_preview_sampling_runs_in_the_database_and_keeps_endpoints(): void
+    {
+        $now = now();
+        DB::table('trips')->insert([
+            'id' => 30,
+            'vehicle_plate' => '30-0030',
+            'driver_name' => 'سائق المعاينة',
+            'status' => 'confirmed',
+            'review_status' => 'pending',
+            'points_received' => 250,
+            'started_at' => $now,
+            'ended_at' => $now->copy()->addHour(),
+        ]);
+        DB::table('trip_points')->insert(
+            collect(range(1, 250))->map(fn (int $sequence): array => [
+                'trip_id' => 30,
+                'sequence_number' => $sequence,
+                'latitude' => 31.5 + ($sequence / 100000),
+                'longitude' => 34.45,
+                'client_is_valid' => $sequence !== 4,
+                'quality_reason' => $sequence === 6
+                    ? 'stationary_heartbeat'
+                    : null,
+                'recorded_at' => $now->copy()->addSeconds($sequence),
+            ])->all(),
+        );
+
+        $preview = app(TripRepository::class)->routePreviewPoints(
+            Trip::query()->findOrFail(30),
+        );
+        $points = $preview['points'];
+
+        $this->assertLessThanOrEqual(100, $points->count());
+        $this->assertSame(248, $preview['original_points']);
+        $this->assertSame(31.50001, round((float) $points->first()->latitude, 6));
+        $this->assertSame(31.5025, round((float) $points->last()->latitude, 6));
+    }
+
+    public function test_route_preview_returns_all_small_routes_with_sequence_gaps(): void
+    {
+        $now = now();
+        DB::table('trips')->insert([
+            'id' => 31,
+            'vehicle_plate' => '30-0031',
+            'driver_name' => 'سائق المسار الصغير',
+            'status' => 'confirmed',
+            'review_status' => 'pending',
+            'points_received' => 3,
+            'started_at' => $now,
+            'ended_at' => $now->copy()->addHour(),
+        ]);
+        DB::table('trip_points')->insert(collect([1, 10, 100])->map(
+            fn (int $sequence): array => [
+                'trip_id' => 31,
+                'sequence_number' => $sequence,
+                'latitude' => 31.5 + ($sequence / 100000),
+                'longitude' => 34.45,
+                'client_is_valid' => true,
+                'quality_reason' => null,
+                'recorded_at' => $now->copy()->addSeconds($sequence),
+            ]
+        )->all());
+
+        $preview = app(TripRepository::class)->routePreviewPoints(
+            Trip::query()->findOrFail(31),
+        );
+
+        $this->assertSame(3, $preview['original_points']);
+        $this->assertCount(3, $preview['points']);
     }
 
     public function test_dashboard_search_keeps_vehicle_and_driver_matching(): void
