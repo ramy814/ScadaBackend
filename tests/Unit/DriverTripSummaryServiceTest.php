@@ -54,14 +54,7 @@ class DriverTripSummaryServiceTest extends TestCase
         {
             public function metrics(Trip $trip): array
             {
-                return [
-                    'distance_km' => 0.0,
-                    'raw_distance_km' => 0.0,
-                    'duration_minutes' => 20,
-                    'quality_flags' => ['no_valid_points'],
-                    'sample_count' => 4,
-                    'quality_sample_count' => 4,
-                ];
+                throw new \RuntimeException('GET summaries must not load trip points.');
             }
         };
         $trip = new Trip;
@@ -76,5 +69,31 @@ class DriverTripSummaryServiceTest extends TestCase
 
         self::assertNull($summary['fuel_liters']);
         self::assertFalse($summary['fuel_is_provisional']);
+    }
+
+    public function test_it_returns_nulls_for_legacy_rows_without_loading_points(): void
+    {
+        $fuel = new class extends VirtualFuelService
+        {
+            public function metrics(Trip $trip): array
+            {
+                throw new \RuntimeException('GET summaries must not load trip points.');
+            }
+        };
+        $trip = new Trip;
+        $trip->forceFill([
+            'quality_version' => null,
+            'distance_km' => null,
+            'duration_minutes' => null,
+            'virtual_fuel_liters' => null,
+        ]);
+
+        $summary = (new DriverTripSummaryService($fuel))->summarize($trip);
+
+        self::assertNull($summary['distance_km']);
+        self::assertNull($summary['duration_minutes']);
+        self::assertNull($summary['fuel_liters']);
+        self::assertFalse($summary['fuel_is_provisional']);
+        self::assertSame([], $summary['quality_flags']);
     }
 }

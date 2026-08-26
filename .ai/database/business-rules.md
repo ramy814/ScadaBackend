@@ -35,7 +35,7 @@ For a complete quality-v2 upload, confirmation also stores:
 - `distance_km`: filtered GPS distance only.
 - `duration_minutes`: trusted trip duration capped by the 12-hour policy.
 
-The driver API exposes these persisted values after upload. If official fuel is withheld but a positive filtered distance remains usable, `DriverTripSummaryService` may expose `distance × 0.12 liters/km` with `fuel_is_provisional = true`; it must not persist that fallback as official fuel. No-valid-point trips return unavailable fuel rather than an invented zero.
+The driver API exposes these persisted values after upload. Driver history and reconciliation never rescan `TRIP_POINTS`; missing legacy summary columns remain unavailable until an explicit offline backfill. If official fuel is withheld but a positive persisted distance remains usable, `DriverTripSummaryService` may expose `distance × 0.12 liters/km` with `fuel_is_provisional = true`; it must not persist that fallback as official fuel. No-valid-point trips return unavailable fuel rather than an invented zero.
 
 The trip details page may calculate a read-only provisional value when
 `virtual_fuel_liters` is null and a filtered GPS distance is available. This

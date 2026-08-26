@@ -496,72 +496,74 @@ SQL,
 
     public function confirm(Trip $trip, int $expected, string $checksum): Trip
     {
-        if ($trip->status === 'confirmed') {
-            return $trip->fresh();
-        }
+        return DB::transaction(function () use ($trip, $expected, $checksum): Trip {
+            $lockedTrip = Trip::query()
+                ->whereKey($trip->getKey())
+                ->lockForUpdate()
+                ->firstOrFail();
 
-        $pointsReceived = $trip->points()->count();
-        $serverPoints = $trip->points()
-            ->orderBy('sequence_number')
-            ->cursor([
-                'sequence_number',
-                'latitude',
-                'longitude',
-                'accuracy',
-                'speed',
-                'captured_at',
-                'recorded_at',
-                'client_is_valid',
-                'quality_reason',
+            if ($lockedTrip->status === 'confirmed') {
+                return $lockedTrip;
+            }
+
+            $pointsReceived = $lockedTrip->points()->count();
+            $serverPoints = $lockedTrip->points()
+                ->orderBy('sequence_number')
+                ->cursor([
+                    'sequence_number',
+                    'latitude',
+                    'longitude',
+                    'accuracy',
+                    'speed',
+                    'captured_at',
+                    'recorded_at',
+                    'client_is_valid',
+                    'quality_reason',
+                ]);
+
+            $serverChecksum = $this->checksumForPoints($serverPoints);
+            $isComplete = $this->isCompleteUpload(
+                $expected,
+                $pointsReceived,
+                $checksum,
+                $serverChecksum,
+            );
+            $metrics = $isComplete ? $this->fuel->metrics($lockedTrip) : null;
+            $usesFilteredDistance = $metrics !== null && (
+                (int) ($lockedTrip->quality_version ?? 0) >= 2
+                || $this->fuel->hasSufficientQualityData($metrics)
+            );
+
+            $lockedTrip->update([
+                'points_expected' => $expected,
+                'points_received' => $pointsReceived,
+                'client_checksum' => $checksum,
+                'server_checksum' => $serverChecksum,
+                'status' => $isComplete ? 'confirmed' : 'uploaded',
+                'confirmed_at' => $isComplete ? now() : null,
+                'distance_km' => $isComplete
+                    ? ($usesFilteredDistance
+                        ? $metrics['distance_km']
+                        : $metrics['raw_distance_km'])
+                    : null,
+                'duration_minutes' => $isComplete
+                    ? $metrics['duration_minutes']
+                    : null,
+                'virtual_fuel_liters' => $isComplete && $usesFilteredDistance
+                    ? $this->fuel->estimateFromMetrics($lockedTrip, $metrics)
+                    : ($isComplete ? $this->fuel->estimateLegacyLiters($lockedTrip, $metrics) : null),
             ]);
 
-        $serverChecksum = $this->checksumForPoints($serverPoints);
+            Log::info('driver.trip_sync.confirm', [
+                'trip_id' => $lockedTrip->id,
+                'expected' => $expected,
+                'received' => $pointsReceived,
+                'is_complete' => $isComplete,
+                'checksum_match' => $checksum === $serverChecksum,
+            ]);
 
-        $trip->update([
-            'points_expected' => $expected,
-            'points_received' => $pointsReceived,
-            'client_checksum' => $checksum,
-            'server_checksum' => $serverChecksum,
-        ]);
-
-        $isComplete = $this->isCompleteUpload(
-            $expected,
-            $pointsReceived,
-            $checksum,
-            $serverChecksum,
-        );
-
-        $metrics = $isComplete ? $this->fuel->metrics($trip) : null;
-        $usesFilteredDistance = $metrics !== null && (
-            (int) ($trip->quality_version ?? 0) >= 2
-            || $this->fuel->hasSufficientQualityData($metrics)
-        );
-
-        $trip->update([
-            'status' => $isComplete ? 'confirmed' : 'uploaded',
-            'confirmed_at' => $isComplete ? now() : null,
-            'distance_km' => $isComplete
-                ? ($usesFilteredDistance
-                    ? $metrics['distance_km']
-                    : $metrics['raw_distance_km'])
-                : null,
-            'duration_minutes' => $isComplete
-                ? $metrics['duration_minutes']
-                : null,
-            'virtual_fuel_liters' => $isComplete && $usesFilteredDistance
-                ? $this->fuel->estimateFromMetrics($trip, $metrics)
-                : ($isComplete ? $this->fuel->estimateLegacyLiters($trip) : null),
-        ]);
-
-        Log::info('driver.trip_sync.confirm', [
-            'trip_id' => $trip->id,
-            'expected' => $expected,
-            'received' => $pointsReceived,
-            'is_complete' => $isComplete,
-            'checksum_match' => $checksum === $serverChecksum,
-        ]);
-
-        return $trip->fresh();
+            return $lockedTrip->fresh();
+        });
     }
 
     public function assertOwnedBy(Trip $trip, Beneficiary $driver): void

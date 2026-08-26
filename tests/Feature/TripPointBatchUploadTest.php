@@ -21,7 +21,17 @@ class TripPointBatchUploadTest extends TestCase
         Schema::create('trips', function (Blueprint $table): void {
             $table->id();
             $table->string('status')->default('uploaded');
+            $table->timestamp('started_at')->nullable();
+            $table->timestamp('ended_at')->nullable();
+            $table->unsignedTinyInteger('quality_version')->nullable();
+            $table->unsignedInteger('points_expected')->default(0);
             $table->unsignedInteger('points_received')->default(0);
+            $table->string('client_checksum')->nullable();
+            $table->string('server_checksum')->nullable();
+            $table->timestamp('confirmed_at')->nullable();
+            $table->decimal('distance_km', 10, 3)->nullable();
+            $table->unsignedInteger('duration_minutes')->nullable();
+            $table->decimal('virtual_fuel_liters', 10, 3)->nullable();
             $table->timestamps();
         });
 
@@ -94,5 +104,58 @@ class TripPointBatchUploadTest extends TestCase
         $this->assertSame(250, $trip->points()->count());
         $this->assertSame('31.6000000', $trip->points()->where('sequence_number', 1)->value('latitude'));
         $this->assertSame('5.00', $trip->points()->where('sequence_number', 1)->value('accuracy'));
+    }
+
+    public function test_confirmation_calculates_and_persists_the_summary_once(): void
+    {
+        $fuel = Mockery::mock(VirtualFuelService::class)->makePartial();
+        $fuel->shouldReceive('metrics')->once()->andReturn([
+            'distance_km' => 1.234,
+            'raw_distance_km' => 1.5,
+            'duration_minutes' => 45,
+            'quality_flags' => [],
+            'sample_count' => 2,
+            'quality_sample_count' => 2,
+        ]);
+        $service = new TripSyncService(
+            Mockery::mock(MunicipalityVehicleRepository::class),
+            $fuel,
+        );
+        $trip = Trip::query()->create([
+            'status' => 'uploaded',
+            'started_at' => '2026-08-24 08:00:00',
+            'ended_at' => '2026-08-24 08:45:00',
+            'quality_version' => 2,
+        ]);
+        $service->uploadPoints($trip, [
+            [
+                'sequence_number' => 1,
+                'latitude' => 31.5,
+                'longitude' => 34.45,
+                'accuracy' => 5,
+                'captured_at' => '2026-08-24T08:00:00Z',
+                'client_is_valid' => true,
+            ],
+            [
+                'sequence_number' => 2,
+                'latitude' => 31.501,
+                'longitude' => 34.45,
+                'accuracy' => 5,
+                'captured_at' => '2026-08-24T08:00:10Z',
+                'client_is_valid' => true,
+            ],
+        ]);
+        $checksum = $service->checksumForPoints(
+            $trip->points()->orderBy('sequence_number')->cursor(),
+        );
+
+        $confirmed = $service->confirm($trip->fresh(), 2, $checksum);
+        $retried = $service->confirm($confirmed, 2, $checksum);
+
+        $this->assertSame('confirmed', $retried->status);
+        $this->assertSame(2, (int) $retried->points_received);
+        $this->assertSame('1.234', $retried->distance_km);
+        $this->assertSame(45, $retried->duration_minutes);
+        $this->assertSame('0.148', $retried->virtual_fuel_liters);
     }
 }

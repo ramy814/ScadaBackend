@@ -71,8 +71,9 @@ return response()->json($trip);
 
 - `GET /api/driver/trips/{trip}/route-preview` is authenticated, driver-owned, and confirmed-trip-only. It is requested only when server trip details need a map, never by the history list. `DriverTripRoutePreviewService` uses `TripRepository` to exclude client-invalid and `stationary_heartbeat` points, preserves the ordered first/last endpoints, and returns at most 100 latitude/longitude pairs rounded to six decimals. The preview is presentation-only and never changes authoritative points or metrics.
 - `GET /api/driver/trips` and `GET /api/driver/trips/reconcile` expose the same driver summary fields.
-- New confirmed trips read the persisted `TRIPS.DISTANCE_KM` and `TRIPS.DURATION_MINUTES` values. Legacy rows without these columns populated are calculated read-only from their points; they are not silently rewritten by a history request.
-- `App\Services\DriverTripSummaryService` owns response shaping and fallback fuel semantics. Controllers must not duplicate these calculations.
+- Confirmation locks the target trip row, validates count/checksum, calculates the summary once, and persists `TRIPS.DISTANCE_KM`, `TRIPS.DURATION_MINUTES`, and official `TRIPS.VIRTUAL_FUEL_LITERS` before changing the status to `confirmed`. A repeated confirmation returns the stored row without recalculation.
+- `GET /api/driver/trips` and reconciliation never query `TRIP_POINTS` to build summaries. Legacy rows without persisted distance/duration return unavailable (`null`) values until an explicit offline backfill is run; a history request must never calculate or rewrite them.
+- `App\Services\DriverTripSummaryService` only shapes persisted metrics. When official fuel is null and persisted distance is positive, it may calculate the existing lightweight provisional `distance × 0.12` response without reading points or storing it as official fuel. Controllers must not duplicate these rules.
 
 ### Admin Trip Gap Estimate
 

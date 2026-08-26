@@ -205,6 +205,46 @@ class TripLiveTelemetryTest extends TestCase
         $this->assertSame(1, $payload['trips'][0]['id']);
     }
 
+    public function test_driver_history_does_not_scan_points_for_missing_legacy_summaries(): void
+    {
+        $driver = new Beneficiary;
+        $driver->setRawAttributes(['OID' => '42']);
+        Trip::query()->create([
+            'local_id' => '55555555-5555-4555-8555-555555555555',
+            'oracle_driver_id' => '42',
+            'driver_name' => 'سائق قديم',
+            'driver_phone' => '0599000000',
+            'vehicle_plate' => '20-2000',
+            'status' => 'confirmed',
+            'review_status' => 'pending',
+            'started_at' => '2026-07-01 08:00:00',
+            'ended_at' => '2026-07-01 09:00:00',
+            'origin_type' => 'free_text',
+            'origin_text' => 'المقر',
+            'destination_type' => 'free_text',
+            'destination_text' => 'الميدان',
+            'points_expected' => 10,
+            'points_received' => 10,
+            'distance_km' => null,
+            'duration_minutes' => null,
+            'virtual_fuel_liters' => null,
+        ]);
+
+        $request = Request::create('/api/driver/trips', 'GET');
+        $request->setUserResolver(fn () => $driver);
+
+        $response = app(TripSyncController::class)->index(
+            $request,
+            new CurrentBeneficiaryService,
+            new DriverTripSummaryService(new VirtualFuelService),
+        );
+        $trip = $response->getData(true)['trips'][0];
+
+        $this->assertNull($trip['distance_km']);
+        $this->assertNull($trip['duration_minutes']);
+        $this->assertNull($trip['fuel_liters']);
+    }
+
     /** @return array<string, mixed> */
     private function payload(string $localId): array
     {

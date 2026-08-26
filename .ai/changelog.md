@@ -1,5 +1,24 @@
 # Changelog & Recent Actions
 
+## [2026-08-26] Persisted Trip Summaries Without GET Point Scans
+
+- Made confirmation serialize on the target trip row, calculate distance/duration/fuel once after checksum integrity succeeds, and persist the result before committing `confirmed`; repeated confirmation returns the stored summary without recalculation.
+- Removed the `DriverTripSummaryService` point-scan fallback. Driver history and reconciliation now shape only persisted trip columns, so legacy rows with missing summaries return null values instead of executing one full GPS scan per trip.
+- Reused confirmation metrics for legacy fuel calculation instead of opening a second point cursor. Provisional response fuel remains a lightweight calculation from positive persisted distance and is never stored as official fuel.
+- Added regression coverage proving confirmation calls the metrics engine once and GET history succeeds without a `trip_points` table even when a legacy summary is missing.
+
+## [2026-08-26] Oversized Trip Data Cleanup
+
+- Deleted 57 completed Fleet trips whose actual `TRIP_POINTS` count exceeded 10,000, removing 759,599 point rows through the live Oracle cascade constraints. No active trip was included.
+- Deleted each trip in its own transaction to bound Oracle undo/redo and lock pressure. The cascades also removed 27 passenger rows; the selected trips had no stop or tracking-event rows.
+- Recorded audit event `oversized_trips_deleted` (audit ID 154) with the threshold and deleted trip/point totals.
+- Verified that all selected trip and dependent rows are absent, no trip reports more than 10,000 received points, and the largest remaining trip reports 9,903 points.
+
+## [2026-08-24] Unused Fleet MCP Removal
+
+- Removed the unauthenticated Fleet MCP web/local routes, server definition, and its four driver, vehicle, and trip tools because no production system or application consumes them.
+- Removed the `laravel/mcp` Composer dependency and its transitive JSON-schema package, eliminating the unused public `/mcp/fleet` surface without changing Fleet, Wells, Valves, or mobile API contracts.
+
 ## [2026-08-24] Trip Point Write Pressure And Fleet Dashboard Recovery
 
 - Reviewed the registered Fleet routes and driver sync contract. `POST /api/driver/trips/{trip}/points` remains authenticated, operational-switch protected, and compatible with the existing 1–500 point payload used by all released apps.

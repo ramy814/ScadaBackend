@@ -75,24 +75,8 @@ class VirtualFuelService
         return self::LITERS_PER_KILOMETER;
     }
 
-    public function estimateLegacyLiters(Trip $trip): float
+    public function estimateLegacyLiters(Trip $trip, array $metrics): float
     {
-        $distanceMeters = 0.0;
-        $previous = null;
-        foreach ($trip->points()
-            ->orderBy('sequence_number')
-            ->cursor(['latitude', 'longitude']) as $point) {
-            if ($previous !== null) {
-                $distanceMeters += $this->haversineMeters(
-                    (float) $previous->latitude,
-                    (float) $previous->longitude,
-                    (float) $point->latitude,
-                    (float) $point->longitude,
-                );
-            }
-            $previous = $point;
-        }
-
         $idleMinutes = $trip->stops->sum(function ($stop): int {
             if (! $stop->ended_at) {
                 return 0;
@@ -102,7 +86,7 @@ class VirtualFuelService
         });
 
         return round(
-            ($distanceMeters / 1000 * self::LITERS_PER_KILOMETER)
+            ((float) ($metrics['raw_distance_km'] ?? 0) * self::LITERS_PER_KILOMETER)
             + ($idleMinutes / 60),
             3,
         );

@@ -22,7 +22,6 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
         then: function (): void {
-            require __DIR__.'/../routes/ai.php';
             require __DIR__.'/../routes/wells.php';
             require __DIR__.'/../routes/valves.php';
         },
