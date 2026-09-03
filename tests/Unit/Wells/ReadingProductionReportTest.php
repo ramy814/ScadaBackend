@@ -34,7 +34,8 @@ class ReadingProductionReportTest extends TestCase
         $reading->setRawAttributes([
             'oid' => 10,
             'well_oid' => 1,
-            'pump_hours_reading' => '30',
+            'generator_hours_reading' => '30',
+            'pump_hours_reading' => '300',
             'reading_date' => '2026-08-02 08:00:00',
         ]);
         $reading->setRelation('inspector', $inspector);
@@ -43,7 +44,8 @@ class ReadingProductionReportTest extends TestCase
         $previous->setRawAttributes([
             'oid' => 9,
             'well_oid' => 1,
-            'pump_hours_reading' => '20',
+            'generator_hours_reading' => '20',
+            'pump_hours_reading' => '100',
             'reading_date' => '2026-08-01 08:00:00',
         ]);
 
@@ -67,6 +69,8 @@ class ReadingProductionReportTest extends TestCase
 
         self::assertCount(2, $report['rows']);
         self::assertSame('normal', $report['rows'][0]['status']['key']);
+        self::assertSame(20.0, $report['rows'][0]['previous_reading']);
+        self::assertSame(30.0, $report['rows'][0]['current_reading']);
         self::assertSame(10.0, $report['rows'][0]['operating_hours']);
         self::assertSame(500.0, $report['rows'][0]['production']);
         self::assertSame('missing', $report['rows'][1]['status']['key']);
@@ -135,7 +139,7 @@ class ReadingProductionReportTest extends TestCase
             $reading->setRawAttributes([
                 'oid' => $wellId + 10,
                 'well_oid' => $wellId,
-                'pump_hours_reading' => $case['current'],
+                'generator_hours_reading' => $case['current'],
                 'reading_date' => '2026-08-11 08:00:00',
             ]);
             $reading->setRelation('inspector', $inspector);
@@ -145,7 +149,7 @@ class ReadingProductionReportTest extends TestCase
             $previous->setRawAttributes([
                 'oid' => $wellId,
                 'well_oid' => $wellId,
-                'pump_hours_reading' => $case['previous'],
+                'generator_hours_reading' => $case['previous'],
                 'reading_date' => '2026-08-10 08:00:00',
             ]);
             $previousReadings[] = [$reading, $previous];

@@ -87,7 +87,7 @@ return response()->json($trip);
 
 ### Driver App Presence
 
-- Current client contract version: driver app `1.1.16+39`; authoritative release defaults are in `config/driver_app.php`. Its stale-tracker decision uses the latest provider callback/raw point, while accepted points remain the only source for route distance and fuel.
+- Current client contract version: driver app `1.1.19+42`; authoritative release defaults are in `config/driver_app.php`. It requires background location access, requests Android's battery-optimization exemption, resumes an unfinished tracker after reboot, and keeps stale-tracker decisions based on the latest provider callback/raw point while accepted points remain the only source for route distance and fuel.
 - `POST /api/driver/app-presence` is authenticated with the existing driver Sanctum token.
 - Payload: `device_id` (random installation UUID), `app_version`, `build_number`, `package_name`, optional `installer_store`, `installed_at`, and `app_updated_at`.
 - Driver identity and snapshots always come from the authenticated `Beneficiary`; never accept a driver ID, name, phone, or vehicle assignment from this payload.

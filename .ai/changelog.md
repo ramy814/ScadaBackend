@@ -1,5 +1,12 @@
 # Changelog & Recent Actions
 
+## [2026-09-02] Driver Lock-Screen And Reboot Tracking Resilience
+
+- Diagnosed trip `1987`: all 20 locally captured points reached Oracle with matching checksums, while two local `provider_silent` gaps of 408 and 398 seconds plus a `device_boot` event proved the loss occurred in Android location callbacks rather than backend upload.
+- Released driver app `1.1.19+42` with **Allow all the time** location enforcement, a native Android battery-optimization exemption request, and foreground-service boot recovery limited to a retained unfinished active trip.
+- Kept trip creation offline-first and the battery exemption non-blocking. The existing watchdog, local SQLite retention, technical-event interpretation, and final checksum rules are unchanged.
+- Advanced backend app-presence defaults to version `1.1.19`, build `42`; no API or Oracle migration is required.
+
 ## [2026-08-26] Bounded and Idempotent Mobile Synchronization
 
 - Capped Wells reading, diesel, and notification requests at 500 records; moved persistence to `MobileSyncService`, which uses 50-record transactions, one bulk idempotency lookup per chunk, and bulk well lookup for diesel calculations.

@@ -17,8 +17,8 @@ The Fleet dashboard performance card uses the same authenticated presence source
 
 ## Current Driver App Release And Presence Contract
 
-- Current approved Android release: `1.1.16+39` (`versionName 1.1.16`, `versionCode 39`).
-- This release removes the blocking two-fix/25-second GPS accuracy gate. Disclosure, permissions, precise mode, and an enabled location service remain prerequisites; weak reception is filtered during tracking instead of preventing field work.
+- Current approved Android release: `1.1.19+42` (`versionName 1.1.19`, `versionCode 42`).
+- This release keeps the non-blocking GPS-quality flow, requires **Allow all the time** location access, requests exclusion from Android battery optimization, and resumes the foreground tracker after reboot only for a retained unfinished trip. Disclosure, permissions, precise mode, and an enabled location service remain prerequisites; weak reception is filtered during tracking instead of preventing field work.
 - Provider liveness is measured from the latest callback/raw sample rather than the latest quality-accepted point. Repeated weak fixes remain excluded from distance/fuel but keep the active tracker alive; only real callback inactivity may reach the 20-minute driver-decision guard.
 - Presence is triggered primarily when an authenticated driver main shell opens or resumes; it must not depend on OTP login because sessions are retained locally.
 - The backend endpoint is `POST /api/driver/app-presence`, and the admin screen is `/admin/driver-apps`.
@@ -37,7 +37,7 @@ The Fleet dashboard performance card uses the same authenticated presence source
 - **Experimental Trip Display**: A completed trip whose exact server-maintained `TRIPS.POINTS_RECEIVED` value is below 50 is hidden from the Fleet dashboard list and trip statistics by default. `show_experimental=1` reveals these rows with an Arabic experimental badge. This is display filtering only: Oracle data, reports, direct trip details, checksums, and review history remain unchanged.
 - **Technical Evidence Only**: GPS/permission changes, airplane mode, graceful shutdown/boot, tracking errors, and stale point gaps are supervisor review evidence. They do not prove driver intent, and a sudden power loss or network outage cannot be conclusively distinguished while the phone is offline.
 - **Emergency Operational Switch**: Authorized permission managers can suspend the portal and every Fleet/Wells/Valves mobile API from `/permissions`. Normal routes return HTTP 503 while the recovery control plane remains available. Mobile offline records and tokens are retained and resume through unchanged endpoints after reopening. `.ai/workflows/system-operational-suspension.md` is the authoritative operating and deployment reference.
-- **Live Tracking Reference**: `.ai/workflows/live-tracking-flow.md` is the authoritative cross-version flow and deployment-order reference; its current activity/quality separation applies to driver release `1.1.16+39`.
+- **Live Tracking Reference**: `.ai/workflows/live-tracking-flow.md` is the authoritative cross-version flow and deployment-order reference; its current activity/quality separation and lock-screen/reboot resilience apply to driver release `1.1.19+42`.
 - **Unified Dashboard Themes**: Fleet, Wells, Valves, the portal, and permissions share the semantic `--theme-*` tokens in `resources/css/app.css`. Light mode is based on Fleet and dark mode is based on Valves; individual systems retain only their identity accents. The selected `light`/`dark` value is shared through `localStorage.theme` and applied as `html[data-theme]`.
 - **Audited Wells Corrections**: Authorized administrators can logically delete Wells readings and external diesel inventories. The physical Oracle row and actor/time/reason remain for audit, while default operational queries and calculations exclude it.
 

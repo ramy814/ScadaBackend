@@ -23,8 +23,8 @@ class ReadingService
         ['key' => 'well_number', 'label' => 'الرقم/الاسم الرسمي', 'type' => 'text', 'default' => true],
         ['key' => 'coordinates', 'label' => 'الإحداثيات', 'type' => 'text', 'default' => false],
         ['key' => 'capacity', 'label' => 'السعة (م³/ساعة)', 'type' => 'number', 'default' => true],
-        ['key' => 'previous_reading', 'label' => 'القراءة السابقة', 'type' => 'number', 'default' => true],
-        ['key' => 'current_reading', 'label' => 'القراءة الحالية', 'type' => 'number', 'default' => true],
+        ['key' => 'previous_reading', 'label' => 'قراءة المولد السابقة', 'type' => 'number', 'default' => true],
+        ['key' => 'current_reading', 'label' => 'قراءة المولد الحالية', 'type' => 'number', 'default' => true],
         ['key' => 'operating_hours', 'label' => 'فرق التشغيل (ساعة)', 'type' => 'number', 'default' => true],
         ['key' => 'production', 'label' => 'الإنتاج (م³)', 'type' => 'number', 'default' => true],
         ['key' => 'inspector_name', 'label' => 'المفتش', 'type' => 'text', 'default' => true],
@@ -118,12 +118,10 @@ class ReadingService
             $reading = $readings->get((int) $well->getKey());
             $previous = $reading ? $this->readingRepository->getPreviousReading($reading) : null;
             $currentReading = $reading ? $this->numeric(
-                $this->attribute($reading, 'PUMP_HOURS_READING')
-                ?? $this->attribute($reading, 'FLOW_RATE')
+                $this->attribute($reading, 'GENERATOR_HOURS_READING')
             ) : null;
             $previousReading = $previous ? $this->numeric(
-                $this->attribute($previous, 'PUMP_HOURS_READING')
-                ?? $this->attribute($previous, 'FLOW_RATE')
+                $this->attribute($previous, 'GENERATOR_HOURS_READING')
             ) : null;
             $operatingHours = $currentReading !== null
                 && $previousReading !== null
