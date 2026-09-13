@@ -494,25 +494,31 @@ http://172.17.80.51:3000/rami.gh/Tracking-Veichle-BackEnd.git
 Branch: main
 ```
 
-### ملفات مُرفقة في Git
+### ملفات غير مُرفقة في Git
 ```
-public/build/     — ملفات Frontend المبنية (مُتتبَّعة بـ -f)
+composer.lock      — يُولَّد محلياً أو على خادم النشر
+package-lock.json  — يُولَّد بواسطة npm install
+public/build/      — يُولَّد بواسطة npm run build
 ```
 
 ### سير نشر التحديثات
 ```bash
 # محلياً
+npm install
 npm run build
-git add -f public/build
 git add .
 git commit -m "..."
 git push
 
 # على السيرفر
 git pull origin main
-composer install
+composer update --with-all-dependencies
+npm install
+npm run build
 php artisan migrate
 ```
+
+تنفيذ `git pull` تلقائياً يحتاج webhook/CI أو مهمة مجدولة على خادم النشر؛ التطبيق نفسه لا يسحب Git تلقائياً.
 
 ---
 
@@ -523,7 +529,7 @@ php artisan migrate
 | SSO redirect لا يعمل في SPA | Inertia يرسل XHR | استخدم `Inertia::location()` بدلاً من `redirect()->away()` |
 | `driver` و`vehicle` لا يظهران في JSON | Accessors لا تُضمَّن تلقائياً | أضف `$appends = ['driver', 'vehicle']` في Trip Model |
 | `route()` غير معرّفة في Vue | Ziggy محذوفة | استخدم `$page.props.urls.xxx` |
-| composer install يفشل بـ PHP version | الحزم تتطلب 8.3 | استخدم Laravel 11 + yajra ^11 |
+| composer install يفشل بـ PHP version | Laravel 13 وOCI8 13 يتطلبان PHP 8.3+ | رقِّ PHP CLI/FPM إلى 8.3 أو أحدث |
 | مركبة لا تُوجد رغم وجودها | اختلاف صيغة الهاتف | نظام Phone Normalization يتولى ذلك تلقائياً |
 | نقاط GPS ناقصة | الإرسال انقطع | `local_id` + `sequence_number` تضمن الإرسال الآمن مرة أخرى |
 

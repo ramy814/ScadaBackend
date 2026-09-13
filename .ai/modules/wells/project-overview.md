@@ -6,7 +6,7 @@ A comprehensive well management system consisting of two main applications:
 2. **Flutter Mobile App** — Field inspector app at `/Volumes/SecondDrive/Wells/wells_app`
 
 ## Architecture
-- **Backend**: Laravel 11 + Inertia.js + Vue 3 (Composition API)
+- **Backend**: Laravel 13 + Inertia.js + Vue 3 (Composition API)
 - **Mobile**: Flutter + GetX + SQLite (offline-first)
 - **Database**: Oracle DB (production) / SQLite (development)
 - **Styling**: Vanilla CSS (no TailwindCSS)

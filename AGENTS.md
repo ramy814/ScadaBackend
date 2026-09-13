@@ -16,7 +16,7 @@
 - `.ai/modules/`: ملفات السياق الخاصة بالأنظمة الفرعية المدمجة (مثل نظام الآبار `wells`)
 
 ## الهوية والسياق
-- Laravel 11, PHP 8.2, Oracle DB لكل بيانات الباك اند والداشبورد
+- Laravel 13, PHP 8.3+, Oracle DB لكل بيانات الباك اند والداشبورد
 - Admin Dashboard: Vue 3 + Inertia.js (SPA) — لا Ziggy، الروابط تُمرَّر عبر Shared Props
 - Driver App: Flutter — Offline-first (لا يتطلب إنترنت أثناء الرحلة)
 - Auth إدارة: MOG SSO (خارجي) — استخدم `Inertia::location()` وليس `redirect()->away()`
