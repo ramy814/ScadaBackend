@@ -122,6 +122,7 @@ The `audit_logs` table must never have rows updated or deleted. It is append-onl
 
 ## 11. Wells Reading Production Status
 
+- Production operating hours are `current GENERATOR_HOURS_READING - previous GENERATOR_HOURS_READING`; production is that difference multiplied by `WELLS.CAPACITY`. Never use `PUMP_HOURS_READING` or `FLOW_RATE` as a fallback when either generator reading is missing.
 - The production-report indicator evaluates meter consistency only; it is not a water-quality assessment.
 - Comparable current and previous readings must both be non-negative.
 - Operating hours are `current reading - previous reading`. A difference from 0 through 20 hours inclusive is normal; a difference above 20 hours is abnormal.

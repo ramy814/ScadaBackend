@@ -5,7 +5,7 @@
 The Fleet Management System is an enterprise application designed for Gaza Municipality to track, manage, and audit municipality vehicle trips. It consists of an administrative dashboard for monitoring and a driver-facing mobile application for trip execution.
 
 ## System Components
-1. **Backend API (Laravel 11)**: The core server providing data storage, synchronization logic, and integration points.
+1. **Backend API (Laravel 13)**: The core server providing data storage, synchronization logic, and integration points.
 2. **Admin Dashboard (Vue 3 + Inertia.js)**: A single-page application (SPA) embedded within the Laravel backend for administrators to review trips, manage locations, and generate reports.
 3. **Driver Application (Flutter)**: A mobile application used by drivers to record trips and GPS paths, built with an Offline-First philosophy.
 4. **Oracle Database**: The source of truth for backend/dashboard data, municipality assets, employees, SSO, trips, and the integrated wells and valves modules.
@@ -40,10 +40,11 @@ The Fleet dashboard performance card uses the same authenticated presence source
 - **Live Tracking Reference**: `.ai/workflows/live-tracking-flow.md` is the authoritative cross-version flow and deployment-order reference; its current activity/quality separation and lock-screen/reboot resilience apply to driver release `1.1.19+42`.
 - **Unified Dashboard Themes**: Fleet, Wells, Valves, the portal, and permissions share the semantic `--theme-*` tokens in `resources/css/app.css`. Light mode is based on Fleet and dark mode is based on Valves; individual systems retain only their identity accents. The selected `light`/`dark` value is shared through `localStorage.theme` and applied as `html[data-theme]`.
 - **Audited Wells Corrections**: Authorized administrators can logically delete Wells readings and external diesel inventories. The physical Oracle row and actor/time/reason remain for audit, while default operational queries and calculations exclude it.
+- **Generator-Only Wells Production**: The Wells production screen and its PDF/Excel exports calculate operating hours only from consecutive `WELL_READINGS.GENERATOR_HOURS_READING` values, then multiply the difference by `WELLS.CAPACITY`. Pump readings and flow rate are display/input data only and must never be calculation fallbacks.
 
 ## Tech Stack
-- **Framework**: Laravel 11.x
-- **PHP**: 8.2
+- **Framework**: Laravel 13.x
+- **PHP**: 8.3+
 - **Database**: Oracle via `yajra/laravel-oci8` for backend/dashboard data; mobile apps use local SQLite only for offline capture.
 - **Frontend Framework**: Vue 3 with Composition API
 - **Frontend Integration**: Inertia.js (No Ziggy, URLs passed via Shared Props)

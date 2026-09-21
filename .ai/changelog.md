@@ -1,5 +1,12 @@
 # Changelog & Recent Actions
 
+## [2026-09-03] Generator-Only Wells Production Calculation
+
+- Corrected `ReadingService::getProductionReport()` so the Wells production preview, PDF, and Excel calculate operating hours exclusively from consecutive `WELL_READINGS.GENERATOR_HOURS_READING` values.
+- Removed the incorrect fallback to `PUMP_HOURS_READING` and `FLOW_RATE`; a missing generator reading now remains unavailable for review instead of silently changing the meter source.
+- Renamed the report columns to **قراءة المولد السابقة** and **قراءة المولد الحالية**, and added regression data with deliberately different pump values to prove they do not affect production.
+- Verified all 50 Wells unit tests with 164 assertions. No API, database schema, or mobile payload change was required.
+
 ## [2026-09-02] Driver Lock-Screen And Reboot Tracking Resilience
 
 - Diagnosed trip `1987`: all 20 locally captured points reached Oracle with matching checksums, while two local `provider_silent` gaps of 408 and 398 seconds plus a `device_boot` event proved the loss occurred in Android location callbacks rather than backend upload.

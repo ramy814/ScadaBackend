@@ -151,6 +151,7 @@ Reading, diesel-inventory, and notification sync requests are capped at 500 reco
 
 ## Reading Production Report Contract
 - PDF and Excel exports use the same `ReadingService::getProductionReport()` data and the shared `wells.readings-report` view.
+- The preview and exports derive current/previous meter values exclusively from `WELL_READINGS.GENERATOR_HOURS_READING`. `PUMP_HOURS_READING` and `FLOW_RATE` remain outside the calculation and cannot be used as fallbacks; a missing generator reading produces an unavailable/review state.
 - `ReadingRepository::getReportReadings()` returns at most one row per `WELL_OID`.
 - Apply well, inspector, quality, `date_from`, and `date_to` filters first, then select the latest matching reading for each well by `READING_DATE DESC, OID DESC`.
 - `ReadingService::getProductionReport()` starts from `WellRepository::getActiveWells()`, then attaches the latest filtered reading. Every active well remains in the report even when no reading matches; only an explicit `well_oid` filter narrows the active-well list.

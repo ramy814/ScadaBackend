@@ -16,7 +16,7 @@
 - Business logic in controllers
 - Bypass the service layer
 - Use TailwindCSS or any utility CSS framework
-- Use PHP 8.3+ features (readonly classes, typed class constants, #[\Override])
+- Use PHP 8.4+ features unless the project's minimum PHP version is raised
 - Use `id` as primary key column name
 
 ### Naming Conventions
@@ -79,6 +79,7 @@ Source path: `/Volumes/SecondDrive/Wells/wells_app`.
 - Do not assume the old standalone `wells-backend` is still the production API target.
 
 ## Reading Date Semantics
+- Calculate production-report operating hours only from the current and immediately previous `GENERATOR_HOURS_READING`, then multiply by `WELLS.CAPACITY`. Never fall back to `PUMP_HOURS_READING` or `FLOW_RATE`; missing generator data remains unavailable for review.
 - Use `READING_DATE` for chronological reading queries, dashboard "today" counts, filters, previous/current reading calculations, and reports.
 - Use `CREATED_AT` only for row-creation auditing and `SYNCED_AT` only for synchronization auditing.
 - Never reorder a reading feed by `CREATED_AT` when the requested meaning is the field reading date.

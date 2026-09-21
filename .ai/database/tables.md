@@ -180,6 +180,7 @@ The wells module has its own AI context under `.ai/modules/wells/`.
 - Read `.ai/modules/wells/database/tables.md` before changing wells tables or Oracle integrations.
 - External wells generator/quarter references may use schemas such as `G_STORE` and `GAZADATA`; keep that context scoped to the wells module unless the fleet code explicitly needs it.
 - `WELL_READINGS` and `DIESEL_INVENTORIES` retain audited soft-deletion metadata (`DELETED_AT`, `DELETED_BY_USER_ID`, `DELETED_BY_NAME`, `DELETE_REASON`). Default queries exclude these rows; see the Wells module database context for chronology and sync rules.
+- Wells production reports use only consecutive `WELL_READINGS.GENERATOR_HOURS_READING` values for operating hours and multiply their non-negative difference by `WELLS.CAPACITY`; `PUMP_HOURS_READING` and `FLOW_RATE` are not fallback sources.
 
 ## Integrated Valves Module
 The valves module manages municipality valves operations and maintenance logs.

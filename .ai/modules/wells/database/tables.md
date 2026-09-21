@@ -160,6 +160,7 @@ Sync lookup includes soft-deleted readings and is performed in sets of at most 5
 
 Reading date rules:
 
+- Production-report operating hours use only the current and immediately previous `GENERATOR_HOURS_READING`; production is `operating hours × WELLS.CAPACITY`. Never substitute `PUMP_HOURS_READING` or `FLOW_RATE` when generator data is missing.
 - The mobile form defaults to today and permits an inclusive range from today through 7 calendar days earlier.
 - `READING_DATE` is independent of `CREATED_AT` and `SYNCED_AT`; offline records may be created or synchronized later.
 - Sort readings by `READING_DATE DESC, OID DESC` for latest-first displays. Use the reverse direction where a chronological production report requires it.

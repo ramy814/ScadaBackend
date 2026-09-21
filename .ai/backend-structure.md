@@ -1,6 +1,6 @@
 # Backend Folder Structure
 
-The backend follows a customized but standard Laravel 11 structure.
+The backend follows a customized but standard Laravel 13 structure.
 
 ```text
 app/
@@ -92,6 +92,12 @@ Do not reuse wells `Team` or `Inspector` classes for valves features.
 - The same trip-details flow requests segment metrics from `VirtualFuelService`. With segment output enabled, the service returns `estimated_gap_distance_km`, `estimated_distance_with_gaps_km`, `estimated_fuel_with_gaps_liters`, `estimated_gap_count`, and `unestimated_gap_count`. These are transient Inertia props only; no migration or database write belongs in this workflow.
 - `Admin/Dashboard.vue` and `Admin/TripShow.vue` refresh active data every 15 seconds. This is polling over the existing Inertia/API data; there is no WebSocket service.
 - The schema change is `2026_07_29_000021_add_live_tracking_telemetry.php`. See `.ai/workflows/live-tracking-flow.md` for the authoritative end-to-end and rollout contract.
+
+## Wells Production Reporting
+
+- `ReadingController` delegates the same filter set to `ReadingService::getProductionReport()` for the Inertia preview and to `ReadingService::getExportReport()` for PDF/Excel.
+- `ReadingService` derives current and previous operating-hour readings only from consecutive `WELL_READINGS.GENERATOR_HOURS_READING` rows, then calculates `production = operating_hours × WELLS.CAPACITY`.
+- `PUMP_HOURS_READING` and `FLOW_RATE` are never fallbacks. Missing generator data remains null/reviewable, and Vue/Blade only render the service-owned result.
 
 ## Mobile Sync Resource Boundaries
 
