@@ -14,14 +14,12 @@ const props = defineProps({
     },
 })
 
-const GEOSERVER_WMS_URL = '/wms.php?g_page=/cite/wms'
+const GEOSERVER_WMS_URL = '/wms.php?g_page=/wms'
 
 const geoServerLayers = [
-    { layerName: 'cite:V_BUILDING_GEOSRV', name: 'المباني', version: '1.1.0', pane: 'municipalContextPane', opacity: 0.9, visible: false },
-    { layerName: 'cite:V_CENTERLINE_SEGMENTS', name: 'محاور الشوارع', version: '1.1.0', pane: 'municipalContextPane', opacity: 0.9 },
-    { layerName: 'cite:V_LANDMARKS_V2', name: 'المعالم', version: '1.1.0', pane: 'municipalContextPane', opacity: 0.9 },
-    { layerName: 'cite:WATER_PIPE', name: 'شبكة الأنابيب', version: '1.1.0', pane: 'networkPane', opacity: 0.95 },
-    { layerName: 'cite:WATER_VALVES', name: 'محابس المياه', version: '1.1.1', pane: 'valvesPane', opacity: 1 },
+    { layerName: 'mog:V_BUILDING_GEOSRV', name: 'المباني', version: '1.1.1', pane: 'municipalContextPane', opacity: 0.9, visible: false },
+    { layerName: 'mog:V_CENTERLINE_SEGMENTS', name: 'محاور الشوارع', version: '1.1.1', pane: 'municipalContextPane', opacity: 0.9 },
+    { layerName: 'mog:V_LANDMARKS_V2', name: 'المعالم', version: '1.1.1', pane: 'municipalContextPane', opacity: 0.9 },
 ]
 
 let map = null

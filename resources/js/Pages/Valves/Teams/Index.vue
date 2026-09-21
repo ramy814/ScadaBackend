@@ -8,7 +8,7 @@ import ValveMapSelector from './ValveMapSelector.vue';
 const props = defineProps({
     teams: { type: Array, default: () => [] },
     valves: { type: Array, default: () => [] },
-    mapFeaturesUrl: { type: String, required: true },
+    mapValves: { type: Array, default: () => [] },
 });
 
 const showCreateModal = ref(false);
@@ -261,9 +261,8 @@ function toggleMapValve(valveOid) {
 
         <ValveMapSelector
             :show="showValveMap"
-            :valves="valves"
+            :valves="mapValves"
             :selected-valve-ids="mapForm?.valves || []"
-            :map-features-url="mapFeaturesUrl"
             @toggle="toggleMapValve"
             @close="closeValveMap"
         />

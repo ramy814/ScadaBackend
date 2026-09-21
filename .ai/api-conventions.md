@@ -168,9 +168,10 @@ Valve inspector app accounts are separate from fleet drivers and wells inspector
 ### Valves Web Map Contract
 - Page: `GET /valves/map`.
 - OpenStreetMap is the default mode and displays interactive markers sourced directly from `EME.WATER_VALVES` through the page's `mapValves` Inertia prop; the payload excludes coordinates outside the Gaza bounding box. GeoServer is a separate mutually exclusive mode with its own WMS layer selector.
-- Feature data for dedicated GeoServer-mode popups and the separate valve-team selector: authenticated `GET /valves/map-features?layers=...&lat=...&lng=...&zoom=...`. `zoom` is optional and narrows the WFS tolerance when supplied; the URL is passed as `mapFeaturesUrl`.
-- GeoServer mode in local development and HTTPS production: `/wms.php?g_page=/cite/wms`. The proxy owns the authenticated upstream connection to `https://geo.mogaza.org/geoserver`.
+- Feature data for dedicated GeoServer-mode popups: authenticated `GET /valves/map-features?layers=...&lat=...&lng=...&zoom=...`. `zoom` is optional and narrows the WFS tolerance when supplied; the URL is passed as `mapFeaturesUrl`.
+- GeoServer mode in local development and HTTPS production: `/wms.php?g_page=/wms`. The proxy owns the authenticated upstream connection to `https://geo.mogaza.org/geoserver/wms`.
+- The new GeoServer publishes `mog:V_BUILDING_GEOSRV`, `mog:V_CENTERLINE_SEGMENTS`, and `mog:V_LANDMARKS_V2`. It does not currently publish `WATER_VALVES` or `WATER_PIPE`; the web valve markers and team selector therefore use Oracle-backed WGS84 points over OpenStreetMap.
 - Web browser code must not issue `GetFeatureInfo`, direct WFS, or direct GeoServer `fetch` calls.
 - GeoServer WFS is public inside the municipality network. `ValvesMapService` must not send a username, password, custom credential header, or `Authorization` header.
-- Server-side WFS transport tries `http://appdev-01:8080/geoserver/cite/ows` before the local FQDN and returns an empty feature array on invalid/unreachable upstream responses.
+- Server-side WFS transport maps the new visible `mog:*` context-layer names to their internal `cite:*` aliases, tries `http://appdev-01:8080/geoserver/cite/ows` before the local FQDN, and returns an empty feature array on invalid/unreachable upstream responses.
 - Do not modify `public/wms.php` while fixing web callers unless the user explicitly scopes the request to that file.

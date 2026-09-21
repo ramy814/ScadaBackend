@@ -41,6 +41,7 @@ const loginUrl = page.props.urls.login;
 - Device-state events and stale points are technical evidence only. Never encode or display a conclusion that the driver acted deliberately without an independent review process.
 - Wells production calculations must use consecutive `WELL_READINGS.GENERATOR_HOURS_READING` values only. `PUMP_HOURS_READING` and `FLOW_RATE` must never be fallback sources for `ReadingService::getProductionReport()` or its screen/PDF/Excel consumers.
 - All admin actions must use POST/PUT/DELETE and be protected by the `auth` middleware.
+- Valves Vue code must load the published `mog:*` WMS context layers through `/wms.php?g_page=/wms`, never through a hard-coded browser GeoServer host. The proxy owns the authenticated `https://geo.mogaza.org/geoserver/wms` upstream connection; WFS feature lookup remains server-side through `/valves/map-features`. Do not restore `cite:WATER_VALVES` or `cite:WATER_PIPE` unless the new server publishes verified equivalents.
 
 ## 6. Language
 - The source code (variables, functions, classes, database tables) is exclusively in **English**.

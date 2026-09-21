@@ -2,9 +2,11 @@
 
 ## [2026-09-21] GeoServer WMS Host Alignment
 
-- Updated both Valves web-map clients to use the same-origin `/wms.php?g_page=/cite/wms` proxy in local and production environments.
-- Removed the remaining browser-side dependency on the old `appdev-01.mog.org:8080` WMS URL; the proxy now owns the authenticated upstream connection to `https://geo.mogaza.org/geoserver`.
+- Updated the dedicated Valves GeoServer mode to use same-origin `/wms.php?g_page=/wms`; the proxy now targets `https://geo.mogaza.org/geoserver/wms` and accepts both `localhost` and `127.0.0.1` development referrers.
+- Replaced the obsolete `cite:*` WMS layer names with the server-advertised `mog:V_BUILDING_GEOSRV`, `mog:V_CENTERLINE_SEGMENTS`, and `mog:V_LANDMARKS_V2` layers.
+- Moved the valve-team map selector to OpenStreetMap plus Oracle-backed valve coordinates because the new GeoServer does not publish `WATER_VALVES` or `WATER_PIPE`.
 - Kept the server-side WFS feature lookup path separate because map clicks continue through authenticated `/valves/map-features` rather than the WMS image proxy.
+- Updated the architecture, backend, coding, frontend, project, API, and Valves-module AI contracts so future work uses the new WMS host without changing the separate internal WFS path.
 
 ## [2026-09-03] Generator-Only Wells Production Calculation
 

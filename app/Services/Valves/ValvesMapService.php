@@ -14,11 +14,15 @@ class ValvesMapService
     ];
 
     private const ALLOWED_FEATURE_LAYERS = [
-        'cite:WATER_VALVES',
-        'cite:WATER_PIPE',
-        'cite:V_BUILDING_GEOSRV',
-        'cite:V_CENTERLINE_SEGMENTS',
-        'cite:V_LANDMARKS_V2',
+        'mog:V_BUILDING_GEOSRV',
+        'mog:V_CENTERLINE_SEGMENTS',
+        'mog:V_LANDMARKS_V2',
+    ];
+
+    private const INTERNAL_FEATURE_LAYER_ALIASES = [
+        'mog:V_BUILDING_GEOSRV' => 'cite:V_BUILDING_GEOSRV',
+        'mog:V_CENTERLINE_SEGMENTS' => 'cite:V_CENTERLINE_SEGMENTS',
+        'mog:V_LANDMARKS_V2' => 'cite:V_LANDMARKS_V2',
     ];
 
     public function features(string $layers, float $lat, float $lng, int $zoom = 12): Collection
@@ -27,6 +31,7 @@ class ValvesMapService
             ->map(fn (string $layer): string => trim($layer))
             ->filter()
             ->intersect(self::ALLOWED_FEATURE_LAYERS)
+            ->map(fn (string $layer): string => self::INTERNAL_FEATURE_LAYER_ALIASES[$layer])
             ->values();
 
         if ($allowedLayers->isEmpty()) {

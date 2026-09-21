@@ -26,7 +26,7 @@ class ValveTeamController extends Controller
         return Inertia::render('Valves/Teams/Index', [
             'teams' => $this->teamService->getAllTeamsWithRelations(),
             'valves' => $this->valveService->getAllValves(),
-            'mapFeaturesUrl' => route('valves.map.features'),
+            'mapValves' => $this->valveService->getMapValves(),
         ]);
     }
 

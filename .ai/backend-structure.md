@@ -66,6 +66,8 @@ The valves module uses dedicated namespaces and tables separate from wells:
 
 Do not reuse wells `Team` or `Inspector` classes for valves features.
 
+The dedicated Valves GeoServer mode uses `/wms.php?g_page=/wms` for the published `mog:V_BUILDING_GEOSRV`, `mog:V_CENTERLINE_SEGMENTS`, and `mog:V_LANDMARKS_V2` WMS layers. The proxy connects to `https://geo.mogaza.org/geoserver/wms`; feature-property lookup remains the separate server-side `/valves/map-features` → `ValvesMapService` WFS flow. The team selector uses Oracle-backed valve coordinates over OpenStreetMap and does not depend on GeoServer.
+
 ## Driver App Usage Monitoring
 
 - API: `POST /api/driver/app-presence` → `Api/DriverAppPresenceController`.

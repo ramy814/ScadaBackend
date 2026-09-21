@@ -20,40 +20,39 @@ The Valves module handles the municipality's water valves, tracking their geogra
 - Inspectors page: `resources/js/Pages/Valves/Inspectors/Index.vue`
 - Dashboard renders: status distribution bars, recent inspector actions, and maintenance reports table. Do not render the Leaflet map inside the dashboard.
 
-## Current Authoritative Web Map Contract (2026-07-19)
+## Current Authoritative Web Map Contract (updated 2026-09-21)
 
 This section is the source of truth for the working web map. It supersedes every older map implementation note in `.ai/changelog.md`. Do not invent another proxy, client-side WFS flow, map engine, cache, health endpoint, or GeoServer host unless the product owner explicitly requests a redesign.
 
 ### Entry Points And Owners
 - Dedicated page: `GET /valves/map` → `resources/js/Pages/Valves/Map.vue`; it exposes mutually exclusive OpenStreetMap and GeoServer modes and receives Oracle valve markers through `mapValves`.
-- Team map selector: `resources/js/Pages/Valves/Teams/ValveMapSelector.vue`.
+- Team map selector: `resources/js/Pages/Valves/Teams/ValveMapSelector.vue`; it receives Oracle-backed WGS84 valve points and does not depend on GeoServer.
 - Server-side feature lookup: `GET /valves/map-features?layers=...&lat=...&lng=...&zoom=...` → `App\Http\Controllers\Api\Valves\MapController::features()` → `App\Services\Valves\ValvesMapService::features()`.
-- `mapFeaturesUrl` is passed to both the dedicated valves map and the team map selector. The dedicated page calls it only while GeoServer mode is active.
-- `public/wms.php` is an externally fixed file for this project. Do not edit, refactor, harden, replace, or add behavior to it unless the user explicitly asks to change that exact file.
+- `mapFeaturesUrl` is passed only to the dedicated valves map, which calls it only while GeoServer mode is active.
+- `public/wms.php` owns upstream authentication for `https://geo.mogaza.org/geoserver/wms`, accepts only `g_page=/wms`, allows production plus `localhost` and `127.0.0.1` referrers, and returns a transparent PNG fallback when the upstream fails.
 
 ### Tile Loading
 - OpenStreetMap is the default mode and contains only `https://tile.openstreetmap.org/{z}/{x}/{y}.png` plus interactive markers loaded directly from `EME.WATER_VALVES` through the `mapValves` Inertia prop.
 - GeoServer is a separate base-map mode. Switching to it removes OpenStreetMap and the Oracle marker group, enables the GeoServer layer selector, and loads the configured WMS layers. Returning to OpenStreetMap removes every WMS layer and hides that selector.
-- Local and production GeoServer tiles use `/wms.php?g_page=/cite/wms`; the proxy owns the authenticated upstream connection to `https://geo.mogaza.org/geoserver`.
+- Local and production GeoServer tiles use `/wms.php?g_page=/wms`; the proxy owns the authenticated upstream connection to `https://geo.mogaza.org/geoserver/wms`.
 - Keep tiled WMS requests: `tileSize: 256`, `tiled: true`, `updateWhenZooming: false`, `keepBuffer: 2`.
 - Keep the transparent `errorTileUrl`; individual tile errors must not create broken-image icons or a persistent outage state.
-- Do not use browser `fetch` to call local GeoServer. Cross-origin fetch is blocked by CORS, while `<img>` tile requests work.
+- Do not use browser `fetch` or a direct browser tile URL for the upstream GeoServer. WMS image tiles must stay behind the same-origin proxy.
 
 ### Layers And Order
 - Oracle valve markers are Leaflet circle markers rendered only in OpenStreetMap mode from WGS84 coordinates attached by `ValveRepository` and filtered by `ValveService` to the Gaza bounding box.
-- GeoServer mode enables centerlines, landmarks, pipes, and valves by default; buildings remain available but disabled by default.
-- The separate team selector continues to use only the `cite:WATER_VALVES` WMS layer required for assignment lookup.
+- GeoServer mode enables `mog:V_CENTERLINE_SEGMENTS` and `mog:V_LANDMARKS_V2` by default; `mog:V_BUILDING_GEOSRV` remains available but disabled by default.
+- The new server does not advertise `WATER_VALVES` or `WATER_PIPE` in WMS capabilities. Interactive valve markers and the team selector use WGS84 coordinates from `EME.WATER_VALVES` over OpenStreetMap.
 
 ### Click And Feature Data
 - Browser clicks never call GeoServer or `wms.php` for feature data.
 - Clicking an interactive OpenStreetMap valve marker reads the already-loaded `mapValves` prop and displays its `EME.WATER_VALVES` fields directly; it does not make another request.
 - While GeoServer mode is active, `Map.vue` sends the click latitude, longitude, zoom, and currently visible layer names to authenticated same-origin `/valves/map-features`. Switching to OpenStreetMap aborts an active lookup and closes its popup.
-- `ValveMapSelector.vue` queries the same endpoint for `cite:WATER_VALVES`.
-- `ValvesMapService` performs the GeoServer WFS query server-side and returns a JSON array of feature-property objects with internal `_feature_layer` and `_feature_id` labels. Its geographic search buffer narrows with Leaflet zoom; the team selector keeps the default zoom tolerance.
+- `ValvesMapService` performs the GeoServer WFS query server-side and returns a JSON array of feature-property objects with internal `_feature_layer` and `_feature_id` labels. Its geographic search buffer narrows with Leaflet zoom. The visible `mog:*` names are mapped to the corresponding internal `cite:*` WFS aliases.
 - Production resolves WFS through the internal `appdev-01` hostname; local development falls back to `appdev-01.mog.org`. GeoServer exposes these layers without authentication, so the service must not send a username, password, or authorization header. It uses PHP HTTP streams rather than requiring the optional cURL extension, and an unreachable/invalid upstream returns an empty collection instead of HTTP 500.
 - If a water-valve feature omits `W4_GENERAL_ID` from properties, the service derives it from GeoServer `feature.id`. This ID maps to `EME.WATER_VALVES.W4_GENERAL_ID` and is required for team assignment.
-- In both `Map.vue` and `ValveMapSelector.vue`, keep the `AbortController` behavior so a new click cancels an older lookup.
-- Neither client may display raw error/HTML text. The dedicated map shows localized loading, empty, and failure popups; the team selector keeps its localized selection message.
+- In `Map.vue`, keep the `AbortController` behavior so a new click cancels an older lookup.
+- The dedicated map must not display raw error/HTML text and shows localized loading, empty, and failure popups.
 
 ### Health And Cache
 - OpenStreetMap mode performs no GeoServer health probe or WMS request.
@@ -100,7 +99,7 @@ Backend valve records are read from `EME.WATER_VALVES`. Because its `GEOMETRY` c
 - Valve teams support `ASSIGN_ALL_VALVES`. When true, the team grants all current and future valves to assigned inspectors and the individual `VALVE_TEAM_VALVES` pivot list is cleared/ignored for access.
 - The teams dashboard supports either selecting a specific group of valves or enabling “إسناد كل المحابس لهذا الفريق”.
 - The teams dashboard valve selector reads from `EME.WATER_VALVES` through `ValveRepository`.
-- Team create/edit forms support both list selection and `ValveMapSelector.vue`. Map clicks use authenticated `/valves/map-features`, resolve `W4_GENERAL_ID` through `ValvesMapService`, and update the same `valve_ids` form array used by list selection.
+- Team create/edit forms support both list selection and `ValveMapSelector.vue`. The selector renders the filtered Oracle-backed map payload on OpenStreetMap; marker clicks update the same `valve_ids` form array used by list selection.
 - Team valve lists always show currently assigned/selected valves first so administrators can revoke assignments without searching through the full list.
 - If a map click returns overlapping valves, the selector must show all matching valves and let the administrator toggle each one explicitly rather than silently choosing the first feature.
 - `VALVE_TEAM_VALVES.VALVE_OID`, `VALVE_LOGS.VALVE_OID`, and `VALVE_MAINTENANCE_REPORTS.VALVE_OID` store `EME.WATER_VALVES.W4_GENERAL_ID`.
