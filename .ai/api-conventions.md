@@ -169,8 +169,7 @@ Valve inspector app accounts are separate from fleet drivers and wells inspector
 - Page: `GET /valves/map`.
 - OpenStreetMap is the default mode and displays interactive markers sourced directly from `EME.WATER_VALVES` through the page's `mapValves` Inertia prop; the payload excludes coordinates outside the Gaza bounding box. GeoServer is a separate mutually exclusive mode with its own WMS layer selector.
 - Feature data for dedicated GeoServer-mode popups and the separate valve-team selector: authenticated `GET /valves/map-features?layers=...&lat=...&lng=...&zoom=...`. `zoom` is optional and narrows the WFS tolerance when supplied; the URL is passed as `mapFeaturesUrl`.
-- GeoServer mode on local HTTP: direct GeoServer WMS image requests.
-- GeoServer mode on HTTPS production: `/wms.php?g_page=/cite/wms`.
+- GeoServer mode in local development and HTTPS production: `/wms.php?g_page=/cite/wms`. The proxy owns the authenticated upstream connection to `https://geo.mogaza.org/geoserver`.
 - Web browser code must not issue `GetFeatureInfo`, direct WFS, or direct GeoServer `fetch` calls.
 - GeoServer WFS is public inside the municipality network. `ValvesMapService` must not send a username, password, custom credential header, or `Authorization` header.
 - Server-side WFS transport tries `http://appdev-01:8080/geoserver/cite/ows` before the local FQDN and returns an empty feature array on invalid/unreachable upstream responses.

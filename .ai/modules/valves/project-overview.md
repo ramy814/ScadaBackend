@@ -34,7 +34,7 @@ This section is the source of truth for the working web map. It supersedes every
 ### Tile Loading
 - OpenStreetMap is the default mode and contains only `https://tile.openstreetmap.org/{z}/{x}/{y}.png` plus interactive markers loaded directly from `EME.WATER_VALVES` through the `mapValves` Inertia prop.
 - GeoServer is a separate base-map mode. Switching to it removes OpenStreetMap and the Oracle marker group, enables the GeoServer layer selector, and loads the configured WMS layers. Returning to OpenStreetMap removes every WMS layer and hides that selector.
-- Local GeoServer tiles load directly from the configured WMS URL; HTTPS production tiles use `/wms.php?g_page=/cite/wms`.
+- Local and production GeoServer tiles use `/wms.php?g_page=/cite/wms`; the proxy owns the authenticated upstream connection to `https://geo.mogaza.org/geoserver`.
 - Keep tiled WMS requests: `tileSize: 256`, `tiled: true`, `updateWhenZooming: false`, `keepBuffer: 2`.
 - Keep the transparent `errorTileUrl`; individual tile errors must not create broken-image icons or a persistent outage state.
 - Do not use browser `fetch` to call local GeoServer. Cross-origin fetch is blocked by CORS, while `<img>` tile requests work.

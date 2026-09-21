@@ -14,9 +14,7 @@ const props = defineProps({
     },
 })
 
-const GEOSERVER_WMS_URL = window.location.protocol === 'https:'
-    ? '/wms.php?g_page=/cite/wms'
-    : 'http://appdev-01.mog.org:8080/geoserver/cite/wms'
+const GEOSERVER_WMS_URL = '/wms.php?g_page=/cite/wms'
 
 const geoServerLayers = [
     { layerName: 'cite:V_BUILDING_GEOSRV', name: 'المباني', version: '1.1.0', pane: 'municipalContextPane', opacity: 0.9, visible: false },

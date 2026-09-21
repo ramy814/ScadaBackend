@@ -17,9 +17,7 @@ const candidateValves = ref([])
 const candidateLatLng = ref(null)
 const selectedCount = computed(() => props.selectedValveIds.length)
 const valvesById = computed(() => new Map(props.valves.map(valve => [Number(valve.OID), valve])))
-const wmsUrl = window.location.protocol === 'https:'
-    ? '/wms.php?g_page=/cite/wms'
-    : 'http://appdev-01.mog.org:8080/geoserver/cite/wms'
+const wmsUrl = '/wms.php?g_page=/cite/wms'
 
 let map = null
 let L = null

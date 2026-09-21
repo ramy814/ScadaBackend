@@ -1,5 +1,11 @@
 # Changelog & Recent Actions
 
+## [2026-09-21] GeoServer WMS Host Alignment
+
+- Updated both Valves web-map clients to use the same-origin `/wms.php?g_page=/cite/wms` proxy in local and production environments.
+- Removed the remaining browser-side dependency on the old `appdev-01.mog.org:8080` WMS URL; the proxy now owns the authenticated upstream connection to `https://geo.mogaza.org/geoserver`.
+- Kept the server-side WFS feature lookup path separate because map clicks continue through authenticated `/valves/map-features` rather than the WMS image proxy.
+
 ## [2026-09-03] Generator-Only Wells Production Calculation
 
 - Corrected `ReadingService::getProductionReport()` so the Wells production preview, PDF, and Excel calculate operating hours exclusively from consecutive `WELL_READINGS.GENERATOR_HOURS_READING` values.
