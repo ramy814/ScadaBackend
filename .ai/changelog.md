@@ -1,10 +1,18 @@
 # Changelog & Recent Actions
 
+## [2026-09-23] Hiraf Inspector Offline Map Client
+
+- Added an interactive offline-map workflow to the external `/Volumes/SecondDrive/hiraf_inspector` Flutter app for the `mog:gaza general map` WMTS layer.
+- The client downloads 2,447 Gaza City tiles at zoom 11–17 with four workers, atomic file writes, pause/resume, restart-safe existing-file detection, progress/count/size/error indicators, deletion, and local-first rendering.
+- `flutter analyze`, all eight Flutter tests, and a debug Android APK build passed.
+- Production tile access remains blocked by upstream HTTP 401. The required follow-up is an inspector-token-authenticated tile proxy in the separate `apps.mogaza.org` account-follow-up backend; GeoServer credentials must not be compiled into the APK or exposed through this backend.
+
 ## [2026-09-23] Valves General Map Direct WMTS Tiles
 
 - Confirmed the supplied GeoWebCache demo is backed by WMTS `GetTile` and that `mog:gaza general map` publishes both `EPSG:4326` and Web-Mercator-compatible `EPSG:900913` grids.
 - Switched the default GeoServer background in `Valves/Map.vue` from tiled WMS to direct WMTS tiles through the same-origin proxy using `EPSG:900913`, preserving alignment with Leaflet and OpenStreetMap.
 - Extended `public/wms.php` to allow only the existing cached WMS path and the new cached WMTS path; feature popups continue using server-side WMS `GetFeatureInfo`.
+- Recorded the authentication boundary: the demo pages are public metadata, while real WMTS `GetTile` calls returned HTTP 401 with the checkout's currently configured credentials on 2026-09-23. Deployment must update the server-side GeoServer credentials rather than expose or bypass authentication in Vue.
 
 ## [2026-09-22] Valves GeoWebCache Tile Acceleration
 

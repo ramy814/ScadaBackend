@@ -42,6 +42,7 @@ const loginUrl = page.props.urls.login;
 - Wells production calculations must use consecutive `WELL_READINGS.GENERATOR_HOURS_READING` values only. `PUMP_HOURS_READING` and `FLOW_RATE` must never be fallback sources for `ReadingService::getProductionReport()` or its screen/PDF/Excel consumers.
 - All admin actions must use POST/PUT/DELETE and be protected by the `auth` middleware.
 - Valves Vue code must load the `mog:gaza general map` background through `/wms.php?g_page=/wmts` with the `EPSG:900913` WMTS matrix and optional published `mog:*` detail overlays through `/wms.php?g_page=/wms`; never use a hard-coded browser GeoServer host. The proxy owns both authenticated GeoWebCache upstream connections; feature lookup remains a server-side authenticated WMS GetFeatureInfo request through `/valves/map-features`. Do not restore the unavailable internal `appdev-01` WFS dependency or the old `cite:*` aliases.
+- Never treat a working GeoWebCache demo page as a successful tile health check. Verify `GetTile` through `/wms.php?g_page=/wmts`; keep `GEOSERVER_USERNAME` and `GEOSERVER_PASSWORD` server-side and diagnose HTTP 401 as an access/credential problem, not a reason to bypass the proxy or disable authentication.
 
 ## 6. Language
 - The source code (variables, functions, classes, database tables) is exclusively in **English**.

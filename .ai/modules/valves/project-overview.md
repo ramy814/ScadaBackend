@@ -20,7 +20,7 @@ The Valves module handles the municipality's water valves, tracking their geogra
 - Inspectors page: `resources/js/Pages/Valves/Inspectors/Index.vue`
 - Dashboard renders: status distribution bars, recent inspector actions, and maintenance reports table. Do not render the Leaflet map inside the dashboard.
 
-## Current Authoritative Web Map Contract (updated 2026-09-21)
+## Current Authoritative Web Map Contract (updated 2026-09-23)
 
 This section is the source of truth for the working web map. It supersedes every older map implementation note in `.ai/changelog.md`. Do not invent another proxy, client-side GeoServer feature flow, map engine, cache, health endpoint, or GeoServer host unless the product owner explicitly requests a redesign.
 
@@ -30,6 +30,7 @@ This section is the source of truth for the working web map. It supersedes every
 - Server-side feature lookup: `GET /valves/map-features?layers=...&lat=...&lng=...&zoom=...` → `App\Http\Controllers\Api\Valves\MapController::features()` → `App\Services\Valves\ValvesMapService::features()`.
 - `mapFeaturesUrl` is passed only to the dedicated valves map, which calls it only while GeoServer mode is active.
 - `public/wms.php` owns upstream authentication for the GeoWebCache WMS and WMTS services, accepts only `g_page=/wms` or `g_page=/wmts`, allows production plus `localhost` and `127.0.0.1` referrers, exposes the upstream cache result as `X-WMS-Cache`, and returns a transparent PNG fallback when the upstream fails.
+- The public GeoWebCache demo URL is metadata/UI, not a browser tile template. Actual `GetTile` calls target `/geoserver/gwc/service/wmts` and require valid Basic authentication through the same-origin proxy; never place GeoServer credentials in Vue or a public URL.
 
 ### Tile Loading
 - OpenStreetMap is the default mode and contains only `https://tile.openstreetmap.org/{z}/{x}/{y}.png` plus interactive markers loaded directly from `EME.WATER_VALVES` through the `mapValves` Inertia prop.
@@ -50,6 +51,7 @@ This section is the source of truth for the working web map. It supersedes every
 - While GeoServer mode is active, `Map.vue` sends the click latitude, longitude, zoom, and every currently visible layer name to authenticated same-origin `/valves/map-features`; this includes the default composite `mog:gaza general map` background. Switching to OpenStreetMap aborts an active lookup and closes its popup.
 - `ValvesMapService` performs an authenticated WMS `GetFeatureInfo` query against the new GeoServer and returns a JSON array of feature-property objects with internal `_feature_layer` and `_feature_id` labels. Its geographic search buffer narrows with Leaflet zoom, and duplicate features returned by a group plus an overlay are removed by feature ID.
 - `config/geoserver.php` is the shared source for the GeoServer base URL and credentials used by `public/wms.php` and `ValvesMapService`. The removed `appdev-01` WFS hosts and `cite:*` aliases must not be restored. PHP HTTP streams remain sufficient; an unreachable/invalid upstream returns an empty collection instead of HTTP 500.
+- Operational check on 2026-09-23: the demo pages for both `EPSG:4326` and `EPSG:900913` returned HTTP 200, but actual WMTS `GetTile` and protected WMS requests returned HTTP 401 with the credentials currently configured in this checkout. A blank transparent map can therefore be an authentication failure rather than a cache or Leaflet failure. Update `GEOSERVER_USERNAME`/`GEOSERVER_PASSWORD` in the deployment environment and clear Laravel configuration after the GeoServer administrator provides valid credentials; do not disable authentication or forward it to the browser.
 - If a water-valve feature omits `W4_GENERAL_ID` from properties, the service derives it from GeoServer `feature.id`. This ID maps to `EME.WATER_VALVES.W4_GENERAL_ID` and is required for team assignment.
 - In `Map.vue`, keep the `AbortController` behavior so a new click cancels an older lookup.
 - The dedicated map must not display raw error/HTML text and shows localized loading, empty, and failure popups.
@@ -60,6 +62,7 @@ This section is the source of truth for the working web map. It supersedes every
 
 ### Evidence-First Troubleshooting
 - First identify whether the failure is page rendering, tile loading, health probing, or feature lookup; these are separate paths.
+- Treat a successful `/gwc/demo/...` page as proof only that the grid metadata exists. Verify one real `/gwc/service/wmts?...REQUEST=GetTile...` response through the proxy; HTTP 401 means credentials/access, while `X-WMS-Proxy-Fallback: 1` means the proxy hid an upstream failure behind the transparent PNG fallback.
 - Inspect the actual failing URL and response before editing code.
 - While OpenStreetMap mode is selected, the `/valves/map` browser network log must contain OpenStreetMap tile requests and no GeoServer, WMS, `/wms.php`, or `/valves/map-features` requests.
 - Dedicated GeoServer-map feature lookup must use `/valves/map-features`; seeing browser-side `GetFeatureInfo`, raw `error`, or direct GeoServer fetch means the client is stale or regressed.
