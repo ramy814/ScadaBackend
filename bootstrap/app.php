@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\AuthenticateHirafInspector;
 use App\Http\Middleware\EnsureAdminIsAllowlisted;
 use App\Http\Middleware\EnsureMobilePrincipal;
 use App\Http\Middleware\EnsureSystemAccess;
@@ -35,6 +36,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'admin.allowlisted' => EnsureAdminIsAllowlisted::class,
+            'hiraf.inspector' => AuthenticateHirafInspector::class,
             'abilities' => CheckAbilities::class,
             'mobile.principal' => EnsureMobilePrincipal::class,
             'system.access' => EnsureSystemAccess::class,

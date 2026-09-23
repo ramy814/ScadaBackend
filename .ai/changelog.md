@@ -1,11 +1,20 @@
 # Changelog & Recent Actions
 
+## [2026-09-23] Authenticated Hiraf Map Tile Gateway
+
+- Added `GET /api/map/tiles/{zoom}/{x}/{y}.png` for the inspector app.
+- Validates its bearer token against account-follow-up and caches successful
+  validation for five minutes.
+- Restricts requests to Gaza coverage at zoom 11–17 and proxies the cached
+  `mog:gaza general map` WMTS layer without exposing GeoServer credentials.
+
 ## [2026-09-23] Hiraf Inspector Offline Map Client
 
 - Added an interactive offline-map workflow to the external `/Volumes/SecondDrive/hiraf_inspector` Flutter app for the `mog:gaza general map` WMTS layer.
 - The client downloads 2,447 Gaza City tiles at zoom 11–17 with four workers, atomic file writes, pause/resume, restart-safe existing-file detection, progress/count/size/error indicators, deletion, and local-first rendering.
 - `flutter analyze`, all eight Flutter tests, and a debug Android APK build passed.
-- Production tile access remains blocked by upstream HTTP 401. The required follow-up is an inspector-token-authenticated tile proxy in the separate `apps.mogaza.org` account-follow-up backend; GeoServer credentials must not be compiled into the APK or exposed through this backend.
+- Direct GeoServer access was blocked by HTTP 401; the authenticated Fleet
+  gateway above now owns upstream access without exposing credentials to APKs.
 
 ## [2026-09-23] Valves General Map Direct WMTS Tiles
 

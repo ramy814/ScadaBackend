@@ -4,12 +4,18 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BeneficiaryProfileController;
 use App\Http\Controllers\Api\DriverAppPresenceController;
 use App\Http\Controllers\Api\LocationLookupController;
+use App\Http\Controllers\Api\MapTileController;
 use App\Http\Controllers\Api\MissionTypeLookupController;
 use App\Http\Controllers\Api\TripSyncController;
 use App\Http\Controllers\Api\VehicleLookupController;
 use App\Http\Controllers\Api\Wells\ActivityMediaController;
 use App\Http\Controllers\Api\Wells\SyncController;
 use Illuminate\Support\Facades\Route;
+
+Route::get('/map/tiles/{zoom}/{x}/{y}.png', MapTileController::class)
+    ->whereNumber(['zoom', 'x', 'y'])
+    ->middleware(['hiraf.inspector', 'throttle:600,1'])
+    ->name('api.map.tiles.show');
 
 Route::middleware('systems.operational')->prefix('driver/auth')->group(function (): void {
     Route::post('/send-code', [AuthController::class, 'sendCode']);
