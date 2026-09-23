@@ -1,4 +1,5 @@
 <?php
+// Simple comment for git push test
 
 $referer = $_SERVER['HTTP_REFERER'] ?? '';
 $refererHost = parse_url($referer, PHP_URL_HOST);
