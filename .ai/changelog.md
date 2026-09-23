@@ -1,9 +1,24 @@
 # Changelog & Recent Actions
 
+## [2026-09-23] Valves General Map Direct WMTS Tiles
+
+- Confirmed the supplied GeoWebCache demo is backed by WMTS `GetTile` and that `mog:gaza general map` publishes both `EPSG:4326` and Web-Mercator-compatible `EPSG:900913` grids.
+- Switched the default GeoServer background in `Valves/Map.vue` from tiled WMS to direct WMTS tiles through the same-origin proxy using `EPSG:900913`, preserving alignment with Leaflet and OpenStreetMap.
+- Extended `public/wms.php` to allow only the existing cached WMS path and the new cached WMTS path; feature popups continue using server-side WMS `GetFeatureInfo`.
+
+## [2026-09-22] Valves GeoWebCache Tile Acceleration
+
+- Routed the existing same-origin `/wms.php?g_page=/wms` proxy to GeoServer's cached WMS endpoint at `/geoserver/gwc/service/wms` without changing the Leaflet client contract.
+- Verified the published `mog:gaza general map` layer and `EPSG:900913` grid: the first uncached tile was a `MISS` at about 4.42 seconds, while repeated `HIT` requests returned in about 0.04 seconds.
+- Added `X-WMS-Cache` to proxy responses so browser/network diagnostics expose whether GeoWebCache returned `MISS` or `HIT`.
+- Restored map-click properties by replacing the unavailable legacy `appdev-01` WFS transport with authenticated WMS `GetFeatureInfo` on the new GeoServer. The default `mog:gaza general map` group is now queryable, so popups work without enabling a detail overlay first.
+- Centralized the GeoServer base URL and credentials in `config/geoserver.php` for both the tile proxy and server-side feature lookup.
+
 ## [2026-09-21] GeoServer WMS Host Alignment
 
 - Updated the dedicated Valves GeoServer mode to use same-origin `/wms.php?g_page=/wms`; the proxy now targets `https://geo.mogaza.org/geoserver/wms` and accepts both `localhost` and `127.0.0.1` development referrers.
 - Replaced the obsolete `cite:*` WMS layer names with the server-advertised `mog:V_BUILDING_GEOSRV`, `mog:V_CENTERLINE_SEGMENTS`, and `mog:V_LANDMARKS_V2` layers.
+- Added the verified `mog:gaza general map` composite as the opaque default GeoServer background; the sparse transparent detail layers are optional overlays instead of producing an apparently blank map.
 - Moved the valve-team map selector to OpenStreetMap plus Oracle-backed valve coordinates because the new GeoServer does not publish `WATER_VALVES` or `WATER_PIPE`.
 - Kept the server-side WFS feature lookup path separate because map clicks continue through authenticated `/valves/map-features` rather than the WMS image proxy.
 - Updated the architecture, backend, coding, frontend, project, API, and Valves-module AI contracts so future work uses the new WMS host without changing the separate internal WFS path.

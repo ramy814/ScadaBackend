@@ -8,21 +8,11 @@ use Illuminate\Support\Collection;
 
 class ValvesMapService
 {
-    private const GEOSERVER_OWS_URLS = [
-        'http://appdev-01:8080/geoserver/cite/ows',
-        'http://appdev-01.mog.org:8080/geoserver/cite/ows',
-    ];
-
     private const ALLOWED_FEATURE_LAYERS = [
+        'mog:gaza general map',
         'mog:V_BUILDING_GEOSRV',
         'mog:V_CENTERLINE_SEGMENTS',
         'mog:V_LANDMARKS_V2',
-    ];
-
-    private const INTERNAL_FEATURE_LAYER_ALIASES = [
-        'mog:V_BUILDING_GEOSRV' => 'cite:V_BUILDING_GEOSRV',
-        'mog:V_CENTERLINE_SEGMENTS' => 'cite:V_CENTERLINE_SEGMENTS',
-        'mog:V_LANDMARKS_V2' => 'cite:V_LANDMARKS_V2',
     ];
 
     public function features(string $layers, float $lat, float $lng, int $zoom = 12): Collection
@@ -31,7 +21,6 @@ class ValvesMapService
             ->map(fn (string $layer): string => trim($layer))
             ->filter()
             ->intersect(self::ALLOWED_FEATURE_LAYERS)
-            ->map(fn (string $layer): string => self::INTERNAL_FEATURE_LAYER_ALIASES[$layer])
             ->values();
 
         if ($allowedLayers->isEmpty()) {
@@ -40,32 +29,40 @@ class ValvesMapService
 
         $buffer = $this->featureBuffer($zoom);
         $query = http_build_query([
-            'service' => 'WFS',
-            'version' => '1.0.0',
-            'request' => 'GetFeature',
-            'typeName' => $allowedLayers->implode(','),
-            'outputFormat' => 'application/json',
+            'service' => 'WMS',
+            'version' => '1.1.1',
+            'request' => 'GetFeatureInfo',
+            'layers' => $allowedLayers->implode(','),
+            'query_layers' => $allowedLayers->implode(','),
+            'styles' => '',
+            'format' => 'image/png',
+            'transparent' => 'true',
+            'info_format' => 'application/json',
+            'feature_count' => 50,
+            'srs' => 'EPSG:4326',
             'bbox' => implode(',', [$lng - $buffer, $lat - $buffer, $lng + $buffer, $lat + $buffer]),
+            'width' => 101,
+            'height' => 101,
+            'x' => 50,
+            'y' => 50,
         ], '', '&', PHP_QUERY_RFC3986);
 
+        $username = (string) config('geoserver.username');
+        $password = (string) config('geoserver.password');
         $context = stream_context_create([
             'http' => [
                 'method' => 'GET',
+                'header' => implode("\r\n", [
+                    'Accept: application/json',
+                    'Authorization: Basic ' . base64_encode($username . ':' . $password),
+                ]),
                 'timeout' => 15,
                 'ignore_errors' => true,
             ],
         ]);
-        $data = null;
-
-        foreach (self::GEOSERVER_OWS_URLS as $url) {
-            $body = @file_get_contents($url . '?' . $query, false, $context);
-            $decoded = $body === false ? null : json_decode($body, true);
-
-            if (is_array($decoded) && array_key_exists('features', $decoded)) {
-                $data = $decoded;
-                break;
-            }
-        }
+        $url = rtrim((string) config('geoserver.base_url'), '/') . '/wms?' . $query;
+        $body = @file_get_contents($url, false, $context);
+        $data = $body === false ? null : json_decode($body, true);
 
         return collect($data['features'] ?? [])
             ->map(function (array $feature): array {
@@ -84,6 +81,7 @@ class ValvesMapService
                 return $properties;
             })
             ->filter()
+            ->unique('_feature_id')
             ->values();
     }
 

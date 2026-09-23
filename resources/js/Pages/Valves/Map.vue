@@ -15,11 +15,23 @@ const props = defineProps({
 })
 
 const GEOSERVER_WMS_URL = '/wms.php?g_page=/wms'
+const GEOSERVER_GENERAL_MAP_WMTS_URL = '/wms.php?g_page=/wmts'
+    + '&SERVICE=WMTS'
+    + '&REQUEST=GetTile'
+    + '&VERSION=1.0.0'
+    + '&LAYER=mog%3Agaza%20general%20map'
+    + '&STYLE='
+    + '&TILEMATRIXSET=EPSG%3A900913'
+    + '&TILEMATRIX=EPSG%3A900913%3A{z}'
+    + '&FORMAT=image%2Fpng'
+    + '&TILECOL={x}'
+    + '&TILEROW={y}'
 
 const geoServerLayers = [
+    { layerName: 'mog:gaza general map', name: 'الخريطة العامة', source: 'wmts', pane: 'geoServerBasePane', opacity: 1 },
     { layerName: 'mog:V_BUILDING_GEOSRV', name: 'المباني', version: '1.1.1', pane: 'municipalContextPane', opacity: 0.9, visible: false },
-    { layerName: 'mog:V_CENTERLINE_SEGMENTS', name: 'محاور الشوارع', version: '1.1.1', pane: 'municipalContextPane', opacity: 0.9 },
-    { layerName: 'mog:V_LANDMARKS_V2', name: 'المعالم', version: '1.1.1', pane: 'municipalContextPane', opacity: 0.9 },
+    { layerName: 'mog:V_CENTERLINE_SEGMENTS', name: 'محاور الشوارع', version: '1.1.1', pane: 'municipalContextPane', opacity: 0.9, visible: false },
+    { layerName: 'mog:V_LANDMARKS_V2', name: 'المعالم', version: '1.1.1', pane: 'municipalContextPane', opacity: 0.9, visible: false },
 ]
 
 let map = null
@@ -262,6 +274,7 @@ const initMap = async () => {
         pane.style.pointerEvents = 'auto'
     }
 
+    createPane('geoServerBasePane', 200)
     createPane('municipalContextPane', 350)
     createPane('networkPane', 650)
     createPane('valvesPane', 720)
@@ -303,11 +316,7 @@ const initMap = async () => {
     const defaultGeoServerLayers = []
 
     geoServerLayers.forEach((layerConfig) => {
-        const layer = L.tileLayer.wms(GEOSERVER_WMS_URL, {
-            layers: layerConfig.layerName,
-            version: layerConfig.version,
-            format: 'image/png',
-            transparent: true,
+        const tileOptions = {
             opacity: layerConfig.opacity,
             pane: layerConfig.pane,
             maxZoom: 19,
@@ -318,7 +327,16 @@ const initMap = async () => {
             keepBuffer: 2,
             attribution: '',
             errorTileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
-        })
+        }
+        const layer = layerConfig.source === 'wmts'
+            ? L.tileLayer(GEOSERVER_GENERAL_MAP_WMTS_URL, tileOptions)
+            : L.tileLayer.wms(GEOSERVER_WMS_URL, {
+                ...tileOptions,
+                layers: layerConfig.layerName,
+                version: layerConfig.version,
+                format: 'image/png',
+                transparent: true,
+            })
 
         geoServerOverlays[layerConfig.name] = layer
         geoServerOverlaysByLayerName[layerConfig.layerName] = layer
@@ -339,7 +357,7 @@ const initMap = async () => {
         if (!geoServerMode.value) return
 
         const activeLayerNames = geoServerLayers
-            .filter(layerConfig => map.hasLayer(geoServerOverlaysByLayerName[layerConfig.layerName]))
+            .filter(layerConfig => layerConfig.queryable !== false && map.hasLayer(geoServerOverlaysByLayerName[layerConfig.layerName]))
             .map(layerConfig => layerConfig.layerName)
 
         if (!activeLayerNames.length) {

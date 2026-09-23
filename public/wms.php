@@ -11,18 +11,24 @@ $isAllowedReferer = is_string($refererHost)
     && in_array(strtolower($refererHost), $allowedRefererHosts, true);
 
 if ($isAllowedReferer) {
+    $geoServer = require dirname(__DIR__) . '/config/geoserver.php';
     $request = $_REQUEST;
     $geoServerPath = $request['g_page'] ?? '/wms';
     unset($request['g_page']);
 
-    if ($geoServerPath !== '/wms') {
+    $upstreamPaths = [
+        '/wms' => '/gwc/service/wms',
+        '/wmts' => '/gwc/service/wmts',
+    ];
+
+    if (! isset($upstreamPaths[$geoServerPath])) {
         http_response_code(400);
         exit('Invalid GeoServer path');
     }
 
     $queryString = http_build_query($request);
-    $url = 'https://geo.mogaza.org/geoserver/wms?' . $queryString;
-    $auth = base64_encode('mobile_apps:v0ypiw28WS51');
+    $url = rtrim($geoServer['base_url'], '/') . $upstreamPaths[$geoServerPath] . '?' . $queryString;
+    $auth = base64_encode($geoServer['username'] . ':' . $geoServer['password']);
 
     //stream method
     $context = stream_context_create([
@@ -38,6 +44,13 @@ if ($isAllowedReferer) {
     $result = @file_get_contents($url, false, context: $context);
 
     header('Content-Type: image/png');
+
+    foreach ($http_response_header ?? [] as $upstreamHeader) {
+        if (stripos($upstreamHeader, 'geowebcache-cache-result:') === 0) {
+            header('X-WMS-Cache: ' . trim(substr($upstreamHeader, strlen('geowebcache-cache-result:'))));
+            break;
+        }
+    }
 
     if ($result === false) {
         header('X-WMS-Proxy-Fallback: 1');
