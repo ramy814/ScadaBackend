@@ -180,9 +180,13 @@ Valve inspector app accounts are separate from fleet drivers and wells inspector
 
 - Client repository: `/Volumes/SecondDrive/hiraf_inspector`; API origin: `https://apps.mogaza.org/api/account-follow-up`.
 - The Android client plans exactly 2,447 `EPSG:900913` tiles for the Gaza City bounds `34.39912130969776..34.51853774196185` longitude and `31.45464230411222..31.55032467219495` latitude at zoom levels 11–17.
+- The client may visually zoom cached tiles to level 19, but the gateway accepts
+  and downloads native tiles only at zoom 11–17.
 - Tile endpoint: `GET https://scada.mogaza.org/api/map/tiles/{zoom}/{x}/{y}.png`.
 - This backend validates the existing inspector bearer token server-to-server
   against the account-follow-up profile endpoint and caches successful
   validation for five minutes.
 - Only the single layer, matrix set, bounds, and zoom range above are allowed.
 - Never return or embed GeoServer Basic credentials in JSON, Dart, query strings, APK assets, or browser/mobile headers. The application backend owns upstream authentication and should return only `image/png` tiles with appropriate cache headers.
+- A client refresh deliberately re-fetches the same fixed 2,447-tile plan; it
+  does not expand the gateway coverage.

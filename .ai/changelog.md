@@ -1,5 +1,14 @@
 # Changelog & Recent Actions
 
+## [2026-09-24] Hiraf Offline Map UX Context
+
+- Documented the inspector app's fourth bottom-navigation map tab.
+- Native offline coverage remains 2,447 tiles at zoom 11–17; cached tiles may
+  be visually over-zoomed to 19 without requesting unsupported native tiles.
+- The completed-map action can refresh the fixed plan, replacing existing files
+  atomically while preserving correct tile counts and stored-byte totals.
+- Current Flutter verification: analyzer clean and all eight tests pass.
+
 ## [2026-09-23] Authenticated Hiraf Map Tile Gateway
 
 - Added `GET /api/map/tiles/{zoom}/{x}/{y}.png` for the inspector app.
