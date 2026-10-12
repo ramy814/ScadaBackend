@@ -2,15 +2,128 @@
 
 namespace App\Repositories;
 
+use App\Models\AuditLog;
+use App\Models\MissionLocation;
+use App\Models\MissionType;
 use App\Models\Trip;
+use Carbon\CarbonImmutable;
 use DateTimeInterface;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 class TripRepository
 {
     private const ROUTE_PREVIEW_POINTS = 100;
+
+    /** @return array{locations: Collection<int, string>, mission_types: Collection<int, string>} */
+    public function manualTripOptions(): array
+    {
+        return [
+            'locations' => MissionLocation::query()
+                ->where('active', true)
+                ->orderBy('sort_order')
+                ->orderBy('name')
+                ->pluck('name'),
+            'mission_types' => MissionType::query()
+                ->where('active', true)
+                ->orderBy('sort_order')
+                ->orderBy('name')
+                ->pluck('name'),
+        ];
+    }
+
+    public function createManual(array $attributes, string $actor): Trip
+    {
+        return DB::transaction(function () use ($attributes, $actor): Trip {
+            $trip = Trip::query()->create($attributes);
+
+            AuditLog::query()->create([
+                'event_type' => 'trip.manual.created',
+                'entity_type' => 'trip',
+                'entity_id' => $trip->getKey(),
+                'actor' => $actor,
+                'payload' => [
+                    'vehicle_id' => $trip->oracle_vehicle_id,
+                    'vehicle_plate' => $trip->vehicle_plate,
+                    'started_at' => optional($trip->started_at)->toISOString(),
+                    'ended_at' => optional($trip->ended_at)->toISOString(),
+                    'estimated_distance_km' => $trip->distance_km,
+                ],
+            ]);
+
+            return $trip;
+        });
+    }
+
+    /** @param array<string, mixed> $filters */
+    public function paginateManualForAssistant(int $ssoUserId, array $filters, int $perPage = 15): LengthAwarePaginator
+    {
+        $search = trim((string) ($filters['search'] ?? ''));
+
+        return Trip::query()
+            ->where('entry_source', 'manual')
+            ->where('entered_by_user_id', $ssoUserId)
+            ->when(filled($filters['review_status'] ?? null), fn (Builder $query) => $query
+                ->where('review_status', $filters['review_status']))
+            ->when(filled($filters['oracle_vehicle_id'] ?? null), fn (Builder $query) => $query
+                ->where('oracle_vehicle_id', $filters['oracle_vehicle_id']))
+            ->when(filled($filters['date_from'] ?? null), fn (Builder $query) => $query
+                ->where('started_at', '>=', CarbonImmutable::parse($filters['date_from'])->startOfDay()))
+            ->when(filled($filters['date_to'] ?? null), fn (Builder $query) => $query
+                ->where('started_at', '<=', CarbonImmutable::parse($filters['date_to'])->endOfDay()))
+            ->when($search !== '', function (Builder $query) use ($search): void {
+                $like = "%{$search}%";
+                $query->where(function (Builder $query) use ($search, $like): void {
+                    $query->where('vehicle_plate', 'like', $like)
+                        ->orWhere('driver_name', 'like', $like)
+                        ->orWhere('origin_text', 'like', $like)
+                        ->orWhere('destination_text', 'like', $like)
+                        ->orWhere('mission_type', 'like', $like);
+
+                    if (ctype_digit($search)) {
+                        $query->orWhere('id', (int) $search);
+                    }
+                });
+            })
+            ->latest('started_at')
+            ->paginate($perPage)
+            ->withQueryString();
+    }
+
+    public function findEditableManualForAssistant(int $tripId, int $ssoUserId): ?Trip
+    {
+        return Trip::query()
+            ->whereKey($tripId)
+            ->where('entry_source', 'manual')
+            ->where('entered_by_user_id', $ssoUserId)
+            ->where('review_status', 'pending')
+            ->first();
+    }
+
+    public function updateManual(Trip $trip, array $attributes, string $actor): Trip
+    {
+        return DB::transaction(function () use ($trip, $attributes, $actor): Trip {
+            $trip->update($attributes);
+
+            AuditLog::query()->create([
+                'event_type' => 'trip.manual.updated',
+                'entity_type' => 'trip',
+                'entity_id' => $trip->getKey(),
+                'actor' => $actor,
+                'payload' => [
+                    'vehicle_id' => $trip->oracle_vehicle_id,
+                    'vehicle_plate' => $trip->vehicle_plate,
+                    'started_at' => optional($trip->started_at)->toISOString(),
+                    'ended_at' => optional($trip->ended_at)->toISOString(),
+                    'estimated_distance_km' => $trip->distance_km,
+                ],
+            ]);
+
+            return $trip->refresh();
+        });
+    }
 
     /** @return array{original_points: int, points: Collection<int, mixed>} */
     public function routePreviewPoints(Trip $trip): array
@@ -93,9 +206,14 @@ class TripRepository
         string $responseStatus,
         string $search,
         bool $showExperimental = false,
+        string $tripSource = 'mobile',
         int $perPage = 30,
+        ?array $allowedVehicleIds = null,
     ): LengthAwarePaginator {
-        $query = $this->dashboardTrips($showExperimental)
+        $query = $this->scopeToVehicleIds(
+            $this->dashboardTrips($showExperimental),
+            $allowedVehicleIds,
+        )
             ->with('latestTrackingEvent')
             ->withCount([
                 'trackingEvents as gps_disabled_events_count' => fn ($query) => $query
@@ -108,9 +226,17 @@ class TripRepository
             ->withMax('points as last_point_at', 'recorded_at')
             ->where(function ($query) use ($from, $to): void {
                 $query->whereBetween('started_at', [$from, $to])
-                    ->orWhereNull('ended_at');
+                    ->orWhereNull('ended_at')
+                    ->orWhere(function ($query): void {
+                        $query->where('entry_source', 'manual')
+                            ->where('review_status', 'pending');
+                    });
             })
-            ->latest('started_at');
+            ->where(function (Builder $query) use ($tripSource): void {
+                $tripSource === 'manual'
+                    ? $query->where('entry_source', 'manual')
+                    : $query->whereNull('entry_source')->orWhere('entry_source', 'mobile');
+            });
 
         if ($responseStatus === 'pending') {
             $query->where('review_status', 'needs_clarification')
@@ -132,20 +258,30 @@ class TripRepository
             });
         }
 
-        return $query->paginate($perPage)->withQueryString();
+        if ($tripSource === 'manual') {
+            $query->orderByRaw("CASE WHEN review_status = 'pending' THEN 0 ELSE 1 END");
+        }
+
+        return $query->latest('started_at')->paginate($perPage)->withQueryString();
     }
 
-    public function dashboardCounts(bool $showExperimental = false): array
-    {
+    public function dashboardCounts(
+        bool $showExperimental = false,
+        ?array $allowedVehicleIds = null,
+    ): array {
         $todayStart = now()->startOfDay();
         $todayEnd = now()->endOfDay();
-        $counts = $this->dashboardTrips($showExperimental)
+        $counts = $this->scopeToVehicleIds(
+            $this->dashboardTrips($showExperimental),
+            $allowedVehicleIds,
+        )
             ->selectRaw(
                 <<<'SQL'
                     SUM(CASE WHEN started_at BETWEEN ? AND ? THEN 1 ELSE 0 END) AS today_trips,
                     SUM(CASE WHEN status = 'confirmed' THEN 1 ELSE 0 END) AS confirmed_trips,
                     SUM(CASE WHEN review_status = 'approved' THEN 1 ELSE 0 END) AS approved_trips,
                     SUM(CASE WHEN review_status = 'rejected' THEN 1 ELSE 0 END) AS rejected_trips,
+                    SUM(CASE WHEN entry_source = 'manual' AND review_status = 'pending' THEN 1 ELSE 0 END) AS pending_manual_trips,
                     SUM(CASE WHEN review_status = 'needs_clarification' THEN 1 ELSE 0 END) AS clarification_trips,
                     SUM(CASE WHEN review_status = 'needs_clarification' AND clarification_response IS NULL THEN 1 ELSE 0 END) AS clarification_pending_response,
                     SUM(CASE WHEN clarification_response IS NOT NULL THEN 1 ELSE 0 END) AS clarification_responded
@@ -159,6 +295,7 @@ class TripRepository
             'confirmedTrips' => (int) ($counts?->confirmed_trips ?? 0),
             'approvedTrips' => (int) ($counts?->approved_trips ?? 0),
             'rejectedTrips' => (int) ($counts?->rejected_trips ?? 0),
+            'manualPendingTrips' => (int) ($counts?->pending_manual_trips ?? 0),
             'clarificationTrips' => (int) ($counts?->clarification_trips ?? 0),
             'clarificationPendingResponse' => (int) ($counts?->clarification_pending_response ?? 0),
             'clarificationResponded' => (int) ($counts?->clarification_responded ?? 0),
@@ -169,8 +306,12 @@ class TripRepository
         DateTimeInterface $from,
         DateTimeInterface $to,
         bool $showExperimental = false,
+        ?array $allowedVehicleIds = null,
     ): array {
-        $fuel = $this->dashboardTrips($showExperimental)
+        $fuel = $this->scopeToVehicleIds(
+            $this->dashboardTrips($showExperimental),
+            $allowedVehicleIds,
+        )
             ->where('status', 'confirmed')
             ->whereNotNull('virtual_fuel_liters')
             ->whereBetween('started_at', [$from, $to])
@@ -191,6 +332,32 @@ class TripRepository
             ? $query
             : $query->where(fn (Builder $query) => $query
                 ->whereNull('ended_at')
+                ->orWhere('entry_source', 'manual')
                 ->orWhere('points_received', '>=', 50));
+    }
+
+    private function scopeToVehicleIds(Builder $query, ?array $allowedVehicleIds): Builder
+    {
+        if ($allowedVehicleIds === null) {
+            return $query;
+        }
+
+        $ids = collect($allowedVehicleIds)
+            ->filter(fn ($id): bool => filled($id))
+            ->map(fn ($id): string => (string) $id)
+            ->unique()
+            ->values();
+
+        if ($ids->isEmpty()) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->where(function (Builder $query) use ($ids): void {
+            foreach ($ids->chunk(900)->values() as $index => $chunk) {
+                $index === 0
+                    ? $query->whereIn('oracle_vehicle_id', $chunk->all())
+                    : $query->orWhereIn('oracle_vehicle_id', $chunk->all());
+            }
+        });
     }
 }

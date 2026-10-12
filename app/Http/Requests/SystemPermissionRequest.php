@@ -37,13 +37,15 @@ class SystemPermissionRequest extends FormRequest
                 return;
             }
 
-            if (array_intersect($permissions, SystemPermissionRepository::ACTION_KEYS)
-                && ! in_array('wells', $permissions, true)
-            ) {
-                $validator->errors()->add(
-                    'systems',
-                    'صلاحيات حذف سجلات الآبار تتطلب منح صلاحية إدارة الآبار.'
-                );
+            foreach (SystemPermissionRepository::ACTION_REQUIREMENTS as $actionKey => $requiredSystem) {
+                if (in_array($actionKey, $permissions, true)
+                    && ! in_array($requiredSystem, $permissions, true)
+                ) {
+                    $validator->errors()->add(
+                        'systems',
+                        'الصلاحية الفرعية المحددة تتطلب منح صلاحية النظام التابعة له.'
+                    );
+                }
             }
         });
     }

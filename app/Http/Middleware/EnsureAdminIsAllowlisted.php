@@ -13,7 +13,7 @@ use Symfony\Component\HttpFoundation\Response;
  * Middleware: EnsureAdminIsAllowlisted
  *
  * Runs after auth:admin. Verifies that the authenticated SSO user has at least
- * one permission in SYSTEM_PERMISSIONS (fleet, wells, or valves).
+ * one recognized permission in SYSTEM_PERMISSIONS.
  * This replaces the old FLEET_ADMIN_ALLOWLIST gate which only covered fleet users.
  *
  * Local rule: normalize the configured development identity, then skip the gate.
@@ -47,11 +47,9 @@ class EnsureAdminIsAllowlisted
 
         $userId = (int) $user->getAuthIdentifier();
 
-        // ── Check that the user has at least one system permission ────────────
+        // ── Check that the user has at least one recognized permission ────────
         // (per-system access is enforced by EnsureSystemAccess on each route group)
-        $accessibleSystems = $this->permissions->accessibleSystems($userId);
-
-        if ($accessibleSystems->isEmpty()) {
+        if (! $this->permissions->hasAnyAccess($userId)) {
             Auth::guard('admin')->logout();
             $request->session()->invalidate();
             $request->session()->regenerateToken();
@@ -125,7 +123,7 @@ class EnsureAdminIsAllowlisted
     <div class="card">
         <div class="icon">🔒</div>
         <h1>ليس لديك صلاحية وصول</h1>
-        <p>' . htmlspecialchars($reason, ENT_QUOTES, 'UTF-8') . '</p>
+        <p>'.htmlspecialchars($reason, ENT_QUOTES, 'UTF-8').'</p>
         <p>إذا كنت تعتقد أن هذا خطأ، يرجى التواصل مع مسؤول النظام لإضافة رقم موظفك إلى قائمة المصرح لهم.</p>
         <a href="/admin/login">العودة لتسجيل الدخول</a>
     </div>

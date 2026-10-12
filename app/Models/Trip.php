@@ -42,6 +42,9 @@ class Trip extends Model
         'virtual_fuel_liters',
         'distance_km',
         'duration_minutes',
+        'entry_source',
+        'entered_by_user_id',
+        'entered_by_name',
         'quality_version',
         'review_status',
         'review_note',
@@ -65,6 +68,7 @@ class Trip extends Model
             'distance_km' => 'decimal:3',
             'duration_minutes' => 'integer',
             'quality_version' => 'integer',
+            'entered_by_user_id' => 'integer',
         ];
     }
 

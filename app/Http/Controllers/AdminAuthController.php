@@ -11,6 +11,7 @@ use App\Repositories\MunicipalityDriverRepository;
 use App\Repositories\MunicipalityVehicleRepository;
 use App\Repositories\TripRepository;
 use App\Services\DriverAppUsageService;
+use App\Services\FleetVehicleAccessService;
 use App\Services\VirtualFuelService;
 use Carbon\Carbon;
 use Illuminate\Database\QueryException;
@@ -52,19 +53,29 @@ class AdminAuthController extends Controller
         MunicipalityDriverRepository $driverRepository,
         TripRepository $tripRepository,
         DriverAppUsageService $driverAppUsage,
+        FleetVehicleAccessService $fleetVehicleAccess,
     ): InertiaResponse {
         $filters = $request->validated();
         $period = $filters['period'] ?? 'daily';
         $responseStatus = $filters['response_status'] ?? 'all';
+        $tripSource = $filters['trip_source'] ?? 'mobile';
         $search = trim((string) ($filters['search'] ?? ''));
         $showExperimental = $request->boolean('show_experimental');
         $dateFrom = $filters['date_from'] ?? null;
         $dateTo = $filters['date_to'] ?? null;
         [$from, $to] = $this->periodRange($period, $dateFrom, $dateTo);
+        $allowedVehicleIds = $fleetVehicleAccess->allowedVehicleIds(
+            (int) Auth::guard('admin')->id(),
+        );
 
-        $tripCounts = $tripRepository->dashboardCounts($showExperimental);
-        $fuelConsumption = $tripRepository->dashboardFuelConsumption($from, $to, $showExperimental);
-        $activeAppCounts = $driverAppUsage->dashboardActiveCounts();
+        $tripCounts = $tripRepository->dashboardCounts($showExperimental, $allowedVehicleIds);
+        $fuelConsumption = $tripRepository->dashboardFuelConsumption(
+            $from,
+            $to,
+            $showExperimental,
+            $allowedVehicleIds,
+        );
+        $activeAppCounts = $driverAppUsage->dashboardActiveCounts($allowedVehicleIds);
 
         $recentTrips = $tripRepository->paginateForDashboard(
             $from,
@@ -72,6 +83,8 @@ class AdminAuthController extends Controller
             $responseStatus,
             $search,
             $showExperimental,
+            $tripSource,
+            allowedVehicleIds: $allowedVehicleIds,
         );
         $this->hydrateTripDrivers($recentTrips->getCollection(), $driverRepository);
 
@@ -83,6 +96,7 @@ class AdminAuthController extends Controller
             'dateFrom' => $dateFrom,
             'dateTo' => $dateTo,
             'responseStatus' => $responseStatus,
+            'tripSource' => $tripSource,
             'search' => $search,
             'showExperimental' => $showExperimental,
             'recentTrips' => $recentTrips,
@@ -423,6 +437,12 @@ class AdminAuthController extends Controller
 
     public function clarify(Request $request, Trip $trip): RedirectResponse
     {
+        abort_if(
+            $trip->entry_source === 'manual',
+            422,
+            'الرحلة اليدوية لا ترتبط بتطبيق سائق لاستقبال طلب التوضيح.',
+        );
+
         $request->validate(
             ['note' => ['required', 'string', 'max:1000']],
             ['note.required' => 'يجب إدخال نص السؤال المطلوب من السائق قبل إرسال طلب التوضيح.']
@@ -479,6 +499,7 @@ class AdminAuthController extends Controller
                         'date_from' => $request->input('date_from', $request->query('date_from')),
                         'date_to' => $request->input('date_to', $request->query('date_to')),
                         'response_status' => $request->input('response_status', $request->query('response_status', 'all')),
+                        'trip_source' => $request->input('trip_source', $request->query('trip_source', 'mobile')),
                         'search' => $request->input('search', $request->query('search', '')),
                         'show_experimental' => $request->boolean('show_experimental'),
                         'page' => $request->input('page', $request->query('page', 1)),

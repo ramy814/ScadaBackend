@@ -6,7 +6,6 @@ use App\Http\Controllers\PortalController;
 use App\Http\Middleware\EnsureAdminIsAllowlisted;
 use App\Http\Middleware\EnsureSystemAccess;
 use App\Models\MogSsoUser;
-use App\Models\SystemPermission;
 use App\Repositories\SystemPermissionRepository;
 use Illuminate\Contracts\Auth\StatefulGuard;
 use Illuminate\Http\Request;
@@ -42,7 +41,8 @@ class SystemPermissionUserIdTest extends TestCase
 
     public function test_portal_uses_sso_id_not_employee_id_for_system_permissions(): void
     {
-        $permissions = new class extends SystemPermissionRepository {
+        $permissions = new class extends SystemPermissionRepository
+        {
             public ?int $resolvedUserId = null;
 
             public function __construct() {}
@@ -53,11 +53,17 @@ class SystemPermissionUserIdTest extends TestCase
 
                 return collect(['fleet', 'wells', 'valves']);
             }
+
+            public function hasActionPermission(int $userId, string $permissionKey): bool
+            {
+                return false;
+            }
         };
 
         Auth::shouldReceive('guard')
             ->with('admin')
-            ->andReturn(new class($this->ssoUser()) {
+            ->andReturn(new class($this->ssoUser())
+            {
                 public function __construct(private readonly MogSsoUser $user) {}
 
                 public function user(): MogSsoUser
@@ -73,7 +79,8 @@ class SystemPermissionUserIdTest extends TestCase
 
     public function test_system_access_middleware_uses_sso_id_not_employee_id(): void
     {
-        $permissions = new class extends SystemPermissionRepository {
+        $permissions = new class extends SystemPermissionRepository
+        {
             public ?int $resolvedUserId = null;
 
             public function __construct() {}
@@ -88,7 +95,8 @@ class SystemPermissionUserIdTest extends TestCase
 
         Auth::shouldReceive('guard')
             ->with('admin')
-            ->andReturn(new class($this->ssoUser()) {
+            ->andReturn(new class($this->ssoUser())
+            {
                 public function __construct(private readonly MogSsoUser $user) {}
 
                 public function user(): MogSsoUser
@@ -108,7 +116,7 @@ class SystemPermissionUserIdTest extends TestCase
 
     private function ssoUser(): MogSsoUser
     {
-        $user = new MogSsoUser();
+        $user = new MogSsoUser;
         $user->forceFill([
             'id' => 1061,
             'emp_id' => 2541,

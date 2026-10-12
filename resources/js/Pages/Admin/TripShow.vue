@@ -13,8 +13,8 @@
 
     <!-- Stats -->
     <div class="stats-grid-5">
-      <div class="stat-card"><div class="label">النقاط</div><div class="value" :style="pointsColor">{{ trip.points_received }} / {{ trip.points_expected }}</div></div>
-      <div class="stat-card"><div class="label">المسافة المسجّلة</div><div class="value">{{ recordedDistanceKm }} <span class="unit">كم</span></div></div>
+      <div class="stat-card"><div class="label">النقاط</div><div class="value" :style="pointsColor">{{ isManualTrip ? 'غير متاحة' : `${trip.points_received} / ${trip.points_expected}` }}</div></div>
+      <div class="stat-card"><div class="label">{{ isManualTrip ? 'المسافة التقديرية' : 'المسافة المسجّلة' }}</div><div class="value">{{ recordedDistanceKm }} <span class="unit">كم</span></div></div>
       <div v-if="hasFilteredDistance" class="stat-card filtered-distance-card"><div class="label">المسافة المنقّاة</div><div class="value">{{ filteredDistanceKm }} <span class="unit">كم</span></div></div>
       <div class="stat-card"><div class="label">{{ qualityVersion >= 2 ? 'المدة المعتمدة' : 'مدة الرحلة' }}</div><div class="value">{{ tripDurationMinutes ?? '-' }} <span class="unit">دقيقة</span></div></div>
       <div class="stat-card"><div class="label">وقت الانتظار</div><div class="value" :style="totalWait > 0 ? 'color:var(--warn)' : ''">{{ totalWait > 0 ? totalWait + ' دقيقة' : 'لا يوجد' }}</div></div>
@@ -25,20 +25,25 @@
       </div>
     </div>
 
-    <div v-if="fuelEstimateIsProvisional" class="alert-box provisional-fuel-note">
+    <div v-if="isManualTrip" class="alert-box" style="border-right:4px solid var(--brand);margin-bottom:24px;">
+      <strong>رحلة مدخلة يدوياً:</strong>
+      سجلها {{ trip.entered_by_name || 'مساعد إداري' }} بعد انتهاء الرحلة، لذلك لا تحتوي على نقاط أو مسار GPS.
+    </div>
+
+    <div v-if="!isManualTrip && fuelEstimateIsProvisional" class="alert-box provisional-fuel-note">
       <strong>احتساب الوقود الافتراضي:</strong>
       {{ filteredDistanceKm }} كم × {{ fuelRatePerKm }} لتر/كم = {{ estimatedFuelLiters }} لتر.
       هذه قيمة تقديرية للمراجعة بسبب عدم وجود قيمة وقود مخزنة، ولم يتم تعديل سجل الرحلة.
     </div>
 
-    <div v-if="qualityVersion < 2 && hasFilteredDistance" class="alert-box filtering-note">
+    <div v-if="!isManualTrip && qualityVersion < 2 && hasFilteredDistance" class="alert-box filtering-note">
       حُسبت المسافة المنقّاة لهذه الرحلة القديمة لأن بيانات دقة GPS متوفرة بشكل كافٍ. بقيت النقاط والمسافة الأصلية والوقود المخزن دون تعديل.
     </div>
-    <div v-else-if="!hasFilteredDistance" class="alert-box filtering-note">
+    <div v-else-if="!isManualTrip && !hasFilteredDistance" class="alert-box filtering-note">
       تُعرض المسافة المسجّلة فقط لأن بيانات دقة GPS غير كافية لاستخراج مسافة منقّاة موثوقة.
     </div>
 
-    <div v-if="qualityMessages.length || rejectedPoints || collapsedPoints" class="alert-box" style="border-right:4px solid var(--warn);margin-bottom:24px;">
+    <div v-if="!isManualTrip && (qualityMessages.length || rejectedPoints || collapsedPoints)" class="alert-box" style="border-right:4px solid var(--warn);margin-bottom:24px;">
       <strong style="display:block;color:var(--warn);margin-bottom:6px;">معالجة جودة البيانات</strong>
       <div v-if="qualityMessages.length">{{ qualityMessages.join('، ') }}</div>
       <div style="font-size:12px;color:var(--text-secondary);margin-top:6px;">
@@ -78,6 +83,7 @@
           <div class="kv-group">
             <div class="kv-item"><div class="kv-label">مسار الرحلة</div><div class="kv-val">{{ trip.origin_text }} ← {{ trip.destination_text }}</div></div>
             <div class="kv-item"><div class="kv-label">نوع المهمة</div><div class="kv-val">{{ trip.mission_type ?? '-' }}</div></div>
+            <div class="kv-item"><div class="kv-label">مصدر التسجيل</div><div class="kv-val">{{ isManualTrip ? 'إدخال يدوي' : 'تطبيق السائق' }}</div></div>
             <div class="kv-item"><div class="kv-label">بداية الرحلة</div><div class="kv-val mono">{{ formatDate(trip.started_at) }}</div></div>
             <div class="kv-item"><div class="kv-label">نهاية الرحلة</div><div class="kv-val mono">{{ formatDate(trip.ended_at) }}</div></div>
             <div class="kv-item">
@@ -124,7 +130,7 @@
     </div>
 
     <!-- Map -->
-    <div class="panel trip-map-panel">
+    <div v-if="!isManualTrip" class="panel trip-map-panel">
       <div class="panel-header map-panel-header">
         <div>
           <div>مسار الرحلة</div>
@@ -180,7 +186,7 @@
     </div>
 
     <!-- Stops Table -->
-    <div class="panel">
+    <div v-if="!isManualTrip" class="panel">
       <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;">
         <div>التوقفات المسجلة</div>
         <div class="stops-summary">
@@ -219,7 +225,7 @@
       </div>
     </div>
 
-    <div class="panel">
+    <div v-if="!isManualTrip" class="panel">
       <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;">
         <div>أحداث سلامة التتبع</div>
         <span :class="['badge', trip.tracking_events?.length > 0 ? 'warn' : 'ok']">{{ trip.tracking_events?.length ?? 0 }} حدث</span>
@@ -336,8 +342,8 @@
             <textarea class="review-textarea" v-model="rejectNote" placeholder="سبب الرفض (مستحسن)..."></textarea>
             <div class="review-btns"><button class="btn-reject" @click="confirmReject">✕ رفض الرحلة</button></div>
           </div>
-          <div style="width:1px;background:var(--stroke);align-self:stretch;"></div>
-          <div class="review-form">
+          <div v-if="!isManualTrip" style="width:1px;background:var(--stroke);align-self:stretch;"></div>
+          <div v-if="!isManualTrip" class="review-form">
             <textarea class="review-textarea" v-model="clarifyNote" placeholder="نص السؤال المطلوب من السائق (مطلوب)..." required></textarea>
             <div class="review-btns"><button class="btn-clarify" @click="submitClarify">💬 طلب توضيح من السائق</button></div>
           </div>
@@ -397,6 +403,7 @@ let liveRefreshTimer = null;
 const totalWait = computed(() =>
   Math.round(Math.max(props.stopsMinutes ?? 0, props.trip.wait_minutes ?? 0))
 );
+const isManualTrip = computed(() => props.trip.entry_source === 'manual');
 const gapReviewCount = computed(() =>
   props.estimatedGapCount + props.unestimatedGapCount
 );

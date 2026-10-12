@@ -38,7 +38,7 @@
           </Link>
         </form>
 
-        <div class="filters-group">
+        <div v-if="tripSource === 'mobile'" class="filters-group">
           <Link
             v-for="f in responseFilters"
             :key="f.value"
@@ -139,14 +139,28 @@
 
     <!-- Trips Table -->
     <div class="table-card">
+      <div class="trip-source-tabs" role="tablist" aria-label="مصدر الرحلات">
+        <Link
+          v-for="tab in tripSourceTabs"
+          :key="tab.value"
+          role="tab"
+          :aria-selected="tripSource === tab.value"
+          :href="dashboardUrl({ trip_source: tab.value, response_status: 'all', page: false })"
+          :class="{ active: tripSource === tab.value }"
+        >
+          {{ tab.label }}
+          <span v-if="tab.value === 'manual' && manualPendingTrips" class="tab-count">{{ manualPendingTrips }}</span>
+        </Link>
+      </div>
       <div class="table-header">
         <div class="table-heading">
-          <div class="table-title">رحلات الفترة المحددة</div>
+          <div class="table-title">{{ tripSource === 'manual' ? 'الرحلات المدخلة يدوياً' : 'رحلات التطبيق للفترة المحددة' }}</div>
           <div v-if="recentTrips.total" class="table-count">
             عرض {{ recentTrips.from }} - {{ recentTrips.to }} من {{ recentTrips.total }}
           </div>
         </div>
         <Link
+          v-if="tripSource === 'mobile'"
           :href="dashboardUrl({ show_experimental: showExperimental ? false : true })"
           :class="['experimental-toggle', { active: showExperimental }]"
           title="الرحلات المنتهية التي تحتوي على أقل من 50 نقطة"
@@ -166,10 +180,10 @@
               <th>رقم الرحلة</th>
               <th>المركبة / السائق</th>
               <th>المسار (انطلاق ← وجهة)</th>
-              <th>النقاط</th>
-              <th>سلامة التتبع</th>
+              <th>{{ tripSource === 'manual' ? 'بيانات الإدخال' : 'النقاط' }}</th>
+              <th>{{ tripSource === 'manual' ? 'طريقة التسجيل' : 'سلامة التتبع' }}</th>
               <th>الحالة الإدارية</th>
-              <th>رد السائق</th>
+              <th>{{ tripSource === 'manual' ? 'ملاحظات' : 'رد السائق' }}</th>
               <th>الوقت</th>
               <th>إجراءات</th>
             </tr>
@@ -177,7 +191,7 @@
           <tbody>
             <tr v-if="recentTrips.data.length === 0">
               <td colspan="9" style="text-align:center; padding:48px; color:var(--text-secondary);">
-                لا توجد رحلات ضمن الفترة المحددة.
+                {{ tripSource === 'manual' ? 'لا توجد رحلات مدخلة يدوياً.' : 'لا توجد رحلات تطبيق ضمن الفترة المحددة.' }}
               </td>
             </tr>
             <tr v-for="trip in recentTrips.data" :key="trip.id">
@@ -192,8 +206,12 @@
                 <div style="font-size:12px; color:var(--text-secondary); margin-top:2px;">إلى: {{ trip.destination_text }}</div>
               </td>
               <td>
-                <span class="badge neutral">{{ trip.points_received }} / {{ trip.points_expected }}</span>
-                <span v-if="trip.ended_at && Number(trip.points_received) < 50" class="badge warn" style="margin-right:4px;">تجريبية</span>
+                <span v-if="trip.entry_source === 'manual'" class="badge neutral">إدخال يدوي</span>
+                <span v-else class="badge neutral">{{ trip.points_received }} / {{ trip.points_expected }}</span>
+                <span v-if="trip.entry_source !== 'manual' && trip.ended_at && Number(trip.points_received) < 50" class="badge warn" style="margin-right:4px;">تجريبية</span>
+                <div v-if="trip.entry_source === 'manual'" style="font-size:11px; color:var(--text-secondary); margin-top:4px;">
+                  بواسطة: {{ trip.entered_by_name || 'مساعد إداري' }}
+                </div>
               </td>
               <td>
                 <span :class="['badge', trackingHealthClass(trip)]">{{ trackingHealthLabel(trip) }}</span>
@@ -210,7 +228,10 @@
                 <span :class="['badge', reviewBadge(trip.review_status)]">{{ reviewLabel(trip.review_status) }}</span>
               </td>
               <td>
-                <template v-if="trip.clarification_response">
+                <template v-if="tripSource === 'manual'">
+                  <div style="max-width:200px; white-space:normal; line-height:1.4; font-size:13px;">{{ trip.notes || '-' }}</div>
+                </template>
+                <template v-else-if="trip.clarification_response">
                   <div style="max-width:200px; white-space:normal; line-height:1.4; font-size:13px;">{{ trip.clarification_response }}</div>
                   <div style="color:var(--text-secondary); font-size:11px; margin-top:4px;">{{ formatDate(trip.clarification_responded_at) }}</div>
                 </template>
@@ -239,7 +260,7 @@
                   </div>
 
                   <!-- Clarify -->
-                  <template v-if="!['approved','rejected'].includes(trip.review_status)">
+                  <template v-if="trip.entry_source !== 'manual' && !['approved','rejected'].includes(trip.review_status)">
                     <div v-if="trip.review_status === 'needs_clarification'" style="font-size:12px; background:var(--warn-bg); border:1px solid rgba(245,158,11,0.25); border-radius:8px; padding:6px 10px; max-width:220px;">
                       <div style="font-weight:700; color:var(--warn); margin-bottom:2px;">💬 توضيح مُرسل</div>
                       <div style="color:var(--text-primary); white-space:normal; line-height:1.4;">{{ trip.review_note }}</div>
@@ -295,10 +316,12 @@ const props = defineProps({
   clarificationTrips: Number,
   clarificationPendingResponse: Number,
   clarificationResponded: Number,
+  manualPendingTrips: Number,
   period: String,
   dateFrom: String,
   dateTo: String,
   responseStatus: String,
+  tripSource: String,
   search: String,
   showExperimental: Boolean,
   recentTrips: Object,
@@ -320,6 +343,10 @@ const responseFilters = [
   { value: 'all', label: 'كل الحالات' },
   { value: 'pending', label: 'بانتظار الرد' },
   { value: 'responded', label: 'تم الرد' },
+];
+const tripSourceTabs = [
+  { value: 'mobile', label: 'رحلات التطبيق' },
+  { value: 'manual', label: 'الإدخال اليدوي' },
 ];
 
 function formatDate(dateStr) {
@@ -354,6 +381,7 @@ const criticalTrackingEvents = new Set([
 ]);
 
 function trackingHealthClass(trip) {
+  if (trip.entry_source === 'manual') return 'neutral';
   if (trackingIncidentLabel(trip)) return 'danger';
   if (trip.ended_at) return 'neutral';
   if (criticalTrackingEvents.has(trip.latest_tracking_event?.event_type)) return 'danger';
@@ -363,6 +391,7 @@ function trackingHealthClass(trip) {
 }
 
 function trackingHealthLabel(trip) {
+  if (trip.entry_source === 'manual') return 'مدخلة يدوياً دون GPS';
   if (trackingIncidentLabel(trip)) return 'حدث تتبع يحتاج مراجعة';
   if (trip.ended_at) return 'منتهية دون حدث تعطيل مسجّل';
   const event = trip.latest_tracking_event?.event_type;
@@ -412,6 +441,7 @@ function dashboardUrl(overrides = {}) {
   const values = {
     period: props.period ?? 'daily',
     response_status: props.responseStatus ?? 'all',
+    trip_source: props.tripSource ?? 'mobile',
     date_from: props.dateFrom,
     date_to: props.dateTo,
     search: props.search,
@@ -433,6 +463,7 @@ function submitDateRange() {
     date_from: dateFromInput.value,
     date_to: dateToInput.value,
     response_status: props.responseStatus,
+    trip_source: props.tripSource,
     search: props.search,
     show_experimental: props.showExperimental ? 1 : undefined,
   }, {
@@ -447,6 +478,7 @@ function submitSearch() {
     date_from: props.dateFrom,
     date_to: props.dateTo,
     response_status: props.responseStatus,
+    trip_source: props.tripSource,
     search: searchTerm.value,
     show_experimental: props.showExperimental ? 1 : undefined,
   }, {
@@ -461,6 +493,7 @@ function submitReview(action, tripId) {
     date_from: props.dateFrom,
     date_to: props.dateTo,
     response_status: props.responseStatus,
+    trip_source: props.tripSource,
     search: props.search,
     show_experimental: props.showExperimental ? 1 : undefined,
     page: props.recentTrips.current_page,
@@ -474,6 +507,7 @@ function confirmReject(tripId) {
     date_from: props.dateFrom,
     date_to: props.dateTo,
     response_status: props.responseStatus,
+    trip_source: props.tripSource,
     search: props.search,
     show_experimental: props.showExperimental ? 1 : undefined,
     page: props.recentTrips.current_page,
@@ -484,7 +518,7 @@ function submitClarify(tripId, note) {
   if (!note) return;
   router.post(
     `${page.props.urls.trips_base}/${tripId}/clarify`,
-    { note, period: props.period, date_from: props.dateFrom, date_to: props.dateTo, response_status: props.responseStatus, search: props.search, show_experimental: props.showExperimental ? 1 : undefined, page: props.recentTrips.current_page },
+    { note, period: props.period, date_from: props.dateFrom, date_to: props.dateTo, response_status: props.responseStatus, trip_source: props.tripSource, search: props.search, show_experimental: props.showExperimental ? 1 : undefined, page: props.recentTrips.current_page },
     { onSuccess: () => { clarifyNotes.value[tripId] = ''; } }
   );
 }
@@ -570,6 +604,43 @@ function submitClarify(tripId, note) {
   align-items: baseline;
   gap: 14px;
   flex-wrap: wrap;
+}
+
+.trip-source-tabs {
+  display: flex;
+  gap: 8px;
+  padding: 16px 24px 0;
+  border-bottom: 1px solid var(--stroke);
+}
+
+.trip-source-tabs a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border: 1px solid var(--stroke);
+  border-bottom: 0;
+  border-radius: 10px 10px 0 0;
+  color: var(--text-secondary);
+  background: var(--bg-color);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.trip-source-tabs a.active {
+  color: #fff;
+  border-color: var(--brand);
+  background: var(--brand);
+}
+
+.tab-count {
+  min-width: 22px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  color: var(--brand);
+  background: #fff;
+  font-size: 11px;
+  text-align: center;
 }
 
 .table-count {

@@ -4,6 +4,43 @@
 All driver-facing APIs use the `/api` prefix.
 All admin-facing routes are handled via web routes mapped to Inertia.js views.
 
+## Fleet Supervisor Vehicle Scope
+
+- `GET /admin/dashboard` requires base `fleet` access and returns only trips
+  whose `ORACLE_VEHICLE_ID` belongs to a live `G_STORE.VEHICLE` row covered by
+  the user's `fleet.vehicles.follow-to.125|126|132|133` permissions.
+- `GET /admin/trips/{trip}` and the `approve`, `reject`, and `clarify` POST
+  routes repeat this authorization against the vehicle's current
+  `FOLLOW_TO_OID`; a trip URL is never authorization by itself.
+- Fine-grained vehicle permissions fail closed. Missing permissions, unavailable
+  Oracle scope, or a missing vehicle match produce no dashboard data and deny
+  trip-level actions rather than falling back to all vehicles.
+
+## Manual Admin Trip Entry
+
+- `GET /admin/manual-trips`, `GET /admin/manual-trips/create`,
+  `POST /admin/manual-trips`, `GET /admin/manual-trips/{trip}/edit`, and
+  `PUT /admin/manual-trips/{trip}` require admin
+  authentication, the global operational gate, and the exact fail-closed
+  `fleet.trips.create` permission. Base `fleet` access is intentionally not
+  required or implied.
+- Vehicle options and the submitted vehicle are scoped using the authenticated
+  SSO `MOG_USERS.USERS_LIST.ID`, station assignments, and
+  `TRACKING.USER_STATION.ACCESS_TYPE >= 3`. The linked
+  `G_STORE.VEHICLE_STAGES` row must also have `REMOVED_USER IS NULL`, excluding
+  stations removed from a vehicle. The save path must re-run the scope;
+  client-provided vehicle details are never authoritative.
+- This is an Inertia web workflow, not a mobile sync endpoint. It creates a
+  confirmed/pending trip with zero GPS points, manual source/actor snapshots,
+  and an audit event.
+- Manual trip start and end timestamps must fall on the same calendar day, and
+  the end timestamp must be strictly later than the start timestamp. The end is
+  intentionally not compared with the current clock time.
+- The index is server-paginated at 15 rows and always scoped to the authenticated
+  `entered_by_user_id`; filters are search, review status, scoped vehicle, and
+  inclusive date bounds. Update also requires the same creator and a still-pending
+  review status, and creates `trip.manual.updated` audit history.
+
 ## Authentication
 Mobile APIs require a Sanctum token with exactly one system ability: `driver` for Fleet Driver, `wells` for Wells, or `scada` for the SCADA/Valves app.
 `Authorization: Bearer <token>`

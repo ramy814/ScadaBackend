@@ -1,7 +1,9 @@
 <?php
 
 use App\Http\Middleware\AuthenticateHirafInspector;
+use App\Http\Middleware\EnsureActionPermission;
 use App\Http\Middleware\EnsureAdminIsAllowlisted;
+use App\Http\Middleware\EnsureFleetTripAccess;
 use App\Http\Middleware\EnsureMobilePrincipal;
 use App\Http\Middleware\EnsureSystemAccess;
 use App\Http\Middleware\HandleInertiaRequests;
@@ -36,6 +38,8 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'admin.allowlisted' => EnsureAdminIsAllowlisted::class,
+            'action.permission' => EnsureActionPermission::class,
+            'fleet.trip.access' => EnsureFleetTripAccess::class,
             'hiraf.inspector' => AuthenticateHirafInspector::class,
             'abilities' => CheckAbilities::class,
             'mobile.principal' => EnsureMobilePrincipal::class,

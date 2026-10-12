@@ -5,6 +5,14 @@ The system uses a hybrid database approach:
 1. **Oracle Database**: The source of truth for backend/dashboard data, employees, vehicles, single sign-on users, trips, GPS points, stops, audit logs, and the integrated wells module.
 2. **Mobile Local Storage**: Flutter apps may store offline records locally before syncing. The Laravel dashboard/backend must not depend on local SQLite data.
 
+## External Oracle Vehicle/Station Scope
+
+- `G_STORE.VEHICLE`: Vehicle source; `OID` is matched to `G_STORE.VEHICLE_STAGES.VEHICLE_OID`. `FOLLOW_TO_OID` is the live Fleet supervisor scope: `125` rented, `126` municipality-owned, `132` institutions, and `133` government ministries.
+- `G_STORE.VEHICLE_STAGES`: Vehicle-to-station history. Only rows with `REMOVED_USER IS NULL` represent an active station assignment for manual-trip access; non-null means the station was removed from the vehicle.
+- `TRACKING.USER_STATION`: Connects a station through `STAGE_OID` to the tracking user. Manual entry requires `ACCESS_TYPE >= 3`.
+- `MOG_USERS.USERS_LIST`: Resolves the tracking user through `TRACKING_ID`; `ID` must equal the authenticated SSO user ID.
+- `MunicipalityVehicleRepository` owns this complete Oracle scope and applies it both when listing assistant vehicles and when authorizing the selected vehicle before create/update.
+
 ## Managed Tables (Created via Laravel Migrations)
 
 ### `trips`
@@ -36,6 +44,10 @@ The core entity representing a single vehicle journey.
 - `virtual_fuel_liters`: Estimated fuel consumption calculated from GPS data.
 - `distance_km`: Server-confirmed trip distance. Quality-v2 trips store filtered distance; legacy confirmation uses the legacy/recorded policy when quality metadata is insufficient.
 - `duration_minutes`: Server-confirmed trusted duration, capped by the trip-duration guardrail.
+- `entry_source`: `mobile` by default or `manual` for an assistant-entered completed trip.
+- `entered_by_user_id`, `entered_by_name`: Nullable SSO actor snapshot for manual entry. These fields identify the data-entry actor, while the driver snapshot remains the assigned vehicle beneficiary.
+- A manual trip has zero expected/received GPS points and no checksum. It remains dashboard-visible despite the normal completed-trip 50-point display threshold and starts as `confirmed` / `pending`.
+- For manual trips, existing `distance_km` stores the assistant-entered estimated kilometers (up to three decimals), not a GPS-calculated official distance. `started_at` and `ended_at` retain second precision. No duplicate manual-distance column is required.
 - Conservative gap estimates are not columns on `TRIPS`. `estimated_gap_distance_km`, `estimated_distance_with_gaps_km`, `estimated_fuel_with_gaps_liters`, and estimable/unestimable counts are derived read-only for the admin trip-details Inertia response. Never migrate, backfill, or report them as official values without a separately approved audited persistence policy.
 
 ### `trip_points`
@@ -146,6 +158,7 @@ Central per-system access table for the unified portal.
 - `user_id`: SSO user ID from `mog_users.users_list` (`id` column, NOT `emp_id`).
 - `system_key`: One of `fleet`, `wells`, or `valves`.
 - Sensitive Wells action keys also use this column: `wells.readings.delete` and `wells.diesel-inventories.delete`; both depend on base `wells` access.
+- Fleet vehicle-review keys also use this column: `fleet.vehicles.follow-to.125`, `.126`, `.132`, and `.133`; all require base `fleet` access and map exactly to `G_STORE.VEHICLE.FOLLOW_TO_OID`.
 - `granted_by`: Display name or identifier of the admin who granted access.
 - `granted_at`: Oracle-side grant timestamp.
 - Used by `SystemPermissionRepository`, `PortalController`, and `EnsureSystemAccess`.

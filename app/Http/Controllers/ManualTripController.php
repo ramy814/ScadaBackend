@@ -1,0 +1,93 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Http\Controllers;
+
+use App\Http\Requests\ManualTripIndexRequest;
+use App\Http\Requests\StoreManualTripRequest;
+use App\Services\ManualTripService;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Auth;
+use Inertia\Inertia;
+use Inertia\Response;
+
+class ManualTripController extends Controller
+{
+    public function __construct(private readonly ManualTripService $service) {}
+
+    public function index(ManualTripIndexRequest $request): Response
+    {
+        $filters = $request->validated();
+
+        return Inertia::render('Admin/ManualTrips', [
+            ...$this->service->indexOptions($this->userId(), $filters),
+            'filters' => $filters,
+            'indexUrl' => route('admin.manual-trips.index'),
+            'createUrl' => route('admin.manual-trips.create'),
+            'portalUrl' => route('portal'),
+            'logoutUrl' => route('logout'),
+        ]);
+    }
+
+    public function create(): Response
+    {
+        return Inertia::render('Admin/ManualTripCreate', [
+            ...$this->service->formOptions($this->userId()),
+            'storeUrl' => route('admin.manual-trips.store'),
+            'indexUrl' => route('admin.manual-trips.index'),
+            'portalUrl' => route('portal'),
+            'logoutUrl' => route('logout'),
+        ]);
+    }
+
+    public function store(StoreManualTripRequest $request): RedirectResponse
+    {
+        $trip = $this->service->create(
+            $this->userId(),
+            $this->actorName(),
+            $request->validated(),
+        );
+
+        return redirect()
+            ->route('admin.manual-trips.index')
+            ->with('ok', 'تم حفظ الرحلة اليدوية بنجاح. رقم الرحلة: #'.$trip->getKey());
+    }
+
+    public function edit(int $trip): Response
+    {
+        return Inertia::render('Admin/ManualTripCreate', [
+            ...$this->service->editOptions($this->userId(), $trip),
+            'updateUrl' => route('admin.manual-trips.update', $trip),
+            'indexUrl' => route('admin.manual-trips.index'),
+            'portalUrl' => route('portal'),
+            'logoutUrl' => route('logout'),
+        ]);
+    }
+
+    public function update(StoreManualTripRequest $request, int $trip): RedirectResponse
+    {
+        $updated = $this->service->update(
+            $this->userId(),
+            $trip,
+            $this->actorName(),
+            $request->validated(),
+        );
+
+        return redirect()
+            ->route('admin.manual-trips.index')
+            ->with('ok', 'تم تحديث الرحلة #'.$updated->getKey().' بنجاح.');
+    }
+
+    private function userId(): int
+    {
+        return (int) Auth::guard('admin')->id();
+    }
+
+    private function actorName(): string
+    {
+        $user = Auth::guard('admin')->user();
+
+        return $user->name ?? $user->full_name ?? ('admin#'.$user->getAuthIdentifier());
+    }
+}

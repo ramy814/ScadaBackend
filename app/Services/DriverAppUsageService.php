@@ -104,13 +104,18 @@ class DriverAppUsageService
         ];
     }
 
-    public function dashboardActiveCounts(): array
+    public function dashboardActiveCounts(?array $allowedVehicleIds = null): array
     {
         $driverIds = $this->installations->reportingDriverIds();
+        $visibleDriverIds = $allowedVehicleIds === null
+            ? $driverIds
+            : $this->vehicles->activeDriverIdsAssignedToVehicles($driverIds, $allowedVehicleIds);
 
         return [
-            'activeVehicles' => $this->vehicles->countActiveAssignedToDrivers($driverIds),
-            'activeDrivers' => $this->drivers->countActiveUsingApp($driverIds),
+            'activeVehicles' => $allowedVehicleIds === null
+                ? $this->vehicles->countActiveAssignedToDrivers($driverIds)
+                : $this->vehicles->countActiveAssignedToDrivers($driverIds, $allowedVehicleIds),
+            'activeDrivers' => $this->drivers->countActiveUsingApp($visibleDriverIds),
         ];
     }
 

@@ -211,4 +211,44 @@ class DriverAppUsageServiceTest extends TestCase
             'activeDrivers' => 2,
         ], $counts);
     }
+
+    public function test_dashboard_active_counts_are_scoped_to_allowed_vehicles(): void
+    {
+        foreach (['101', '102'] as $driverId) {
+            DriverAppInstallation::query()->create([
+                'oracle_driver_id' => $driverId,
+                'device_id' => sprintf('10000000-0000-4000-8000-%012d', (int) $driverId),
+                'app_version' => '1.0.20',
+                'build_number' => 21,
+                'package_name' => 'ps.gov.gaza.driver',
+                'first_seen_at' => now(),
+                'last_seen_at' => now(),
+            ]);
+        }
+
+        $vehicles = Mockery::mock(MunicipalityVehicleRepository::class);
+        $vehicles->shouldReceive('activeDriverIdsAssignedToVehicles')
+            ->once()
+            ->with(['101', '102'], ['501'])
+            ->andReturn(['101']);
+        $vehicles->shouldReceive('countActiveAssignedToDrivers')
+            ->once()
+            ->with(['101', '102'], ['501'])
+            ->andReturn(1);
+
+        $drivers = Mockery::mock(MunicipalityDriverRepository::class);
+        $drivers->shouldReceive('countActiveUsingApp')
+            ->once()
+            ->with(['101'])
+            ->andReturn(1);
+
+        $counts = (new DriverAppUsageService(
+            new DriverAppInstallationRepository,
+            new TripRepository,
+            $vehicles,
+            $drivers,
+        ))->dashboardActiveCounts(['501']);
+
+        self::assertSame(['activeVehicles' => 1, 'activeDrivers' => 1], $counts);
+    }
 }

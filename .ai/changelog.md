@@ -1,5 +1,61 @@
 # Changelog & Recent Actions
 
+## [2026-10-12] Station-Scoped Manual Trip Entry
+
+- Added four Fleet supervisor vehicle scopes backed by the current
+  `G_STORE.VEHICLE.FOLLOW_TO_OID`: rented `125`, municipality-owned `126`,
+  institutions `132`, and government ministries `133`. Each permission depends
+  on base Fleet access and fails closed.
+- Scoped dashboard trip tabs, trip-derived approval counts/fuel, and active-app
+  vehicle/driver counts to the permitted vehicle IDs. Protected trip details,
+  approve, reject, and clarify routes with the same live Oracle category check
+  so direct URLs cannot bypass the dashboard filter.
+
+- Added the standalone `fleet.trips.create` permission and a dedicated, compact
+  page at `GET /admin/manual-trips/create`; it does not grant access to the Fleet
+  dashboard or any other system page.
+- The available vehicle list and the server-side save authorization are both
+  scoped through `G_STORE.VEHICLE` → `G_STORE.VEHICLE_STAGES` →
+  `TRACKING.USER_STATION` → `MOG_USERS.USERS_LIST`, requiring
+  `USER_STATION.ACCESS_TYPE >= 3` for the authenticated SSO user ID and
+  `VEHICLE_STAGES.REMOVED_USER IS NULL` for an active station assignment.
+- Manual trips are stored as confirmed trips pending administrative review with
+  zero GPS points, `entry_source = manual`, entry-actor metadata, and an
+  append-only `trip.manual.created` audit event. They remain visible in the
+  dashboard without being classified as experimental.
+- Manual trips support approval or rejection, but not a clarification request
+  to the driver because no driver-app session is associated with the entry.
+- Added the assistant-owned `/admin/manual-trips` register with 15-row
+  pagination and search/status/vehicle/date filters. Only the original assistant
+  can see these rows, and only `pending` rows can be edited.
+- Manual entry now captures second-precision start/end timestamps and a required
+  estimated distance in kilometers (up to three decimal places). Create and
+  update operations have separate append-only audit events.
+- Added migration `2026_10_12_000026_add_manual_entry_metadata_to_trips.php`,
+  focused service/middleware/repository tests, and production frontend build
+  verification.
+- The manual-entry metadata migration was applied to the connected Oracle
+  database on 2026-10-12. Earlier unrelated pending migrations were not run.
+- Split each manual-trip timestamp into a dedicated native date input and a
+  second-precision time input. Selecting a day closes the date picker, while
+  submission still sends the existing `started_at` and `ended_at` API fields.
+- Fixed the manual-entry and assistant-register page shells so their themed
+  backgrounds cover the complete viewport and bottom spacing.
+- Replaced typed manual-trip time fields with visible 24-hour selectors for
+  hour, minute, and second while preserving the existing timestamp payload.
+- Standardized manual-trip dates and times on English digits and 24-hour display.
+  New entries default both start and end dates to the current local calendar day.
+- Finalized manual-trip time validation: start and end must be on the same date,
+  and end must be strictly later than start. A later time on that same day is
+  accepted without comparing it to the current clock.
+- Kept every pending manual trip visible in the supervisor dashboard even when
+  its trip date falls outside the selected period, while reviewed manual trips
+  continue to follow normal period filtering. Dashboard rows now also identify
+  the assistant who entered the trip before supervisors approve or reject it.
+- Split the supervisor review table into mutually exclusive application and
+  manual-entry tabs. The manual tab has a pending-request counter, prioritizes
+  pending rows, and replaces driver-response wording with entry notes.
+
 ## [2026-09-24] Hiraf Offline Map UX Context
 
 - Documented the inspector app's fourth bottom-navigation map tab.

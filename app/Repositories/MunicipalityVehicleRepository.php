@@ -2,6 +2,7 @@
 
 namespace App\Repositories;
 
+use Illuminate\Database\Query\Builder;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -9,6 +10,8 @@ use Illuminate\Support\Facades\Log;
 
 class MunicipalityVehicleRepository
 {
+    private const REVIEW_FOLLOW_TO_OIDS = [125, 126, 132, 133];
+
     public function __construct(private readonly OracleReadiness $readiness) {}
 
     public function search(?string $term = null, int $limit = 25): Collection
@@ -72,6 +75,87 @@ class MunicipalityVehicleRepository
         return $row ? (array) $row : null;
     }
 
+    /**
+     * Vehicles reachable through the authenticated assistant's stations.
+     */
+    public function forAdministrativeAssistant(int $ssoUserId): Collection
+    {
+        if (! $this->readiness->available()) {
+            return collect();
+        }
+
+        try {
+            return $this->administrativeAssistantVehiclesQuery($ssoUserId)
+                ->orderBy('v.PLATE_NUM')
+                ->get()
+                ->map(fn ($row): array => (array) $row);
+        } catch (QueryException $e) {
+            $this->logOracleReadFailure('administrative_assistant_vehicles', $e);
+
+            return collect();
+        }
+    }
+
+    public function findForAdministrativeAssistant(int $ssoUserId, int|string $vehicleId): ?array
+    {
+        if (! $this->readiness->available()) {
+            return null;
+        }
+
+        try {
+            $row = $this->administrativeAssistantVehiclesQuery($ssoUserId)
+                ->where('v.OID', $vehicleId)
+                ->first();
+        } catch (QueryException $e) {
+            $this->logOracleReadFailure('administrative_assistant_vehicle', $e);
+
+            return null;
+        }
+
+        return $row ? (array) $row : null;
+    }
+
+    /** @return Collection<int, string> */
+    public function vehicleIdsForFollowToOids(array $followToOids): Collection
+    {
+        $followToOids = $this->normalizeReviewFollowToOids($followToOids);
+
+        if ($followToOids === [] || ! $this->readiness->available()) {
+            return collect();
+        }
+
+        try {
+            return $this->followToVehiclesQuery($followToOids)
+                ->pluck('oracle_id')
+                ->map(fn ($id): string => (string) $id)
+                ->unique()
+                ->values();
+        } catch (QueryException $e) {
+            $this->logOracleReadFailure('follow_to_vehicle_ids', $e);
+
+            return collect();
+        }
+    }
+
+    public function vehicleMatchesFollowToOids(int|string|null $vehicleId, array $followToOids): bool
+    {
+        $followToOids = $this->normalizeReviewFollowToOids($followToOids);
+
+        if (! filled($vehicleId) || $followToOids === [] || ! $this->readiness->available()) {
+            return false;
+        }
+
+        try {
+            return $this->followToVehiclesQuery($followToOids)
+                ->where('v.OID', $vehicleId)
+                ->exists();
+        } catch (QueryException $e) {
+            $this->logOracleReadFailure('follow_to_vehicle_access', $e);
+
+            return false;
+        }
+    }
+
     public function findAssignedToDriver(
         int|string $oracleDriverId,
         ?string $driverMobile,
@@ -110,15 +194,20 @@ class MunicipalityVehicleRepository
         }
     }
 
-    public function countActiveAssignedToDrivers(array $oracleDriverIds): int
-    {
+    public function countActiveAssignedToDrivers(
+        array $oracleDriverIds,
+        ?array $allowedVehicleIds = null,
+    ): int {
         $ids = collect($oracleDriverIds)
             ->filter(fn ($id): bool => filled($id))
             ->map(fn ($id): string => (string) $id)
             ->unique()
             ->values();
 
-        if ($ids->isEmpty() || ! $this->readiness->available()) {
+        if ($ids->isEmpty()
+            || ($allowedVehicleIds !== null && $allowedVehicleIds === [])
+            || ! $this->readiness->available()
+        ) {
             return 0;
         }
 
@@ -129,6 +218,8 @@ class MunicipalityVehicleRepository
             return (int) DB::connection('oracle')
                 ->table($table)
                 ->whereIn($columns['beneficiary_id'], $ids->all())
+                ->when($allowedVehicleIds !== null, fn ($query) => $query
+                    ->whereIn($columns['id'], $allowedVehicleIds))
                 ->where($columns['active'], 1)
                 ->whereNotNull($columns['plate'])
                 ->distinct()
@@ -137,6 +228,43 @@ class MunicipalityVehicleRepository
             $this->logOracleReadFailure('count_active_tracking_app_vehicles', $e);
 
             return 0;
+        }
+    }
+
+    /** @return array<int, string> */
+    public function activeDriverIdsAssignedToVehicles(
+        array $oracleDriverIds,
+        array $allowedVehicleIds,
+    ): array {
+        $driverIds = collect($oracleDriverIds)
+            ->filter(fn ($id): bool => filled($id))
+            ->map(fn ($id): string => (string) $id)
+            ->unique()
+            ->values();
+
+        if ($driverIds->isEmpty() || $allowedVehicleIds === [] || ! $this->readiness->available()) {
+            return [];
+        }
+
+        $columns = $this->vehicleColumns();
+
+        try {
+            return DB::connection('oracle')
+                ->table($this->vehiclesTable())
+                ->whereIn($columns['id'], $allowedVehicleIds)
+                ->whereIn($columns['beneficiary_id'], $driverIds->all())
+                ->where($columns['active'], 1)
+                ->whereNotNull($columns['plate'])
+                ->selectRaw($columns['beneficiary_id'].' as oracle_driver_id')
+                ->distinct()
+                ->pluck('oracle_driver_id')
+                ->map(fn ($id): string => (string) $id)
+                ->values()
+                ->all();
+        } catch (QueryException $e) {
+            $this->logOracleReadFailure('active_drivers_for_follow_to_vehicles', $e);
+
+            return [];
         }
     }
 
@@ -304,6 +432,54 @@ class MunicipalityVehicleRepository
             'error_code' => $e->getCode(),
             'error' => $e->getMessage(),
         ]);
+    }
+
+    private function administrativeAssistantVehiclesQuery(int $ssoUserId): Builder
+    {
+        return DB::connection('oracle')
+            ->table('g_store.VEHICLE as v')
+            ->leftJoin('g_store.BENEFICIARIES as b', 'b.OID', '=', 'v.BENEFICIARY_OID')
+            ->selectRaw(<<<'SQL'
+                v.OID as oracle_id,
+                v.PLATE_NUM as plate_number,
+                v.VEHICLE_NUM as name,
+                v.VEHICLE_TYPE_OID as vehicle_type,
+                v.ODOMETER as odometer,
+                b.OID as oracle_driver_id,
+                b.FULL_NAME as driver_name,
+                b.MOBILE_NUM as driver_phone,
+                b.NATIONAL_ID as driver_employee_number
+            SQL)
+            ->whereNotNull('v.PLATE_NUM')
+            ->whereExists(function ($query) use ($ssoUserId): void {
+                $query->selectRaw('1')
+                    ->from('g_store.VEHICLE_STAGES as vs')
+                    ->join('tracking.USER_STATION as a', 'a.STAGE_OID', '=', 'vs.STAGE_OID')
+                    ->join('mog_users.USERS_LIST as ul', 'ul.TRACKING_ID', '=', 'a.USER_OID')
+                    ->whereColumn('vs.VEHICLE_OID', 'v.OID')
+                    ->whereNull('vs.REMOVED_USER')
+                    ->where('a.ACCESS_TYPE', '>=', 3)
+                    ->where('ul.ID', $ssoUserId);
+            });
+    }
+
+    private function followToVehiclesQuery(array $followToOids): Builder
+    {
+        return DB::connection('oracle')
+            ->table('g_store.VEHICLE as v')
+            ->selectRaw('v.OID as oracle_id')
+            ->whereIn('v.FOLLOW_TO_OID', $followToOids);
+    }
+
+    /** @return array<int, int> */
+    private function normalizeReviewFollowToOids(array $followToOids): array
+    {
+        return collect($followToOids)
+            ->map(fn ($id): int => (int) $id)
+            ->intersect(self::REVIEW_FOLLOW_TO_OIDS)
+            ->unique()
+            ->values()
+            ->all();
     }
 
     private function vehiclesTable(): string

@@ -3,8 +3,10 @@
 use App\Http\Controllers\AdminAllowlistController;
 use App\Http\Controllers\AdminAuthController;
 use App\Http\Controllers\DriverAppUsageController;
+use App\Http\Controllers\ManualTripController;
 use App\Http\Controllers\PortalController;
 use App\Http\Controllers\SystemPermissionController;
+use App\Repositories\SystemPermissionRepository;
 use Illuminate\Contracts\Auth\StatefulGuard;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
@@ -47,14 +49,29 @@ Route::middleware(['auth:admin', 'admin.allowlisted', 'systems.operational'])->g
     // ─── Portal: landing page with system cards ───────────────────────────────
     Route::get('/', [PortalController::class, 'index'])->name('portal');
 
+    Route::middleware('action.permission:'.SystemPermissionRepository::CREATE_MANUAL_TRIP)->group(function () {
+        Route::get('/admin/manual-trips', [ManualTripController::class, 'index'])
+            ->name('admin.manual-trips.index');
+        Route::get('/admin/manual-trips/create', [ManualTripController::class, 'create'])
+            ->name('admin.manual-trips.create');
+        Route::post('/admin/manual-trips', [ManualTripController::class, 'store'])
+            ->name('admin.manual-trips.store');
+        Route::get('/admin/manual-trips/{trip}/edit', [ManualTripController::class, 'edit'])
+            ->name('admin.manual-trips.edit');
+        Route::put('/admin/manual-trips/{trip}', [ManualTripController::class, 'update'])
+            ->name('admin.manual-trips.update');
+    });
+
     // ─── Fleet: vehicle tracking dashboard ───────────────────────────────────
     Route::middleware('system.access:fleet')->group(function () {
         Route::get('/admin/dashboard', [AdminAuthController::class, 'dashboard'])->name('admin.dashboard');
         Route::get('/admin/driver-apps', [DriverAppUsageController::class, 'index'])->name('admin.driver-apps');
-        Route::get('/admin/trips/{trip}', [AdminAuthController::class, 'showTrip'])->name('admin.trips.show');
-        Route::post('/admin/trips/{trip}/approve', [AdminAuthController::class, 'approve'])->name('admin.trips.approve');
-        Route::post('/admin/trips/{trip}/reject', [AdminAuthController::class, 'reject'])->name('admin.trips.reject');
-        Route::post('/admin/trips/{trip}/clarify', [AdminAuthController::class, 'clarify'])->name('admin.trips.clarify');
+        Route::middleware('fleet.trip.access')->group(function () {
+            Route::get('/admin/trips/{trip}', [AdminAuthController::class, 'showTrip'])->name('admin.trips.show');
+            Route::post('/admin/trips/{trip}/approve', [AdminAuthController::class, 'approve'])->name('admin.trips.approve');
+            Route::post('/admin/trips/{trip}/reject', [AdminAuthController::class, 'reject'])->name('admin.trips.reject');
+            Route::post('/admin/trips/{trip}/clarify', [AdminAuthController::class, 'clarify'])->name('admin.trips.clarify');
+        });
 
         Route::get('/admin/locations', [AdminAuthController::class, 'locations'])->name('admin.locations');
         Route::post('/admin/locations', [AdminAuthController::class, 'storeLocation'])->name('admin.locations.store');

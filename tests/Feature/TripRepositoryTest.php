@@ -24,8 +24,27 @@ class TripRepositoryTest extends TestCase
             $table->text('clarification_response')->nullable();
             $table->decimal('virtual_fuel_liters', 10, 3)->nullable();
             $table->unsignedInteger('points_received')->default(0);
+            $table->string('entry_source')->default('mobile');
+            $table->unsignedBigInteger('entered_by_user_id')->nullable();
+            $table->string('entered_by_name')->nullable();
+            $table->string('oracle_vehicle_id')->nullable();
+            $table->string('origin_text')->nullable();
+            $table->string('destination_text')->nullable();
+            $table->string('mission_type')->nullable();
+            $table->decimal('distance_km', 10, 3)->nullable();
             $table->timestamp('started_at');
             $table->timestamp('ended_at')->nullable();
+            $table->timestamps();
+        });
+
+        Schema::create('audit_logs', function (Blueprint $table): void {
+            $table->id();
+            $table->string('event_type');
+            $table->string('entity_type');
+            $table->unsignedBigInteger('entity_id')->nullable();
+            $table->string('actor');
+            $table->json('payload')->nullable();
+            $table->timestamps();
         });
 
         Schema::create('trip_points', function (Blueprint $table): void {
@@ -51,6 +70,7 @@ class TripRepositoryTest extends TestCase
     {
         Schema::dropIfExists('trip_tracking_events');
         Schema::dropIfExists('trip_points');
+        Schema::dropIfExists('audit_logs');
         Schema::dropIfExists('trips');
 
         parent::tearDown();
@@ -88,6 +108,56 @@ class TripRepositoryTest extends TestCase
         );
 
         $this->assertSame([42], $trips->getCollection()->pluck('id')->all());
+    }
+
+    public function test_dashboard_is_limited_to_the_authorized_vehicle_ids(): void
+    {
+        $now = now();
+
+        DB::table('trips')->insert([
+            [
+                'id' => 44,
+                'vehicle_plate' => '10-0044',
+                'driver_name' => 'سائق مصرح',
+                'oracle_vehicle_id' => '501',
+                'status' => 'confirmed',
+                'review_status' => 'pending',
+                'points_received' => 50,
+                'virtual_fuel_liters' => 1.5,
+                'started_at' => $now,
+            ],
+            [
+                'id' => 45,
+                'vehicle_plate' => '10-0045',
+                'driver_name' => 'سائق غير مصرح',
+                'oracle_vehicle_id' => '502',
+                'status' => 'confirmed',
+                'review_status' => 'pending',
+                'points_received' => 50,
+                'virtual_fuel_liters' => 2.5,
+                'started_at' => $now,
+            ],
+        ]);
+
+        $trips = app(TripRepository::class)->paginateForDashboard(
+            $now->copy()->subDay(),
+            $now->copy()->addDay(),
+            'all',
+            '',
+            allowedVehicleIds: ['501'],
+        );
+
+        self::assertSame([44], $trips->getCollection()->pluck('id')->all());
+        self::assertSame(1, app(TripRepository::class)->dashboardCounts(false, ['501'])['todayTrips']);
+        self::assertSame([
+            'fuelConsumptionLiters' => 1.5,
+            'fuelConsumptionTrips' => 1,
+        ], app(TripRepository::class)->dashboardFuelConsumption(
+            $now->copy()->subDay(),
+            $now->copy()->addDay(),
+            false,
+            ['501'],
+        ));
     }
 
     public function test_route_preview_sampling_runs_in_the_database_and_keeps_endpoints(): void
@@ -251,6 +321,7 @@ class TripRepositoryTest extends TestCase
                 'status' => 'confirmed',
                 'review_status' => 'pending',
                 'points_received' => 50,
+                'entry_source' => 'mobile',
                 'started_at' => $now,
                 'ended_at' => $now->copy()->addMinutes(10),
             ],
@@ -261,6 +332,7 @@ class TripRepositoryTest extends TestCase
                 'status' => 'confirmed',
                 'review_status' => 'pending',
                 'points_received' => 49,
+                'entry_source' => 'mobile',
                 'started_at' => $now->copy()->subMinute(),
                 'ended_at' => $now->copy()->addMinutes(5),
             ],
@@ -271,8 +343,20 @@ class TripRepositoryTest extends TestCase
                 'status' => 'uploaded',
                 'review_status' => 'pending',
                 'points_received' => 1,
+                'entry_source' => 'mobile',
                 'started_at' => $now->copy()->addSecond(),
                 'ended_at' => null,
+            ],
+            [
+                'id' => 13,
+                'vehicle_plate' => '10-0004',
+                'driver_name' => 'سائق إدخال يدوي',
+                'status' => 'confirmed',
+                'review_status' => 'pending',
+                'points_received' => 0,
+                'entry_source' => 'manual',
+                'started_at' => $now->copy()->subSeconds(30),
+                'ended_at' => $now->copy()->addMinutes(4),
             ],
         ]);
 
@@ -303,11 +387,150 @@ class TripRepositoryTest extends TestCase
             '',
             true,
         );
+        $manualTrips = $repository->paginateForDashboard(
+            $now->copy()->subDay(),
+            $now->copy()->addDay(),
+            'all',
+            '',
+            false,
+            'manual',
+        );
 
         $this->assertSame([12, 10], $defaultTrips->getCollection()->pluck('id')->all());
         $this->assertSame([12, 10, 11], $allTrips->getCollection()->pluck('id')->all());
-        $this->assertSame(2, $repository->dashboardCounts()['todayTrips']);
-        $this->assertSame(3, $repository->dashboardCounts(true)['todayTrips']);
+        $this->assertSame([13], $manualTrips->getCollection()->pluck('id')->all());
+        $this->assertSame(3, $repository->dashboardCounts()['todayTrips']);
+        $this->assertSame(1, $repository->dashboardCounts()['manualPendingTrips']);
+        $this->assertSame(4, $repository->dashboardCounts(true)['todayTrips']);
+    }
+
+    public function test_dashboard_keeps_pending_manual_trips_visible_outside_the_selected_period(): void
+    {
+        $now = now();
+        $outsidePeriod = $now->copy()->subMonth();
+
+        DB::table('trips')->insert([
+            [
+                'id' => 14,
+                'vehicle_plate' => '10-0014',
+                'driver_name' => 'سائق رحلة يدوية معلقة',
+                'status' => 'confirmed',
+                'review_status' => 'pending',
+                'entry_source' => 'manual',
+                'entered_by_name' => 'المساعد الإداري',
+                'started_at' => $outsidePeriod,
+                'ended_at' => $outsidePeriod->copy()->addHour(),
+            ],
+            [
+                'id' => 15,
+                'vehicle_plate' => '10-0015',
+                'driver_name' => 'سائق رحلة يدوية معتمدة',
+                'status' => 'confirmed',
+                'review_status' => 'approved',
+                'entry_source' => 'manual',
+                'entered_by_name' => null,
+                'started_at' => $outsidePeriod,
+                'ended_at' => $outsidePeriod->copy()->addHour(),
+            ],
+            [
+                'id' => 16,
+                'vehicle_plate' => '10-0016',
+                'driver_name' => 'سائق رحلة يدوية معتمدة حديثاً',
+                'status' => 'confirmed',
+                'review_status' => 'approved',
+                'entry_source' => 'manual',
+                'entered_by_name' => null,
+                'started_at' => $now->copy()->subMinutes(10),
+                'ended_at' => $now->copy()->subMinutes(5),
+            ],
+        ]);
+
+        $trips = app(TripRepository::class)->paginateForDashboard(
+            $now->copy()->startOfDay(),
+            $now->copy()->endOfDay(),
+            'all',
+            '',
+            false,
+            'manual',
+        );
+
+        $this->assertSame([14, 16], $trips->getCollection()->pluck('id')->all());
+        $this->assertSame('المساعد الإداري', $trips->getCollection()->first()->entered_by_name);
+    }
+
+    public function test_manual_trip_list_is_scoped_to_its_assistant_and_filters(): void
+    {
+        $now = now();
+        DB::table('trips')->insert([
+            [
+                'id' => 51,
+                'vehicle_plate' => '3-1234',
+                'driver_name' => 'سائق المحطة',
+                'status' => 'confirmed',
+                'review_status' => 'pending',
+                'entry_source' => 'manual',
+                'entered_by_user_id' => 140,
+                'oracle_vehicle_id' => 88,
+                'origin_text' => 'المحطة',
+                'destination_text' => 'البلدية',
+                'mission_type' => 'صيانة',
+                'started_at' => $now,
+                'ended_at' => $now->copy()->addHour(),
+            ],
+            [
+                'id' => 52,
+                'vehicle_plate' => '9-9999',
+                'driver_name' => 'سائق آخر',
+                'status' => 'confirmed',
+                'review_status' => 'pending',
+                'entry_source' => 'manual',
+                'entered_by_user_id' => 999,
+                'oracle_vehicle_id' => 99,
+                'origin_text' => 'المحطة',
+                'destination_text' => 'مكان آخر',
+                'mission_type' => 'صيانة',
+                'started_at' => $now,
+                'ended_at' => $now->copy()->addHour(),
+            ],
+        ]);
+
+        $trips = app(TripRepository::class)->paginateManualForAssistant(140, [
+            'search' => '3-1234',
+            'review_status' => 'pending',
+            'oracle_vehicle_id' => 88,
+            'date_from' => $now->toDateString(),
+            'date_to' => $now->toDateString(),
+        ]);
+
+        self::assertSame([51], $trips->getCollection()->pluck('id')->all());
+    }
+
+    public function test_manual_trip_create_and_update_are_audited(): void
+    {
+        $repository = app(TripRepository::class);
+        $trip = $repository->createManual([
+            'vehicle_plate' => '3-1234',
+            'driver_name' => 'سائق المحطة',
+            'status' => 'confirmed',
+            'review_status' => 'pending',
+            'entry_source' => 'manual',
+            'entered_by_user_id' => 140,
+            'oracle_vehicle_id' => 88,
+            'origin_text' => 'المحطة',
+            'destination_text' => 'البلدية',
+            'mission_type' => 'صيانة',
+            'distance_km' => 12.75,
+            'started_at' => now(),
+            'ended_at' => now()->addHour(),
+        ], 'مساعد إداري');
+
+        $repository->updateManual($trip, ['distance_km' => 14.125], 'مساعد إداري');
+
+        self::assertSame('14.125', $trip->refresh()->distance_km);
+        self::assertSame(
+            ['trip.manual.created', 'trip.manual.updated'],
+            DB::table('audit_logs')->orderBy('id')->pluck('event_type')->all(),
+        );
     }
 
     public function test_dashboard_fuel_uses_confirmed_visible_trips_in_the_selected_range(): void

@@ -121,6 +121,30 @@ class SystemPermissionController extends Controller
                 'description' => 'لوحات الرحلات والتقارير ومتابعة المركبات.',
             ],
             [
+                'key' => SystemPermissionRepository::FLEET_VEHICLES_RENTED,
+                'label' => 'المركبات المستأجرة',
+                'description' => 'عرض ومراجعة مركبات FOLLOW_TO_OID = 125.',
+                'requires' => 'fleet',
+            ],
+            [
+                'key' => SystemPermissionRepository::FLEET_VEHICLES_MUNICIPALITY,
+                'label' => 'مركبات ملك البلدية',
+                'description' => 'عرض ومراجعة مركبات FOLLOW_TO_OID = 126.',
+                'requires' => 'fleet',
+            ],
+            [
+                'key' => SystemPermissionRepository::FLEET_VEHICLES_INSTITUTIONS,
+                'label' => 'مركبات المؤسسات',
+                'description' => 'عرض ومراجعة مركبات FOLLOW_TO_OID = 132.',
+                'requires' => 'fleet',
+            ],
+            [
+                'key' => SystemPermissionRepository::FLEET_VEHICLES_MINISTRIES,
+                'label' => 'مركبات الوزارات الحكومية',
+                'description' => 'عرض ومراجعة مركبات FOLLOW_TO_OID = 133.',
+                'requires' => 'fleet',
+            ],
+            [
                 'key' => 'wells',
                 'label' => 'إدارة الآبار',
                 'description' => 'متابعة الآبار والقراءات وفرق الفحص.',
@@ -129,6 +153,11 @@ class SystemPermissionController extends Controller
                 'key' => 'valves',
                 'label' => 'متابعة المحابس',
                 'description' => 'خرائط ومتابعة محابس الشبكة البلدية.',
+            ],
+            [
+                'key' => SystemPermissionRepository::CREATE_MANUAL_TRIP,
+                'label' => 'إدخال رحلة يدوية',
+                'description' => 'دخول شاشة إدخال الرحلات فقط لمركبات محطات المساعد الإداري.',
             ],
             [
                 'key' => SystemPermissionRepository::DELETE_WELL_READING,

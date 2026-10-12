@@ -19,6 +19,7 @@ class DashboardIndexRequest extends FormRequest
                 'after_or_equal:date_from',
             ],
             'response_status' => ['nullable', Rule::in(['all', 'pending', 'responded'])],
+            'trip_source' => ['nullable', Rule::in(['mobile', 'manual'])],
             'search' => ['nullable', 'string', 'max:120'],
             'show_experimental' => ['nullable', 'boolean'],
             'page' => ['nullable', 'integer', 'min:1'],

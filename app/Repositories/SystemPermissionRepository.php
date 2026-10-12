@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\Log;
  * Manages the CONTROL_UNIT.SYSTEM_PERMISSIONS table in Oracle.
  * Controls which systems (fleet, wells, valves) an SSO user may access.
  *
- * System entry checks fail open during setup; destructive action checks fail closed.
+ * System entry checks fail open during setup; standalone action checks fail closed.
  */
 class SystemPermissionRepository
 {
@@ -25,9 +25,31 @@ class SystemPermissionRepository
 
     public const DELETE_DIESEL_INVENTORY = 'wells.diesel-inventories.delete';
 
+    public const CREATE_MANUAL_TRIP = 'fleet.trips.create';
+
+    public const FLEET_VEHICLES_RENTED = 'fleet.vehicles.follow-to.125';
+
+    public const FLEET_VEHICLES_MUNICIPALITY = 'fleet.vehicles.follow-to.126';
+
+    public const FLEET_VEHICLES_INSTITUTIONS = 'fleet.vehicles.follow-to.132';
+
+    public const FLEET_VEHICLES_MINISTRIES = 'fleet.vehicles.follow-to.133';
+
+    public const FLEET_FOLLOW_TO_PERMISSIONS = [
+        self::FLEET_VEHICLES_RENTED => 125,
+        self::FLEET_VEHICLES_MUNICIPALITY => 126,
+        self::FLEET_VEHICLES_INSTITUTIONS => 132,
+        self::FLEET_VEHICLES_MINISTRIES => 133,
+    ];
+
     public const ACTION_KEYS = [
         self::DELETE_WELL_READING,
         self::DELETE_DIESEL_INVENTORY,
+        self::CREATE_MANUAL_TRIP,
+        self::FLEET_VEHICLES_RENTED,
+        self::FLEET_VEHICLES_MUNICIPALITY,
+        self::FLEET_VEHICLES_INSTITUTIONS,
+        self::FLEET_VEHICLES_MINISTRIES,
     ];
 
     public const PERMISSION_KEYS = [
@@ -36,6 +58,20 @@ class SystemPermissionRepository
         'valves',
         self::DELETE_WELL_READING,
         self::DELETE_DIESEL_INVENTORY,
+        self::CREATE_MANUAL_TRIP,
+        self::FLEET_VEHICLES_RENTED,
+        self::FLEET_VEHICLES_MUNICIPALITY,
+        self::FLEET_VEHICLES_INSTITUTIONS,
+        self::FLEET_VEHICLES_MINISTRIES,
+    ];
+
+    public const ACTION_REQUIREMENTS = [
+        self::DELETE_WELL_READING => 'wells',
+        self::DELETE_DIESEL_INVENTORY => 'wells',
+        self::FLEET_VEHICLES_RENTED => 'fleet',
+        self::FLEET_VEHICLES_MUNICIPALITY => 'fleet',
+        self::FLEET_VEHICLES_INSTITUTIONS => 'fleet',
+        self::FLEET_VEHICLES_MINISTRIES => 'fleet',
     ];
 
     public function __construct(private readonly OracleReadiness $readiness) {}
@@ -43,8 +79,8 @@ class SystemPermissionRepository
     /**
      * Check if a user has access to a specific system.
      *
-     * @param int    $userId    — ID from mog_users.users_list
-     * @param string $systemKey — 'fleet' | 'wells' | 'valves'
+     * @param  int  $userId  — ID from mog_users.users_list
+     * @param  string  $systemKey  — 'fleet' | 'wells' | 'valves'
      */
     public function hasAccess(int $userId, string $systemKey): bool
     {
@@ -54,6 +90,7 @@ class SystemPermissionRepository
             Log::warning('SystemPermissionRepository: Oracle unavailable, granting access by default.', [
                 'user_id' => $userId, 'system' => $systemKey,
             ]);
+
             return true;
         }
 
@@ -67,6 +104,7 @@ class SystemPermissionRepository
                 Log::warning('SystemPermissionRepository: SYSTEM_PERMISSIONS table not found. Run the Oracle SQL script.', [
                     'user_id' => $userId, 'system' => $systemKey,
                 ]);
+
                 return true; // Fail open until table is created
             }
             throw $e;
@@ -74,7 +112,7 @@ class SystemPermissionRepository
     }
 
     /**
-     * Destructive action permissions fail closed when Oracle is unavailable.
+     * Standalone action permissions fail closed when Oracle is unavailable.
      */
     public function hasActionPermission(int $userId, string $permissionKey): bool
     {
@@ -92,6 +130,31 @@ class SystemPermissionRepository
         } catch (QueryException $e) {
             if ($this->isTableMissing($e)) {
                 return false;
+            }
+
+            throw $e;
+        }
+    }
+
+    /** @return array<int, int> */
+    public function fleetFollowToOids(int $userId): array
+    {
+        if (! $this->readiness->available()) {
+            return [];
+        }
+
+        try {
+            return SystemPermission::query()
+                ->where('user_id', $userId)
+                ->whereIn('system_key', array_keys(self::FLEET_FOLLOW_TO_PERMISSIONS))
+                ->pluck('system_key')
+                ->map(fn (string $key): int => self::FLEET_FOLLOW_TO_PERMISSIONS[$key])
+                ->unique()
+                ->values()
+                ->all();
+        } catch (QueryException $e) {
+            if ($this->isTableMissing($e)) {
+                return [];
             }
 
             throw $e;
@@ -123,6 +186,30 @@ class SystemPermissionRepository
     }
 
     /**
+     * The global admin gate also admits users whose only entry point is a
+     * standalone action page, such as manual trip entry.
+     */
+    public function hasAnyAccess(int $userId): bool
+    {
+        if (! $this->readiness->available()) {
+            return true;
+        }
+
+        try {
+            return SystemPermission::query()
+                ->where('user_id', $userId)
+                ->whereIn('system_key', self::PERMISSION_KEYS)
+                ->exists();
+        } catch (QueryException $e) {
+            if ($this->isTableMissing($e)) {
+                return true;
+            }
+
+            throw $e;
+        }
+    }
+
+    /**
      * Grant a user access to a system.
      */
     public function grant(int $userId, string $systemKey, string $grantedBy): SystemPermission
@@ -142,9 +229,11 @@ class SystemPermissionRepository
     {
         $this->assertValidPermission($systemKey);
 
-        $keys = $systemKey === 'wells'
-            ? array_merge(['wells'], self::ACTION_KEYS)
-            : [$systemKey];
+        $dependentActions = array_keys(array_filter(
+            self::ACTION_REQUIREMENTS,
+            fn (string $requiredSystem): bool => $requiredSystem === $systemKey,
+        ));
+        $keys = array_merge([$systemKey], $dependentActions);
 
         SystemPermission::query()
             ->where('user_id', $userId)
@@ -155,7 +244,7 @@ class SystemPermissionRepository
     /**
      * Replace all system permissions for one user.
      *
-     * @param array<int, string> $systemKeys
+     * @param  array<int, string>  $systemKeys
      */
     public function replaceForUser(int $userId, array $systemKeys, string $grantedBy): void
     {
@@ -164,10 +253,12 @@ class SystemPermissionRepository
             $this->assertValidPermission($systemKey);
         }
 
-        if (array_intersect($systemKeys, self::ACTION_KEYS)
-            && ! in_array('wells', $systemKeys, true)
-        ) {
-            throw new \InvalidArgumentException('Wells action permissions require wells access.');
+        foreach (self::ACTION_REQUIREMENTS as $actionKey => $requiredSystem) {
+            if (in_array($actionKey, $systemKeys, true)
+                && ! in_array($requiredSystem, $systemKeys, true)
+            ) {
+                throw new \InvalidArgumentException("Action permission [{$actionKey}] requires [{$requiredSystem}] access.");
+            }
         }
 
         DB::connection('oracle')->transaction(function () use ($userId, $systemKeys, $grantedBy): void {
@@ -261,7 +352,7 @@ class SystemPermissionRepository
                 ->where('is_active', 1)
                 ->where(function ($builder) use ($query): void {
                     $builder
-                        ->where('full_name', 'like', '%' . $query . '%')
+                        ->where('full_name', 'like', '%'.$query.'%')
                         ->when(is_numeric($query), function ($builder) use ($query): void {
                             $builder
                                 ->orWhere('id', (int) $query)
@@ -312,7 +403,7 @@ class SystemPermissionRepository
     }
 
     /**
-     * @param Collection<int, int> $userIds
+     * @param  Collection<int, int>  $userIds
      */
     private function usersById(Collection $userIds): Collection
     {
