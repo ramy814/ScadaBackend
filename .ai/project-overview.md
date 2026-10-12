@@ -92,9 +92,11 @@ The Fleet dashboard performance card uses the same authenticated presence source
 ## Portal System Permissions
 - The unified portal (`/`) is the entry point for Fleet, Wells, and Valves.
 - The central permission screen is `/permissions`; it is not part of the Fleet tracking dashboard.
+- The screen groups Fleet, Wells, and Valves independently. Selecting a user from the current-user list or SSO search hydrates the same editor with all stored permission keys; saving replaces the visible set so a manager can add and remove access in one operation.
 - Each SSO user can be granted access independently to `fleet`, `wells`, and/or `valves`.
 - Wells access may additionally grant `wells.readings.delete` and `wells.diesel-inventories.delete`; these destructive action checks fail closed and never replace the base `wells` permission.
 - `fleet.trips.create` is an independent fail-closed permission for the manual-trip page and does not grant the Fleet dashboard.
+- Manual trip entry is not a fourth portal system card. A user holding only `fleet.trips.create` is redirected from `/` directly to their **رحلاتي اليدوية** register; a user who also has base `fleet` access reaches the same feature through the Fleet dashboard navigation.
 - Fleet review scope uses `fleet.vehicles.follow-to.125`, `.126`, `.132`, and `.133`; each depends on base `fleet` access and fails closed if the permission or Oracle vehicle scope cannot be read.
 - Access to the permission-management screen itself is limited to `MOG_PERMISSIONS_ADMIN_USER_IDS` outside local development.
 - The legacy `FLEET_ADMIN_ALLOWLIST` remains only a global admin gate for entering the backend area; it is not the per-system permission source.

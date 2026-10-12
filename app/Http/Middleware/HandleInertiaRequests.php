@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Repositories\SystemPermissionRepository;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -9,6 +10,8 @@ use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
 {
+    public function __construct(private readonly SystemPermissionRepository $permissions) {}
+
     /**
      * The root template rendered on the first page visit.
      */
@@ -44,6 +47,12 @@ class HandleInertiaRequests extends Middleware
                 'user' => fn () => $request->user('admin')
                     ? ['name' => $request->user('admin')->name ?? 'مدير النظام']
                     : null,
+                'can_create_manual_trips' => fn () => $request->user('admin')
+                    ? $this->permissions->hasActionPermission(
+                        (int) $request->user('admin')->getAuthIdentifier(),
+                        SystemPermissionRepository::CREATE_MANUAL_TRIP,
+                    )
+                    : false,
                 'can_view_logs' => fn () => $logsUrl !== null
                     && $request->user('admin')
                     && in_array(
@@ -55,6 +64,7 @@ class HandleInertiaRequests extends Middleware
             'urls' => [
                 'portal' => route('portal'),
                 'dashboard' => route('admin.dashboard'),
+                'manualTrips' => route('admin.manual-trips.index'),
                 'driverApps' => route('admin.driver-apps'),
                 'locations' => route('admin.locations'),
                 'missionTypes' => route('admin.mission-types'),

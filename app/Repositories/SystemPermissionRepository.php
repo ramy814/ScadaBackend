@@ -348,7 +348,7 @@ class SystemPermissionRepository
         }
 
         try {
-            return MogSsoUser::query()
+            $users = MogSsoUser::query()
                 ->where('is_active', 1)
                 ->where(function ($builder) use ($query): void {
                     $builder
@@ -361,13 +361,25 @@ class SystemPermissionRepository
                 })
                 ->select('id', 'emp_id', 'full_name', 'user_mobile')
                 ->limit(15)
-                ->get()
-                ->map(fn (MogSsoUser $user): array => [
-                    'id' => (int) $user->getKey(),
-                    'emp_id' => $user->emp_id,
-                    'full_name' => $user->full_name,
-                    'user_mobile' => $user->user_mobile,
-                ]);
+                ->get();
+
+            $permissionsByUser = SystemPermission::query()
+                ->whereIn('user_id', $users->map(fn (MogSsoUser $user): int => (int) $user->getKey())->all())
+                ->whereIn('system_key', self::PERMISSION_KEYS)
+                ->get(['user_id', 'system_key'])
+                ->groupBy(fn (SystemPermission $permission): int => (int) $permission->user_id);
+
+            return $users->map(fn (MogSsoUser $user): array => [
+                'id' => (int) $user->getKey(),
+                'emp_id' => $user->emp_id,
+                'full_name' => $user->full_name,
+                'user_mobile' => $user->user_mobile,
+                'systems' => $permissionsByUser
+                    ->get((int) $user->getKey(), collect())
+                    ->pluck('system_key')
+                    ->values()
+                    ->all(),
+            ]);
         } catch (QueryException) {
             return collect();
         }

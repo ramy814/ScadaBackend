@@ -14,6 +14,7 @@
         <div class="nav-links">
           <a href="/" class="nav-link-portal" style="color: #3b82f6; font-weight: bold; margin-left: 10px;">🏠 البوابة</a>
           <Link :href="$page.props.urls.dashboard" :class="{ active: isActive('Admin/Dashboard') }">الداشبورد</Link>
+          <Link v-if="$page.props.auth?.can_create_manual_trips" :href="$page.props.urls.manualTrips">رحلاتي اليدوية</Link>
           <Link :href="$page.props.urls.driverApps" :class="{ active: isActive('Admin/DriverApps') }">استخدام التطبيق</Link>
           <Link :href="$page.props.urls.locations" :class="{ active: isActive('Admin/Locations') }">المواقع</Link>
           <Link :href="$page.props.urls.missionTypes" :class="{ active: isActive('Admin/MissionTypes') }">أنواع المهام</Link>

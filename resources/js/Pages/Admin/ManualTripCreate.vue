@@ -12,7 +12,8 @@ const props = defineProps({
   storeUrl: { type: String, default: null },
   updateUrl: { type: String, default: null },
   indexUrl: { type: String, required: true },
-  portalUrl: { type: String, required: true },
+  backUrl: { type: String, default: null },
+  backLabel: { type: String, default: null },
   logoutUrl: { type: String, required: true },
 })
 
@@ -112,7 +113,7 @@ function submit() {
       </div>
       <nav>
         <Link :href="indexUrl">رحلاتي</Link>
-        <Link :href="portalUrl">العودة للبوابة</Link>
+        <Link v-if="backUrl" :href="backUrl">{{ backLabel }}</Link>
         <a :href="logoutUrl" rel="external">تسجيل خروج</a>
       </nav>
     </header>

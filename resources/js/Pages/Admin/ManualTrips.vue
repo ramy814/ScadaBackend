@@ -10,7 +10,8 @@ const props = defineProps({
   filters: { type: Object, default: () => ({}) },
   indexUrl: { type: String, required: true },
   createUrl: { type: String, required: true },
-  portalUrl: { type: String, required: true },
+  backUrl: { type: String, default: null },
+  backLabel: { type: String, default: null },
   logoutUrl: { type: String, required: true },
 })
 
@@ -58,7 +59,7 @@ const statusLabels = {
       <div><p>نظام تتبع المركبات</p><h1>رحلاتي اليدوية</h1></div>
       <nav>
         <Link class="primary" :href="createUrl">إدخال رحلة جديدة</Link>
-        <Link :href="portalUrl">العودة للبوابة</Link>
+        <Link v-if="backUrl" :href="backUrl">{{ backLabel }}</Link>
         <a :href="logoutUrl" rel="external">تسجيل خروج</a>
       </nav>
     </header>

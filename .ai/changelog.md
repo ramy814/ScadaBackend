@@ -2,6 +2,18 @@
 
 ## [2026-10-12] Station-Scoped Manual Trip Entry
 
+- Reorganized the central permission manager into separate Fleet, Wells, and
+  Valves groups, with base access, standalone roles, vehicle-review scopes, and
+  sensitive actions shown in their proper system context. Selecting a user from
+  either the authorized-user list or SSO search now loads that user's current
+  permissions into the editor so managers can grant and revoke from one saved
+  selection.
+- Collapsed the emergency global-operating controls behind an internal status
+  button so the large suspension form is shown only when a manager opens it.
+- Removed manual trip entry from the unified portal cards. Manual-only assistants
+  now enter directly into **رحلاتي اليدوية** without a portal-return control,
+  while users who also have Fleet access see the feature as an internal Fleet
+  navigation link.
 - Added four Fleet supervisor vehicle scopes backed by the current
   `G_STORE.VEHICLE.FOLLOW_TO_OID`: rented `125`, municipality-owned `126`,
   institutions `132`, and government ministries `133`. Each permission depends

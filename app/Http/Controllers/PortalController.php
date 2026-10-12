@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Repositories\SystemPermissionRepository;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -14,16 +15,18 @@ class PortalController extends Controller
         private readonly SystemPermissionRepository $permissions
     ) {}
 
-    public function index(Request $request): Response
+    public function index(Request $request): Response|RedirectResponse
     {
         $user = Auth::guard('admin')->user();
         $userId = (int) $user->getAuthIdentifier();
 
         $accessible = $this->permissions->accessibleSystems($userId)->all();
-        $canCreateManualTrips = $this->permissions->hasActionPermission(
+        if ($accessible === [] && $this->permissions->hasActionPermission(
             $userId,
             SystemPermissionRepository::CREATE_MANUAL_TRIP,
-        );
+        )) {
+            return redirect()->route('admin.manual-trips.index');
+        }
 
         $systems = [
             [
@@ -55,16 +58,6 @@ class PortalController extends Controller
                 'color' => 'orange',
                 'available' => true,
                 'hasAccess' => in_array('valves', $accessible, true),
-            ],
-            [
-                'key' => 'manual-trips',
-                'title' => 'إدخال رحلة يدوية',
-                'description' => 'تسجيل ومتابعة رحلات مركبات محطاتك عندما لا يتوفر تطبيق السائق',
-                'icon' => '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-full h-full text-blue-400"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>',
-                'route' => route('admin.manual-trips.index'),
-                'color' => 'blue',
-                'available' => true,
-                'hasAccess' => $canCreateManualTrips,
             ],
         ];
 

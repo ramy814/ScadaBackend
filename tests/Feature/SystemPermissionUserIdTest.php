@@ -8,6 +8,7 @@ use App\Http\Middleware\EnsureSystemAccess;
 use App\Models\MogSsoUser;
 use App\Repositories\SystemPermissionRepository;
 use Illuminate\Contracts\Auth\StatefulGuard;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
@@ -112,6 +113,41 @@ class SystemPermissionUserIdTest extends TestCase
         );
 
         $this->assertSame(1061, $permissions->resolvedUserId);
+    }
+
+    public function test_portal_redirects_a_manual_trip_only_user_to_their_trip_register(): void
+    {
+        $permissions = new class extends SystemPermissionRepository
+        {
+            public function __construct() {}
+
+            public function accessibleSystems(int $userId): Collection
+            {
+                return collect();
+            }
+
+            public function hasActionPermission(int $userId, string $permissionKey): bool
+            {
+                return $permissionKey === SystemPermissionRepository::CREATE_MANUAL_TRIP;
+            }
+        };
+
+        Auth::shouldReceive('guard')
+            ->with('admin')
+            ->andReturn(new class($this->ssoUser())
+            {
+                public function __construct(private readonly MogSsoUser $user) {}
+
+                public function user(): MogSsoUser
+                {
+                    return $this->user;
+                }
+            });
+
+        $response = (new PortalController($permissions))->index(Request::create('/'));
+
+        $this->assertInstanceOf(RedirectResponse::class, $response);
+        $this->assertSame(route('admin.manual-trips.index'), $response->getTargetUrl());
     }
 
     private function ssoUser(): MogSsoUser

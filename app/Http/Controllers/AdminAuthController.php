@@ -29,7 +29,7 @@ class AdminAuthController extends Controller
     public function showLogin(Request $request)
     {
         if (Auth::guard('admin')->check()) {
-            return redirect()->route('admin.dashboard');
+            return redirect()->route('portal');
         }
 
         if ($request->has('sso_error')) {
