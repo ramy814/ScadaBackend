@@ -218,6 +218,29 @@ Reading, diesel-inventory, and notification sync requests are capped at 500 reco
 - `WellsSystem/DieselInventories/Index.vue` paginates each internal/external view independently at 15 rows per page after receiving the complete filtered report. Keep report totals, tab counts, and exports based on all filtered rows rather than the visible page slice.
 - `resources/views/wells/diesel-inventory-report.blade.php` is the shared dynamic RTL PDF/Excel template.
 
+## Monthly Diesel Report
+
+- The monthly feature is isolated at `GET /wells/diesel-inventories/monthly`
+  with PDF/Excel exports under `/wells/diesel-inventories/monthly/report/{format}`.
+  It must not replace or alter the existing inventory/result report methods.
+- `MonthlyDieselReportController` validates/delegates only;
+  `MonthlyDieselReportService` owns grouping, formulas, statuses, totals, and
+  export columns. It reads data through `DieselInventoryRepository` and
+  `GeneratorRepository` only.
+- Daily Tank rows are grouped by well and generator inside the selected calendar
+  month. Monthly supply/consumption is the sum of approved deliveries, operating
+  hours are the last-delivery meter minus the first-delivery meter, and the rate
+  is consumption divided by those hours.
+- External rows are grouped by well and resolved generator. Opening/closing fuel
+  balances come from the first/last monthly inventory and tank geometry. The
+  consumption formula is opening balance plus approved supply between the first
+  and last inventory minus closing balance; the rate uses the matching first/last
+  generator-meter difference. All approved calendar-month supply is displayed
+  separately so deliveries outside the inventory interval remain auditable.
+- A valid rate requires at least two monthly deliveries/inventories, increasing
+  timestamps, usable meter readings, and a positive plausible meter difference.
+  Incomplete or inconsistent groups remain visible with an Arabic explanation.
+
 ## Audited Operational Record Deletion
 
 - Routes: `DELETE /wells/readings/{reading}` and `DELETE /wells/diesel-inventories/{inventory}`.

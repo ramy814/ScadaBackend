@@ -32,3 +32,5 @@ Thumbs.db
 /config/filesystems.php
 /config/app.php
 /config/session.php
+
+*.mp4

@@ -45,6 +45,7 @@ class DieselInventoryController extends Controller
                 'index' => route('wells.diesel-inventories.index', [], false),
                 'reportPdf' => route('wells.diesel-inventories.report.pdf', [], false),
                 'reportExcel' => route('wells.diesel-inventories.report.excel', [], false),
+                'monthly' => route('wells.diesel-inventories.monthly.index', [], false),
                 'wells' => route('wells.wells.index', [], false),
                 'deleteBase' => route('wells.diesel-inventories.index', [], false),
             ],

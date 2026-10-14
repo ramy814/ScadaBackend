@@ -4,6 +4,7 @@ use App\Http\Controllers\Wells\ActivityMediaController;
 use App\Http\Controllers\Wells\DashboardController;
 use App\Http\Controllers\Wells\DieselInventoryController;
 use App\Http\Controllers\Wells\InspectorController;
+use App\Http\Controllers\Wells\MonthlyDieselReportController;
 use App\Http\Controllers\Wells\NotificationController;
 use App\Http\Controllers\Wells\NotificationTypeController;
 use App\Http\Controllers\Wells\ReadingController;
@@ -33,6 +34,11 @@ Route::middleware(['web', 'auth:admin', 'systems.operational', 'system.access:we
     Route::get('/diesel-inventories', [DieselInventoryController::class, 'index'])->name('wells.diesel-inventories.index');
     Route::get('/diesel-inventories/report/pdf', [DieselInventoryController::class, 'reportPdf'])->name('wells.diesel-inventories.report.pdf');
     Route::get('/diesel-inventories/report/excel', [DieselInventoryController::class, 'reportExcel'])->name('wells.diesel-inventories.report.excel');
+    Route::get('/diesel-inventories/monthly', [MonthlyDieselReportController::class, 'index'])
+        ->name('wells.diesel-inventories.monthly.index');
+    Route::get('/diesel-inventories/monthly/report/{format}', [MonthlyDieselReportController::class, 'export'])
+        ->whereIn('format', ['pdf', 'excel'])
+        ->name('wells.diesel-inventories.monthly.export');
     Route::delete('/diesel-inventories/{inventory}', [DieselInventoryController::class, 'destroy'])
         ->name('wells.diesel-inventories.destroy');
 

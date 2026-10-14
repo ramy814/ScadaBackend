@@ -28,6 +28,8 @@ resources/
 │       │   ├── TripShow.vue    # Detailed view of a single trip (map + points)
 │       │   ├── Locations.vue   # CRUD for mission locations
 │       │   └── MissionTypes.vue# CRUD for mission types
+│       ├── WellsSystem/DieselInventories/
+│       │   └── Monthly.vue     # Independent monthly diesel summary/report
 │       ├── Portal.vue          # Unified system card selector
 │       ├── Portal/
 │       │   └── Permissions.vue # Central per-system permission screen
@@ -78,6 +80,10 @@ resources/
     - Each of the three report views paginates its visible rows independently at 15 rows per page. Switching tabs preserves the page for that report during the current visit; tab counts, summary totals, filters, and exports remain based on the full filtered result.
     - The external inventory and calculated-results tabs show `inventory_date` by default with the Arabic label **تاريخ الجرد**; `created_at` remains a separate insertion timestamp.
     - Null previous-reading and approved-supply cells display the service-provided Arabic reason; they must not look like an unexplained missing import or be rendered as zero.
+    - `WellsSystem/DieselInventories/Monthly.vue` is reached from the existing
+      diesel page but uses its own route, service payload, month filter, tabs,
+      pagination, and exports. It must not reuse or mutate the current screen's
+      per-record calculation state.
     - External calculated-result defaults include previous balance, supplied quantity, current balance, consumed liters, and actual rate. A valid no-delivery interval displays supply `0` and calculates its rate from the absolute non-zero meter difference without marking a reversed meter invalid; negative fuel-consumption formula values stay visible with an invalid status.
 18. **Signal Image Gallery**: `WellsSystem/Notifications/Index.vue` renders notification media through `Shared/MediaThumbnails.vue` in `gallery` mode, with a labeled attachment count and larger previews. Selection opens a teleported, theme-aware lightbox with close, previous/next, counter, and open-original actions. Reading tables continue to use the component's compact mode.
 19. **Wells Protected Deletion**: Wells inspector, team, and well pages consume server-owned `CAN_DELETE` and `DELETE_BLOCKERS`. A linked record renders a disabled lock with the Arabic blocker list; Vue must never infer safety from only one count or re-enable deletion client-side.

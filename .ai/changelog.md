@@ -1,5 +1,25 @@
 # Changelog & Recent Actions
 
+## [2026-10-13] Independent Monthly Wells Diesel Report
+
+- Added a separate Wells page at `/wells/diesel-inventories/monthly` so the
+  stable operational inventory reports and their existing calculations remain
+  unchanged.
+- The Daily Tank monthly view groups approved fuel-program deliveries by
+  well/generator, sums the selected month's supplied liters, calculates
+  operating hours from the meter readings at the first and last delivery, uses
+  supplied liters as monthly consumed liters, and derives liters/hour.
+- The external-tank monthly view uses the first and last field inventories in
+  the selected month. It calculates geometric opening/closing balances, shows
+  all approved monthly supply separately, applies only supply between the first
+  and last inventory to `opening balance + interval supply - closing balance`,
+  and divides the result by the matching generator-meter difference.
+- Added month/well/generator filters, independent Daily Tank/external tabs,
+  15-row pagination, summary totals, PDF/Excel exports, incomplete/invalid data
+  explanations, and unit coverage for both monthly formulas.
+- Verified both monthly queries against Oracle for October 2026 without writing
+  data, and retained the existing diesel-report regression suite unchanged.
+
 ## [2026-10-12] Station-Scoped Manual Trip Entry
 
 - Reorganized the central permission manager into separate Fleet, Wells, and
@@ -67,6 +87,10 @@
 - Split the supervisor review table into mutually exclusive application and
   manual-entry tabs. The manual tab has a pending-request counter, prioritizes
   pending rows, and replaces driver-response wording with entry notes.
+- Corrected an assistant-only permission assignment that also contained the
+  base `fleet` key. The account now retains only `fleet.trips.create`, so portal
+  entry resolves directly to **رحلاتي اليدوية** and the Fleet supervisor
+  dashboard remains denied.
 
 ## [2026-09-24] Hiraf Offline Map UX Context
 

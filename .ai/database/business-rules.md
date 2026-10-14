@@ -121,6 +121,26 @@ The `audit_logs` table must never have rows updated or deleted. It is append-onl
 - Missing chronological history keeps approved supply null and must be labeled as not calculable. Numeric zero is reserved for a valid inventory interval in which no approved delivery occurred; in that case calculate consumed liters as `previous balance - current balance` and calculate the rate with the absolute non-zero generator-meter difference. Reversal or excess over elapsed time does not invalidate this zero-supply exception.
 - Keep a negative calculated consumption/rate visible for diagnosis while classifying the row as invalid.
 
+### 9.1 Wells Monthly Diesel Summaries
+
+- The monthly report is an additional read-only aggregation and does not change
+  any inventory, fuel-log, current report, or stored balance.
+- Daily Tank: within one selected calendar month and one well/generator, monthly
+  supplied liters are the sum of accepted fuel-program deliveries. Monthly
+  operating hours are `last delivery meter - first delivery meter`; monthly
+  consumed liters equal supplied liters; rate is consumed divided by hours.
+- External tank: opening and closing balances are calculated from the first and
+  last active monthly inventories using tank geometry. Operating hours are
+  `last inventory meter - first inventory meter`. Consumption is
+  `opening balance + approved interval supply - closing balance`; rate is
+  consumption divided by hours.
+- The external report also shows all approved supply in the calendar month. That
+  display total may differ from interval supply when a delivery occurs before
+  the first or after the last inventory; only interval supply enters consumption.
+- One record, missing geometry/generator/meters, non-increasing timestamps,
+  reversed meters, calendar-impossible hours, or a negative consumption result
+  must be exposed for review and never classified as high consumption.
+
 ## 10. Wells Master Data Deletion Safety
 
 - Inspectors, teams, and wells may be physically deleted only when they have no related records or assignments.

@@ -39,6 +39,12 @@ A comprehensive well management system consisting of two main applications:
 - Internal-tank, external inventory, and external calculated-results tables display 15 rows per page with independent client-side page state. Pagination changes only the visible slice; summary totals, matched counts, filters, and exports continue to use the complete filtered report.
 - Administrators choose an allowlisted set of columns for each report type; the same selection drives the screen, Excel, and PDF.
 - Diesel report PDF output uses a dynamic A3 landscape RTL table. Excel output uses the same Arabic rows, columns, and calculations.
+- A separate monthly diesel page at `/wells/diesel-inventories/monthly` adds
+  month/well/generator filters and independent Daily Tank/external summaries.
+  Daily Tank uses the first/last delivery meter readings and the month's approved
+  supply. External tanks use the first/last monthly inventories, geometric
+  balances, and approved supply between those inventories. The existing
+  per-fill/per-inventory reports remain unchanged.
 
 ## Database
 - **Production**: Oracle DB via `yajra/laravel-oci8`

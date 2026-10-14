@@ -473,6 +473,15 @@ function rowKey(row, index) {
                         متابعة مولدات الآبار وحساب الاستهلاك حسب نوع خزان الوقود
                     </p>
                 </div>
+                <button
+                    v-if="urls.monthly"
+                    type="button"
+                    class="btn btn-primary"
+                    @click="router.visit(urls.monthly)"
+                >
+                    <Icon name="calendar" size="17" aria-hidden="true" />
+                    التقرير الشهري للسولار
+                </button>
             </div>
 
             <div

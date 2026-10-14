@@ -111,6 +111,20 @@ Source path: `/Volumes/SecondDrive/Wells/wells_app`.
 - A high alert requires `actual > approved rate + allowed difference`; equality remains normal.
 - Store the approved rate and allowed difference on `WELL_GENERATORS`, because a well can have multiple generators. Preserve these settings when synchronizing assignments.
 - Accept report columns only through the service's fixed metadata registry. Never interpolate request-provided database column names into SQL or a report.
+- Keep the monthly diesel report in `MonthlyDieselReportService`; do not fold its
+  first/last-of-month aggregation into the stable per-fill/per-inventory methods
+  in `DieselInventoryService`.
+- For Daily Tank monthly rows, use only approved non-canceled generator fuel
+  entries already accepted by `GeneratorRepository`. Sum the selected month's
+  supply, calculate hours from the first and last delivery meter readings, set
+  monthly consumed liters equal to that supply, then divide by operating hours.
+- For external monthly rows, select the first and last active inventory inside
+  the calendar month. Use geometric balances only, keep all monthly supply as a
+  separate display value, and use only approved supply in the first-to-last
+  inventory interval in the consumption formula. Never use the client-stored
+  `AVAILABLE_FUEL_LITERS` as a balance fallback.
+- Do not calculate a monthly rate from a single delivery/inventory. Keep the row
+  visible as incomplete/invalid rather than manufacturing zero operating hours.
 
 ## Reading And Diesel Inventory Soft Deletion
 

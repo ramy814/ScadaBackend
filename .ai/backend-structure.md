@@ -23,6 +23,7 @@ app/
 ├── Services/                 # Business Logic layer
 │   ├── TripSyncService.php   # Idempotent snapshots, stops/events, point batches, confirmation
 │   ├── ManualTripService.php # Station-scoped assistant entry and trip snapshots
+│   ├── Wells/MonthlyDieselReportService.php # Isolated monthly fuel aggregation
 │   ├── FleetVehicleAccessService.php # FOLLOW_TO permission-to-vehicle scope
 │   ├── DriverAppUsageService.php # Driver/version/store adoption overview
 │   ├── VirtualFuelService.php# Estimates fuel usage based on GPS

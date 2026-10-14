@@ -43,6 +43,12 @@ The Fleet dashboard performance card uses the same authenticated presence source
 - **Unified Dashboard Themes**: Fleet, Wells, Valves, the portal, and permissions share the semantic `--theme-*` tokens in `resources/css/app.css`. Light mode is based on Fleet and dark mode is based on Valves; individual systems retain only their identity accents. The selected `light`/`dark` value is shared through `localStorage.theme` and applied as `html[data-theme]`.
 - **Audited Wells Corrections**: Authorized administrators can logically delete Wells readings and external diesel inventories. The physical Oracle row and actor/time/reason remain for audit, while default operational queries and calculations exclude it.
 - **Generator-Only Wells Production**: The Wells production screen and its PDF/Excel exports calculate operating hours only from consecutive `WELL_READINGS.GENERATOR_HOURS_READING` values, then multiply the difference by `WELLS.CAPACITY`. Pump readings and flow rate are display/input data only and must never be calculation fallbacks.
+- **Independent Wells Monthly Diesel Report**: `/wells/diesel-inventories/monthly`
+  adds month-based Daily Tank and external-tank summaries without changing the
+  stable operational inventory reports. Daily Tank aggregates approved monthly
+  supply between its first/last delivery readings. External tanks use geometric
+  first/last inventory balances plus approved interval supply. Both expose
+  operating hours, consumed liters, liters/hour, validation status, and exports.
 
 ## Tech Stack
 - **Framework**: Laravel 13.x
