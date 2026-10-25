@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Middleware\AuthenticateHirafInspector;
+use App\Http\Middleware\AuthenticateMapClient;
 use App\Http\Middleware\EnsureActionPermission;
 use App\Http\Middleware\EnsureAdminIsAllowlisted;
 use App\Http\Middleware\EnsureFleetTripAccess;
@@ -40,7 +40,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'admin.allowlisted' => EnsureAdminIsAllowlisted::class,
             'action.permission' => EnsureActionPermission::class,
             'fleet.trip.access' => EnsureFleetTripAccess::class,
-            'hiraf.inspector' => AuthenticateHirafInspector::class,
+            'map.client' => AuthenticateMapClient::class,
             'abilities' => CheckAbilities::class,
             'mobile.principal' => EnsureMobilePrincipal::class,
             'system.access' => EnsureSystemAccess::class,

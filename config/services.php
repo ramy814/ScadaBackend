@@ -39,6 +39,10 @@ return [
         'test_code' => env('SMS_TEST_CODE', '000000'),
     ],
 
+    'signal' => [
+        'map_auth_url' => env('SIGNAL_MAP_AUTH_URL', 'https://mapps.mogaza.org/api/get_signal_statistics'),
+    ],
+
     'hiraf' => [
         'profile_url' => env('HIRAF_PROFILE_URL', 'https://apps.mogaza.org/api/account-follow-up/profile'),
     ],

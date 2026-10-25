@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/map/tiles/{zoom}/{x}/{y}.png', MapTileController::class)
     ->whereNumber(['zoom', 'x', 'y'])
-    ->middleware(['hiraf.inspector', 'throttle:600,1'])
+    ->middleware(['systems.operational', 'throttle:600,1', 'map.client'])
     ->name('api.map.tiles.show');
 
 Route::middleware('systems.operational')->prefix('driver/auth')->group(function (): void {

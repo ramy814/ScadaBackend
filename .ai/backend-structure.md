@@ -115,3 +115,13 @@ The dedicated Valves GeoServer mode uses direct `EPSG:900913` WMTS tiles through
 - Wells controllers validate and delegate only; do not restore row-by-row writes or direct sync queries in controllers.
 - `App\Services\Valves\ValveActionService` records SCADA actions and any maintenance report in one transaction. `CLIENT_LOCAL_ID` is optional for released-app compatibility and idempotent when supplied.
 - Tracking performance indexes are added by `2026_08_24_000024_add_trip_tracking_performance_indexes.php`; schedule this migration only after Oracle connectivity/account health is restored.
+
+## Shared Hiraf / Signal Map Gateway
+
+`Api/MapTileController` and `GeoServerTileService` keep their existing fixed WMTS
+contract. `AuthenticateMapClient` delegates remote token validation to
+`MapClientAuthService` and `MapClientRepository`. Signal tokens are checked through
+`services.signal.map_auth_url`; Hiraf tokens retain `services.hiraf.profile_url`.
+The route uses `systems.operational`, `throttle:600,1`, then `map.client`, and grants
+no access to the other mobile systems. See `docs/signal-map-gateway.md` for the
+verified integration and deployment steps. No Oracle schema change is required.

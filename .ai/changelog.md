@@ -1,5 +1,21 @@
 # Changelog & Recent Actions
 
+## [2026-10-25] Signal App Access To The Existing GeoServer Gateway
+
+- Extended the existing PNG tile route to accept either Hiraf or signal-app tokens.
+  Middleware delegates through a dedicated service and HTTP repository; the fixed
+  WMTS layer, coverage, zoom range and server-side GeoServer authentication remain.
+- Added `SIGNAL_MAP_AUTH_URL` with a verified protected statistics endpoint as the
+  default; no application passwords or tokens are embedded in server configuration.
+- Positive-only auth decisions expire after 60 seconds; upstream redirects are
+  disabled, auth outages return retryable 503, and rate limiting plus the global
+  operational switch run before external validation. Other mobile auth scopes remain.
+- Verified 40 map/auth-isolation/operational tests (725 assertions), Pint, and a
+  local live-service check using a real signal token that returned PNG/200.
+- Production deployment was not performed. `docs/signal-map-gateway.md` documents
+  deployment/cache clearing and the remaining live Hiraf acceptance check.
+
+
 ## [2026-10-13] Independent Monthly Wells Diesel Report
 
 - Added a separate Wells page at `/wells/diesel-inventories/monthly` so the

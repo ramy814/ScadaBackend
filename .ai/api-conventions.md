@@ -213,16 +213,28 @@ Valve inspector app accounts are separate from fleet drivers and wells inspector
 - `ValvesMapService` sends an authenticated WMS `GetFeatureInfo` request to `https://geo.mogaza.org/geoserver/wms` using the shared `config/geoserver.php` settings. It queries the visible `mog:*` layers, including the default `mog:gaza general map` group, and returns an empty feature array on invalid/unreachable upstream responses.
 - Do not modify `public/wms.php` while fixing web callers unless the user explicitly scopes the request to that file.
 
-### Hiraf Inspector Offline Tile Contract
+### Hiraf And Signal Offline Tile Contract
 
 - Client repository: `/Volumes/SecondDrive/hiraf_inspector`; API origin: `https://apps.mogaza.org/api/account-follow-up`.
 - The Android client plans exactly 2,447 `EPSG:900913` tiles for the Gaza City bounds `34.39912130969776..34.51853774196185` longitude and `31.45464230411222..31.55032467219495` latitude at zoom levels 11–17.
 - The client may visually zoom cached tiles to level 19, but the gateway accepts
   and downloads native tiles only at zoom 11–17.
 - Tile endpoint: `GET https://scada.mogaza.org/api/map/tiles/{zoom}/{x}/{y}.png`.
-- This backend validates the existing inspector bearer token server-to-server
-  against the account-follow-up profile endpoint and caches successful
-  validation for five minutes.
+- The gateway accepts an existing Hiraf token via `services.hiraf.profile_url`, or
+  a signal-app token via `services.signal.map_auth_url` (default protected
+  `https://mapps.mogaza.org/api/get_signal_statistics`). Signal validation requires
+  `status: true` plus the three non-negative integer statistics fields; the
+  endpoint was live-verified to reject missing/invalid tokens on 2026-10-25.
+- `AuthenticateMapClient` delegates to `MapClientAuthService` and
+  `MapClientRepository`. Only successful decisions are cached for 60 seconds under
+  hashed, endpoint-scoped token keys; no plaintext token/profile/stats payload is
+  cached. External redirects are disabled. Missing/denied tokens return 401;
+  inconclusive upstream failures return retryable 503.
+- Global operational suspension and the existing 600/minute throttle execute
+  before external map authentication. Fleet/Wells/SCADA principal/ability gates
+  are unchanged; map access does not create a local application session.
+- The signal Flutter application already uses the same URL and Bearer header.
+  See `docs/signal-map-gateway.md` for configuration, deployment and verification.
 - Only the single layer, matrix set, bounds, and zoom range above are allowed.
 - Never return or embed GeoServer Basic credentials in JSON, Dart, query strings, APK assets, or browser/mobile headers. The application backend owns upstream authentication and should return only `image/png` tiles with appropriate cache headers.
 - A client refresh deliberately re-fetches the same fixed 2,447-tile plan; it
