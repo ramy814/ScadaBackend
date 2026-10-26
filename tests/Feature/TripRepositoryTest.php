@@ -4,9 +4,11 @@ namespace Tests\Feature;
 
 use App\Models\Trip;
 use App\Repositories\TripRepository;
+use Illuminate\Database\QueryException;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
 
 class TripRepositoryTest extends TestCase
@@ -21,6 +23,9 @@ class TripRepositoryTest extends TestCase
             $table->string('driver_name');
             $table->string('status')->nullable();
             $table->string('review_status')->nullable();
+            $table->string('review_note')->nullable();
+            $table->string('reviewed_by')->nullable();
+            $table->timestamp('reviewed_at')->nullable();
             $table->text('clarification_response')->nullable();
             $table->decimal('virtual_fuel_liters', 10, 3)->nullable();
             $table->unsignedInteger('points_received')->default(0);
@@ -74,6 +79,96 @@ class TripRepositoryTest extends TestCase
         Schema::dropIfExists('trips');
 
         parent::tearDown();
+    }
+
+    public function test_approval_register_lists_other_creators_requests_but_only_for_authorized_vehicles(): void
+    {
+        foreach ([
+            [80, '501', 'manual', 'pending', 'confirmed', 140],
+            [81, '501', 'manual', 'pending', 'confirmed', 141],
+            [82, '502', 'manual', 'pending', 'confirmed', 141],
+            [83, '501', 'mobile', 'pending', 'confirmed', 141],
+            [84, '501', 'manual', 'approved', 'confirmed', 141],
+            [85, '501', 'manual', 'pending', 'uploaded', 141],
+        ] as [$id, $vehicle, $source, $review, $status, $creator]) {
+            DB::table('trips')->insert([
+                'id' => $id, 'oracle_vehicle_id' => $vehicle, 'entry_source' => $source,
+                'review_status' => $review, 'status' => $status, 'entered_by_user_id' => $creator,
+                'vehicle_plate' => 'TEST', 'driver_name' => 'Driver', 'started_at' => now(), 'ended_at' => now(),
+            ]);
+        }
+        $repository = app(TripRepository::class);
+        self::assertEqualsCanonicalizing([80, 81], $repository->paginateManualForApproval(['501'], ['review_status' => 'pending'])->pluck('id')->all());
+        self::assertCount(3, $repository->paginateManualForApproval(['501'], ['review_status' => 'all']));
+        self::assertCount(0, $repository->paginateManualForApproval([], ['review_status' => 'all']));
+        self::assertNull($repository->findManualForApproval(83));
+    }
+
+    public function test_manual_approval_is_audited_and_cannot_be_repeated(): void
+    {
+        DB::table('trips')->insert([
+            'id' => 80, 'entry_source' => 'manual', 'status' => 'confirmed', 'review_status' => 'pending',
+            'vehicle_plate' => 'TEST', 'driver_name' => 'Driver', 'started_at' => now(), 'ended_at' => now(),
+        ]);
+        $repository = app(TripRepository::class);
+        $staleEditableTrip = Trip::query()->findOrFail(80);
+        $trip = $repository->approveManual(80, 140, 'Reviewer', 'Checked');
+        self::assertSame('approved', $trip->review_status);
+        self::assertSame('140', (string) $trip->reviewed_by);
+        self::assertSame('Checked', $trip->review_note);
+        self::assertNotNull($trip->reviewed_at);
+        self::assertSame(1, DB::table('audit_logs')->count());
+        $audit = json_decode(DB::table('audit_logs')->value('payload'), true);
+        self::assertSame('Reviewer', $audit['actor_name']);
+
+        try {
+            $repository->updateManual($staleEditableTrip, ['distance_km' => 999], 'Editor');
+            self::fail('An edit opened before approval must not modify an approved request.');
+        } catch (ValidationException) {
+            self::assertSame(1, DB::table('audit_logs')->count());
+            self::assertNull($trip->refresh()->distance_km);
+        }
+
+        try {
+            $repository->approveManual(80, 141, 'Other reviewer', null);
+            self::fail('A completed approval must be immutable.');
+        } catch (ValidationException) {
+            self::assertSame(1, DB::table('audit_logs')->count());
+            self::assertSame('140', (string) $trip->refresh()->reviewed_by);
+        }
+    }
+
+    public function test_manual_approval_rolls_back_when_audit_write_fails(): void
+    {
+        DB::table('trips')->insert([
+            'id' => 80, 'entry_source' => 'manual', 'status' => 'confirmed', 'review_status' => 'pending',
+            'vehicle_plate' => 'TEST', 'driver_name' => 'Driver', 'started_at' => now(), 'ended_at' => now(),
+        ]);
+        Schema::drop('audit_logs');
+        try {
+            app(TripRepository::class)->approveManual(80, 140, 'Reviewer', null);
+            self::fail('Approval must not succeed without its audit record.');
+        } catch (QueryException) {
+            self::assertSame('pending', DB::table('trips')->where('id', 80)->value('review_status'));
+        }
+    }
+
+    public function test_rejected_or_unfinished_requests_cannot_be_approved(): void
+    {
+        foreach ([['rejected', 'confirmed', now()], ['pending', 'uploaded', now()], ['pending', 'confirmed', null]] as $index => [$review, $status, $endedAt]) {
+            $id = 80 + $index;
+            DB::table('trips')->insert([
+                'id' => $id, 'entry_source' => 'manual', 'status' => $status, 'review_status' => $review,
+                'vehicle_plate' => 'TEST', 'driver_name' => 'Driver', 'started_at' => now(), 'ended_at' => $endedAt,
+            ]);
+            try {
+                app(TripRepository::class)->approveManual($id, 140, 'Reviewer', null);
+                self::fail('Only pending, finished, confirmed requests may be approved.');
+            } catch (ValidationException) {
+                self::assertSame($review, DB::table('trips')->where('id', $id)->value('review_status'));
+                self::assertSame(0, DB::table('audit_logs')->count());
+            }
+        }
     }
 
     public function test_dashboard_search_finds_an_exact_trip_number(): void
@@ -158,6 +253,22 @@ class TripRepositoryTest extends TestCase
             false,
             ['501'],
         ));
+    }
+
+    public function test_reports_exclude_unassigned_vehicles_and_deny_empty_scope(): void
+    {
+        $now = now();
+        DB::table('trips')->insert([
+            ['id' => 80, 'vehicle_plate' => '10-0080', 'driver_name' => 'Assigned', 'oracle_vehicle_id' => '501', 'started_at' => $now],
+            ['id' => 81, 'vehicle_plate' => '10-0081', 'driver_name' => 'Unassigned', 'oracle_vehicle_id' => '502', 'started_at' => $now],
+        ]);
+        $repository = app(TripRepository::class);
+        $from = $now->copy()->subDay();
+        $to = $now->copy()->addDay();
+
+        self::assertSame([80], $repository->reportQuery($from, $to, '', '', ['501'])->pluck('id')->all());
+        self::assertSame([], $repository->reportQuery($from, $to, '', '', [])->pluck('id')->all());
+        self::assertSame([], $repository->reportQuery($from, $to, '', '10-0081', ['501'])->pluck('id')->all());
     }
 
     public function test_route_preview_sampling_runs_in_the_database_and_keeps_endpoints(): void

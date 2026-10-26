@@ -11,6 +11,7 @@ use App\Services\ManualTripService;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Validation\ValidationException;
 use Mockery;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\TestCase;
 
 class ManualTripServiceTest extends TestCase
@@ -142,5 +143,44 @@ class ManualTripServiceTest extends TestCase
         $this->expectException(ModelNotFoundException::class);
 
         (new ManualTripService($vehicles, $trips))->update(140, 77, 'مساعد إداري', []);
+    }
+
+    public function test_approval_rechecks_the_specific_vehicle_scope(): void
+    {
+        $vehicles = Mockery::mock(MunicipalityVehicleRepository::class);
+        $trips = Mockery::mock(TripRepository::class);
+        $trip = new Trip;
+        $trip->oracle_vehicle_id = '88';
+        $trips->shouldReceive('findManualForApproval')->with(77)->once()->andReturn($trip);
+        $vehicles->shouldReceive('reviewerCanAccessVehicle')->with(140, '88')->once()->andReturnFalse();
+        $trips->shouldNotReceive('approveManual');
+
+        $this->expectException(HttpException::class);
+        (new ManualTripService($vehicles, $trips))->approve(140, 77, 'Reviewer', null);
+    }
+
+    public function test_it_approves_a_manual_request_for_an_authorized_vehicle(): void
+    {
+        $vehicles = Mockery::mock(MunicipalityVehicleRepository::class);
+        $trips = Mockery::mock(TripRepository::class);
+        $trip = new Trip;
+        $trip->oracle_vehicle_id = '88';
+        $trips->shouldReceive('findManualForApproval')->with(77)->once()->andReturn($trip);
+        $vehicles->shouldReceive('reviewerCanAccessVehicle')->with(140, '88')->once()->andReturnTrue();
+        $trips->shouldReceive('approveManual')->with(77, 140, 'Reviewer', 'Checked')->once()->andReturn($trip);
+
+        self::assertSame($trip, (new ManualTripService($vehicles, $trips))->approve(140, 77, 'Reviewer', 'Checked'));
+    }
+
+    public function test_a_mobile_trip_cannot_be_approved_through_the_manual_workflow(): void
+    {
+        $vehicles = Mockery::mock(MunicipalityVehicleRepository::class);
+        $trips = Mockery::mock(TripRepository::class);
+        $trips->shouldReceive('findManualForApproval')->with(77)->once()->andReturnNull();
+        $vehicles->shouldNotReceive('reviewerCanAccessVehicle');
+        $trips->shouldNotReceive('approveManual');
+
+        $this->expectException(ModelNotFoundException::class);
+        (new ManualTripService($vehicles, $trips))->approve(140, 77, 'Reviewer', null);
     }
 }

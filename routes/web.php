@@ -52,14 +52,22 @@ Route::middleware(['auth:admin', 'admin.allowlisted', 'systems.operational'])->g
     Route::middleware('action.permission:'.SystemPermissionRepository::CREATE_MANUAL_TRIP)->group(function () {
         Route::get('/admin/manual-trips', [ManualTripController::class, 'index'])
             ->name('admin.manual-trips.index');
-        Route::get('/admin/manual-trips/create', [ManualTripController::class, 'create'])
-            ->name('admin.manual-trips.create');
-        Route::post('/admin/manual-trips', [ManualTripController::class, 'store'])
-            ->name('admin.manual-trips.store');
-        Route::get('/admin/manual-trips/{trip}/edit', [ManualTripController::class, 'edit'])
-            ->name('admin.manual-trips.edit');
-        Route::put('/admin/manual-trips/{trip}', [ManualTripController::class, 'update'])
-            ->name('admin.manual-trips.update');
+        Route::middleware('action.permission:'.SystemPermissionRepository::APPROVE_MANUAL_TRIP)->group(function () {
+            Route::get('/admin/manual-trips/requests', [ManualTripController::class, 'requests'])
+                ->name('admin.manual-trips.requests');
+            Route::post('/admin/manual-trips/{trip}/approve', [ManualTripController::class, 'approve'])
+                ->name('admin.manual-trips.approve');
+        });
+        Route::middleware('action.permission:'.SystemPermissionRepository::ENTER_MANUAL_TRIP)->group(function () {
+            Route::get('/admin/manual-trips/create', [ManualTripController::class, 'create'])
+                ->name('admin.manual-trips.create');
+            Route::post('/admin/manual-trips', [ManualTripController::class, 'store'])
+                ->name('admin.manual-trips.store');
+            Route::get('/admin/manual-trips/{trip}/edit', [ManualTripController::class, 'edit'])
+                ->name('admin.manual-trips.edit');
+            Route::put('/admin/manual-trips/{trip}', [ManualTripController::class, 'update'])
+                ->name('admin.manual-trips.update');
+        });
     });
 
     // ─── Fleet: vehicle tracking dashboard ───────────────────────────────────

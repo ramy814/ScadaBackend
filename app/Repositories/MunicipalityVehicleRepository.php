@@ -10,8 +10,6 @@ use Illuminate\Support\Facades\Log;
 
 class MunicipalityVehicleRepository
 {
-    private const REVIEW_FOLLOW_TO_OIDS = [125, 126, 132, 133];
-
     public function __construct(private readonly OracleReadiness $readiness) {}
 
     public function search(?string $term = null, int $limit = 25): Collection
@@ -96,6 +94,22 @@ class MunicipalityVehicleRepository
         }
     }
 
+    public function forManualReviewer(int $ssoUserId): Collection
+    {
+        if (! $this->readiness->available()) {
+            return collect();
+        }
+
+        try {
+            return $this->administrativeAssistantVehiclesQuery($ssoUserId, [2, 3])
+                ->orderBy('v.PLATE_NUM')->get()->map(fn ($row): array => (array) $row);
+        } catch (QueryException $e) {
+            $this->logOracleReadFailure('manual_reviewer_vehicles', $e);
+
+            return collect();
+        }
+    }
+
     public function findForAdministrativeAssistant(int $ssoUserId, int|string $vehicleId): ?array
     {
         if (! $this->readiness->available()) {
@@ -115,42 +129,79 @@ class MunicipalityVehicleRepository
         return $row ? (array) $row : null;
     }
 
-    /** @return Collection<int, string> */
-    public function vehicleIdsForFollowToOids(array $followToOids): Collection
+    /** @return Collection<int, array{can_enter: bool, can_review: bool}> */
+    public function operationAccessForUsers(array $ssoUserIds): Collection
     {
-        $followToOids = $this->normalizeReviewFollowToOids($followToOids);
-
-        if ($followToOids === [] || ! $this->readiness->available()) {
+        $ids = collect($ssoUserIds)->map(fn ($id): int => (int) $id)->filter(fn (int $id): bool => $id > 0)->unique();
+        if ($ids->isEmpty() || ! $this->readiness->available()) {
             return collect();
         }
 
         try {
-            return $this->followToVehiclesQuery($followToOids)
-                ->pluck('oracle_id')
-                ->map(fn ($id): string => (string) $id)
-                ->unique()
-                ->values();
+            $access = collect();
+            foreach ($ids->chunk(900) as $chunk) {
+                $rows = DB::connection('oracle')
+                    ->table('g_store.VEHICLE_STAGES as vs')
+                    ->join('g_store.VEHICLE as v', 'v.OID', '=', 'vs.VEHICLE_OID')
+                    ->join('tracking.USER_STATION as a', 'a.STAGE_OID', '=', 'vs.STAGE_OID')
+                    ->join('mog_users.USERS_LIST as ul', 'ul.TRACKING_ID', '=', 'a.USER_OID')
+                    ->whereNull('vs.REMOVED_USER')
+                    ->whereIn('vs.ACCESS_TYPE', [1, 2, 3])
+                    ->whereIn('ul.ID', $chunk->all())
+                    ->selectRaw('ul.ID as user_id,
+                        max(case when vs.ACCESS_TYPE in (1, 3) and v.PLATE_NUM is not null then 1 else 0 end) as can_enter,
+                        max(case when vs.ACCESS_TYPE in (2, 3) then 1 else 0 end) as can_review')
+                    ->groupBy('ul.ID')
+                    ->get();
+
+                foreach ($rows as $row) {
+                    $access->put((int) $row->user_id, [
+                        'can_enter' => (bool) $row->can_enter,
+                        'can_review' => (bool) $row->can_review,
+                    ]);
+                }
+            }
+
+            return $access;
         } catch (QueryException $e) {
-            $this->logOracleReadFailure('follow_to_vehicle_ids', $e);
+            $this->logOracleReadFailure('station_operation_access', $e);
 
             return collect();
         }
     }
 
-    public function vehicleMatchesFollowToOids(int|string|null $vehicleId, array $followToOids): bool
+    /** @return Collection<int, string> */
+    public function vehicleIdsForReviewer(int $ssoUserId): Collection
     {
-        $followToOids = $this->normalizeReviewFollowToOids($followToOids);
+        if ($ssoUserId <= 0 || ! $this->readiness->available()) {
+            return collect();
+        }
 
-        if (! filled($vehicleId) || $followToOids === [] || ! $this->readiness->available()) {
+        try {
+            return $this->reviewerVehiclesQuery($ssoUserId)
+                ->pluck('oracle_id')
+                ->map(fn ($id): string => (string) $id)
+                ->unique()
+                ->values();
+        } catch (QueryException $e) {
+            $this->logOracleReadFailure('reviewer_vehicle_ids', $e);
+
+            return collect();
+        }
+    }
+
+    public function reviewerCanAccessVehicle(int $ssoUserId, int|string|null $vehicleId): bool
+    {
+        if ($ssoUserId <= 0 || ! filled($vehicleId) || ! $this->readiness->available()) {
             return false;
         }
 
         try {
-            return $this->followToVehiclesQuery($followToOids)
+            return $this->reviewerVehiclesQuery($ssoUserId)
                 ->where('v.OID', $vehicleId)
                 ->exists();
         } catch (QueryException $e) {
-            $this->logOracleReadFailure('follow_to_vehicle_access', $e);
+            $this->logOracleReadFailure('reviewer_vehicle_access', $e);
 
             return false;
         }
@@ -262,7 +313,7 @@ class MunicipalityVehicleRepository
                 ->values()
                 ->all();
         } catch (QueryException $e) {
-            $this->logOracleReadFailure('active_drivers_for_follow_to_vehicles', $e);
+            $this->logOracleReadFailure('active_drivers_for_review_vehicles', $e);
 
             return [];
         }
@@ -434,7 +485,7 @@ class MunicipalityVehicleRepository
         ]);
     }
 
-    private function administrativeAssistantVehiclesQuery(int $ssoUserId): Builder
+    private function administrativeAssistantVehiclesQuery(int $ssoUserId, array $accessTypes = [1, 3]): Builder
     {
         return DB::connection('oracle')
             ->table('g_store.VEHICLE as v')
@@ -451,35 +502,27 @@ class MunicipalityVehicleRepository
                 b.NATIONAL_ID as driver_employee_number
             SQL)
             ->whereNotNull('v.PLATE_NUM')
-            ->whereExists(function ($query) use ($ssoUserId): void {
-                $query->selectRaw('1')
-                    ->from('g_store.VEHICLE_STAGES as vs')
-                    ->join('tracking.USER_STATION as a', 'a.STAGE_OID', '=', 'vs.STAGE_OID')
-                    ->join('mog_users.USERS_LIST as ul', 'ul.TRACKING_ID', '=', 'a.USER_OID')
-                    ->whereColumn('vs.VEHICLE_OID', 'v.OID')
-                    ->whereNull('vs.REMOVED_USER')
-                    ->where('a.ACCESS_TYPE', '>=', 3)
-                    ->where('ul.ID', $ssoUserId);
-            });
+            ->whereExists(fn ($query) => $this->stationAccessQuery($query, $ssoUserId, $accessTypes));
     }
 
-    private function followToVehiclesQuery(array $followToOids): Builder
+    private function reviewerVehiclesQuery(int $ssoUserId): Builder
     {
         return DB::connection('oracle')
             ->table('g_store.VEHICLE as v')
             ->selectRaw('v.OID as oracle_id')
-            ->whereIn('v.FOLLOW_TO_OID', $followToOids);
+            ->whereExists(fn ($query) => $this->stationAccessQuery($query, $ssoUserId, [2, 3]));
     }
 
-    /** @return array<int, int> */
-    private function normalizeReviewFollowToOids(array $followToOids): array
+    private function stationAccessQuery(Builder $query, int $ssoUserId, array $accessTypes): Builder
     {
-        return collect($followToOids)
-            ->map(fn ($id): int => (int) $id)
-            ->intersect(self::REVIEW_FOLLOW_TO_OIDS)
-            ->unique()
-            ->values()
-            ->all();
+        return $query->selectRaw('1')
+            ->from('g_store.VEHICLE_STAGES as vs')
+            ->join('tracking.USER_STATION as a', 'a.STAGE_OID', '=', 'vs.STAGE_OID')
+            ->join('mog_users.USERS_LIST as ul', 'ul.TRACKING_ID', '=', 'a.USER_OID')
+            ->whereColumn('vs.VEHICLE_OID', 'v.OID')
+            ->whereNull('vs.REMOVED_USER')
+            ->whereIn('vs.ACCESS_TYPE', $accessTypes)
+            ->where('ul.ID', $ssoUserId);
     }
 
     private function vehiclesTable(): string

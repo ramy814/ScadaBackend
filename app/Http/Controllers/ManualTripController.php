@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\ApproveManualTripRequest;
 use App\Http\Requests\ManualTripIndexRequest;
 use App\Http\Requests\StoreManualTripRequest;
 use App\Repositories\SystemPermissionRepository;
@@ -29,9 +30,35 @@ class ManualTripController extends Controller
             'filters' => $filters,
             'indexUrl' => route('admin.manual-trips.index'),
             'createUrl' => route('admin.manual-trips.create'),
+            'canCreate' => $this->permissions->hasActionPermission($this->userId(), SystemPermissionRepository::ENTER_MANUAL_TRIP),
+            'approvalUrl' => $this->permissions->hasActionPermission($this->userId(), SystemPermissionRepository::APPROVE_MANUAL_TRIP)
+                ? route('admin.manual-trips.requests') : null,
             ...$this->navigationProps(),
             'logoutUrl' => route('logout'),
         ]);
+    }
+
+    public function requests(ManualTripIndexRequest $request): Response
+    {
+        $filters = ['review_status' => 'pending', ...$request->validated()];
+
+        return Inertia::render('Admin/ManualTrips', [
+            ...$this->service->approvalOptions($this->userId(), $filters),
+            'filters' => $filters,
+            'approvalMode' => true,
+            'indexUrl' => route('admin.manual-trips.requests'),
+            'createUrl' => route('admin.manual-trips.create'),
+            'backUrl' => route('admin.manual-trips.index'),
+            'backLabel' => 'رحلاتي اليدوية',
+            'logoutUrl' => route('logout'),
+        ]);
+    }
+
+    public function approve(ApproveManualTripRequest $request, int $trip): RedirectResponse
+    {
+        $this->service->approve($this->userId(), $trip, $this->actorName(), $request->validated('note'));
+
+        return redirect()->back()->with('ok', 'تم اعتماد الطلب #'.$trip.' بنجاح.');
     }
 
     public function create(): Response
@@ -100,14 +127,17 @@ class ManualTripController extends Controller
     {
         $systems = $this->permissions->accessibleSystems($this->userId());
 
-        if ($systems->contains('fleet')) {
+        if ($systems->contains('fleet') && $this->permissions->hasActionPermission(
+            $this->userId(),
+            SystemPermissionRepository::REVIEW_TRIPS,
+        )) {
             return [
                 'backUrl' => route('admin.dashboard'),
                 'backLabel' => 'العودة لتتبع المركبات',
             ];
         }
 
-        if ($systems->isNotEmpty()) {
+        if ($systems->reject(fn (string $key): bool => $key === 'fleet')->isNotEmpty()) {
             return [
                 'backUrl' => route('portal'),
                 'backLabel' => 'العودة للبوابة',

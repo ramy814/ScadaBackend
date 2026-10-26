@@ -9,16 +9,29 @@ the default **رحلات التطبيق** tab never mixes them with driver-app t
 creating assistant may edit the entry only while it remains `pending`; approval
 or rejection immediately makes it immutable in both the register UI and the
 repository query. Before create or update, the backend reauthorizes the vehicle
-through the assistant's `ACCESS_TYPE >= 3` station path and requires the matched
+through the assistant's station path with `VEHICLE_STAGES.ACCESS_TYPE IN (1, 3)` and requires the matched
 `VEHICLE_STAGES.REMOVED_USER` to remain null; a removed station assignment can
 neither appear in the form nor authorize a submitted vehicle ID.
 
-Every supervisor review is also vehicle-category scoped. The authenticated SSO
-user must hold base `fleet` access and the action key matching the current
-`G_STORE.VEHICLE.FOLLOW_TO_OID` (`125`, `126`, `132`, or `133`). The dashboard
+Every supervisor review is also station scoped. The authenticated SSO
+user must hold base `fleet` system access and have an active
+`G_STORE.VEHICLE_STAGES` station link with `ACCESS_TYPE IN (2, 3)`. The dashboard
 filters before pagination, and detail/approve/reject/clarify routes repeat the
 live Oracle check. The assistant's station permission authorizes data entry only;
-it never grants the later supervisor review scope.
+it never grants the later supervisor review scope. Entry/review are determined
+automatically from Oracle, including navigation and runtime action checks; the
+permission editor grants system entry only and displays the derived scope read-only.
+
+## Assistant Approval Queue
+
+The assistant register exposes **اعتماد الطلبات** when runtime
+`fleet.manual-trips.approve` permits it. This requires the independent assistant
+screen grant plus Oracle review scope `(2, 3)`, without dashboard permission.
+The separate queue lists only completed manual requests for eligible vehicles,
+including entries created by other assistants. Each pending row opens a native
+confirmation dialog showing request details and an optional approval note.
+Approval rechecks live vehicle scope, locks the row, and commits the state change
+and audit together. Repeated approval or audit failure leaves no partial write.
 
 ## Goal
 To audit all trips to ensure municipal resources (vehicles, fuel) are used appropriately according to the recorded mission.

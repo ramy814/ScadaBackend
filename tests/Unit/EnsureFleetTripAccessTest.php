@@ -25,7 +25,7 @@ class EnsureFleetTripAccessTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_it_allows_a_trip_from_an_authorized_vehicle_category(): void
+    public function test_it_allows_a_trip_from_an_authorized_station(): void
     {
         $trip = new Trip;
         $access = Mockery::mock(FleetVehicleAccessService::class);
@@ -39,7 +39,7 @@ class EnsureFleetTripAccessTest extends TestCase
         self::assertSame('ok', $response->getContent());
     }
 
-    public function test_it_blocks_a_direct_trip_url_outside_the_users_categories(): void
+    public function test_it_blocks_a_direct_trip_url_outside_the_users_stations(): void
     {
         $trip = new Trip;
         $access = Mockery::mock(FleetVehicleAccessService::class);

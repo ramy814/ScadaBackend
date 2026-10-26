@@ -8,10 +8,11 @@ All admin-facing routes are handled via web routes mapped to Inertia.js views.
 
 - `GET /admin/dashboard` requires base `fleet` access and returns only trips
   whose `ORACLE_VEHICLE_ID` belongs to a live `G_STORE.VEHICLE` row covered by
-  the user's `fleet.vehicles.follow-to.125|126|132|133` permissions.
+  the user's active station assignment with
+  `G_STORE.VEHICLE_STAGES.ACCESS_TYPE IN (2, 3)`. Reports and exports use the same scope.
 - `GET /admin/trips/{trip}` and the `approve`, `reject`, and `clarify` POST
-  routes repeat this authorization against the vehicle's current
-  `FOLLOW_TO_OID`; a trip URL is never authorization by itself.
+  routes repeat this authorization against the vehicle's current active station
+  assignment; a trip URL is never authorization by itself.
 - Fine-grained vehicle permissions fail closed. Missing permissions, unavailable
   Oracle scope, or a missing vehicle match produce no dashboard data and deny
   trip-level actions rather than falling back to all vehicles.
@@ -21,12 +22,14 @@ All admin-facing routes are handled via web routes mapped to Inertia.js views.
 - `GET /admin/manual-trips`, `GET /admin/manual-trips/create`,
   `POST /admin/manual-trips`, `GET /admin/manual-trips/{trip}/edit`, and
   `PUT /admin/manual-trips/{trip}` require admin
-  authentication, the global operational gate, and the exact fail-closed
-  `fleet.trips.create` permission. Base `fleet` access is intentionally not
-  required or implied.
+  authentication, the operational gate, and independent assistant-screen access
+  `fleet.trips.create`. Dashboard `fleet` access is not required or implied.
+  Create/edit/store/update additionally require runtime `fleet.trips.enter`,
+  derived from Oracle entry scope. The register remains accessible for history
+  when current vehicle assignments no longer permit entry; mutation buttons are hidden.
 - Vehicle options and the submitted vehicle are scoped using the authenticated
   SSO `MOG_USERS.USERS_LIST.ID`, station assignments, and
-  `TRACKING.USER_STATION.ACCESS_TYPE >= 3`. The linked
+  `G_STORE.VEHICLE_STAGES.ACCESS_TYPE IN (1, 3)`. The linked
   `G_STORE.VEHICLE_STAGES` row must also have `REMOVED_USER IS NULL`, excluding
   stations removed from a vehicle. The save path must re-run the scope;
   client-provided vehicle details are never authoritative.
@@ -40,6 +43,12 @@ All admin-facing routes are handled via web routes mapped to Inertia.js views.
   `entered_by_user_id`; filters are search, review status, scoped vehicle, and
   inclusive date bounds. Update also requires the same creator and a still-pending
   review status, and creates `trip.manual.updated` audit history.
+
+## Assistant Manual Approval
+
+- `GET /admin/manual-trips/requests` lists completed confirmed manual requests within the assistant's current review-vehicle scope, including other creators' entries. It defaults to `review_status=pending`; `all` shows reviewed history with the same filters and pagination.
+- `POST /admin/manual-trips/{trip}/approve` accepts an optional `note` (at most 1000 characters). Both routes require the independent `fleet.trips.create` screen grant and runtime `fleet.manual-trips.approve`, derived from active Oracle `ACCESS_TYPE IN (2, 3)`. They do not require dashboard access or another editable role.
+- `ManualTripService` repeats the selected vehicle's live review check. `TripRepository::approveManual()` locks the manual row inside a transaction, requires confirmed/ended/pending state, updates approval metadata, and creates a `trip.reviewed` audit row atomically. Mobile, rejected, already-approved, and incomplete trips cannot be approved here.
 
 ## Authentication
 Mobile APIs require a Sanctum token with exactly one system ability: `driver` for Fleet Driver, `wells` for Wells, or `scada` for the SCADA/Valves app.

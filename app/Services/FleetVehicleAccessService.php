@@ -18,16 +18,18 @@ class FleetVehicleAccessService
     /** @return array<int, string> */
     public function allowedVehicleIds(int $userId): array
     {
+        if (! $this->permissions->hasActionPermission($userId, SystemPermissionRepository::REVIEW_TRIPS)) {
+            return [];
+        }
+
         return $this->vehicles
-            ->vehicleIdsForFollowToOids($this->permissions->fleetFollowToOids($userId))
+            ->vehicleIdsForReviewer($userId)
             ->all();
     }
 
     public function canAccessTrip(int $userId, Trip $trip): bool
     {
-        return $this->vehicles->vehicleMatchesFollowToOids(
-            $trip->oracle_vehicle_id,
-            $this->permissions->fleetFollowToOids($userId),
-        );
+        return $this->permissions->hasActionPermission($userId, SystemPermissionRepository::REVIEW_TRIPS)
+            && $this->vehicles->reviewerCanAccessVehicle($userId, $trip->oracle_vehicle_id);
     }
 }

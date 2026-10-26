@@ -115,7 +115,7 @@ class SystemPermissionUserIdTest extends TestCase
         $this->assertSame(1061, $permissions->resolvedUserId);
     }
 
-    public function test_portal_redirects_a_manual_trip_only_user_to_their_trip_register(): void
+    public function test_portal_redirects_a_fleet_user_with_only_oracle_entry_access_to_their_trip_register(): void
     {
         $permissions = new class extends SystemPermissionRepository
         {
@@ -123,7 +123,7 @@ class SystemPermissionUserIdTest extends TestCase
 
             public function accessibleSystems(int $userId): Collection
             {
-                return collect();
+                return collect(['fleet']);
             }
 
             public function hasActionPermission(int $userId, string $permissionKey): bool
@@ -148,6 +148,22 @@ class SystemPermissionUserIdTest extends TestCase
 
         $this->assertInstanceOf(RedirectResponse::class, $response);
         $this->assertSame(route('admin.manual-trips.index'), $response->getTargetUrl());
+    }
+
+    public function test_portal_admits_a_standalone_manual_assistant_without_dashboard_access(): void
+    {
+        $permissions = \Mockery::mock(SystemPermissionRepository::class);
+        $permissions->shouldReceive('accessibleSystems')->with(1061)->andReturn(collect());
+        $permissions->shouldReceive('hasActionPermission')->with(1061, SystemPermissionRepository::CREATE_MANUAL_TRIP)->andReturnTrue();
+        $permissions->shouldReceive('hasActionPermission')->with(1061, SystemPermissionRepository::REVIEW_TRIPS)->andReturnFalse();
+        $guard = \Mockery::mock(StatefulGuard::class);
+        $guard->shouldReceive('user')->andReturn($this->ssoUser());
+        Auth::shouldReceive('guard')->with('admin')->andReturn($guard);
+
+        $response = (new PortalController($permissions))->index(Request::create('/'));
+
+        self::assertInstanceOf(RedirectResponse::class, $response);
+        self::assertSame(route('admin.manual-trips.index'), $response->getTargetUrl());
     }
 
     private function ssoUser(): MogSsoUser

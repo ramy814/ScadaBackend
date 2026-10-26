@@ -37,6 +37,29 @@ class ManualTripService
         ];
     }
 
+    public function approvalOptions(int $ssoUserId, array $filters): array
+    {
+        $trips = $this->trips->paginateManualForApproval(
+            $this->vehicles->vehicleIdsForReviewer($ssoUserId)->all(),
+            $filters,
+        );
+        $trips->getCollection()->each(function (Trip $trip): void {
+            $trip->setAttribute('approve_url', route('admin.manual-trips.approve', $trip->getKey()));
+        });
+
+        return ['trips' => $trips, 'vehicles' => $this->vehicles->forManualReviewer($ssoUserId)];
+    }
+
+    public function approve(int $ssoUserId, int $tripId, string $actorName, ?string $note): Trip
+    {
+        $trip = $this->trips->findManualForApproval($tripId)
+            ?? throw (new ModelNotFoundException)->setModel(Trip::class, [$tripId]);
+        abort_unless($this->vehicles->reviewerCanAccessVehicle($ssoUserId, $trip->oracle_vehicle_id), 403,
+            'ليست لديك صلاحية اعتماد الطلب لهذه المركبة.');
+
+        return $this->trips->approveManual($tripId, $ssoUserId, $actorName, $note);
+    }
+
     /** @return array<string, mixed> */
     public function editOptions(int $ssoUserId, int $tripId): array
     {

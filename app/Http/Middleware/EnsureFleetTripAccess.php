@@ -23,7 +23,7 @@ class EnsureFleetTripAccess
         abort_unless(
             $this->access->canAccessTrip((int) Auth::guard('admin')->id(), $trip),
             403,
-            'ليست لديك صلاحية مراجعة مركبة هذه الرحلة.',
+            'ليست لديك صلاحية اعتماد الرحلات لهذه المركبة ضمن محطاتك.',
         );
 
         return $next($request);

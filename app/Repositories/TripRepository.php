@@ -12,10 +12,38 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class TripRepository
 {
     private const ROUTE_PREVIEW_POINTS = 100;
+
+    public function reportQuery(
+        DateTimeInterface $from,
+        DateTimeInterface $to,
+        string $driverSearch,
+        string $vehicleSearch,
+        array $allowedVehicleIds,
+    ): Builder {
+        return $this->scopeToVehicleIds(Trip::query(), $allowedVehicleIds)
+            ->whereBetween('started_at', [$from, $to])
+            ->latest('started_at')
+            ->when($driverSearch !== '', function (Builder $query) use ($driverSearch): void {
+                $query->where(function (Builder $query) use ($driverSearch): void {
+                    $query->where('driver_name', 'like', "%{$driverSearch}%")
+                        ->orWhere('driver_phone', 'like', "%{$driverSearch}%")
+                        ->orWhere('driver_employee_number', 'like', "%{$driverSearch}%")
+                        ->orWhere('oracle_driver_id', $driverSearch);
+                });
+            })
+            ->when($vehicleSearch !== '', function (Builder $query) use ($vehicleSearch): void {
+                $query->where(function (Builder $query) use ($vehicleSearch): void {
+                    $query->where('vehicle_plate', 'like', "%{$vehicleSearch}%")
+                        ->orWhere('vehicle_name', 'like', "%{$vehicleSearch}%")
+                        ->orWhere('oracle_vehicle_id', $vehicleSearch);
+                });
+            });
+    }
 
     /** @return array{locations: Collection<int, string>, mission_types: Collection<int, string>} */
     public function manualTripOptions(): array
@@ -60,12 +88,57 @@ class TripRepository
     /** @param array<string, mixed> $filters */
     public function paginateManualForAssistant(int $ssoUserId, array $filters, int $perPage = 15): LengthAwarePaginator
     {
+        return $this->manualTripsQuery($filters)
+            ->where('entered_by_user_id', $ssoUserId)
+            ->latest('started_at')->paginate($perPage)->withQueryString();
+    }
+
+    public function paginateManualForApproval(array $vehicleIds, array $filters, int $perPage = 15): LengthAwarePaginator
+    {
+        return $this->scopeToVehicleIds($this->manualTripsQuery($filters), $vehicleIds)
+            ->where('status', 'confirmed')->whereNotNull('ended_at')
+            ->orderByRaw("case when review_status = 'pending' then 0 else 1 end")
+            ->latest('started_at')->paginate($perPage)->withQueryString();
+    }
+
+    public function findManualForApproval(int $tripId): ?Trip
+    {
+        return Trip::query()->whereKey($tripId)->where('entry_source', 'manual')->first();
+    }
+
+    public function approveManual(int $tripId, int $actorId, string $actorName, ?string $note): Trip
+    {
+        return DB::transaction(function () use ($tripId, $actorId, $actorName, $note): Trip {
+            $trip = Trip::query()->whereKey($tripId)->where('entry_source', 'manual')->lockForUpdate()->firstOrFail();
+            if ($trip->review_status !== 'pending' || $trip->status !== 'confirmed' || $trip->ended_at === null) {
+                throw ValidationException::withMessages(['approval' => 'الطلب غير جاهز للاعتماد أو تمت مراجعته مسبقاً.']);
+            }
+
+            $trip->update([
+                'review_status' => 'approved',
+                'review_note' => $note,
+                'reviewed_by' => $actorId,
+                'reviewed_at' => now(),
+            ]);
+            AuditLog::query()->create([
+                'event_type' => 'trip.reviewed',
+                'entity_type' => 'trip',
+                'entity_id' => $trip->getKey(),
+                'actor' => (string) $actorId,
+                'payload' => ['review_status' => 'approved', 'note' => $note, 'actor_name' => $actorName, 'source' => 'manual_assistant'],
+            ]);
+
+            return $trip->refresh();
+        });
+    }
+
+    private function manualTripsQuery(array $filters): Builder
+    {
         $search = trim((string) ($filters['search'] ?? ''));
 
         return Trip::query()
             ->where('entry_source', 'manual')
-            ->where('entered_by_user_id', $ssoUserId)
-            ->when(filled($filters['review_status'] ?? null), fn (Builder $query) => $query
+            ->when(filled($filters['review_status'] ?? null) && $filters['review_status'] !== 'all', fn (Builder $query) => $query
                 ->where('review_status', $filters['review_status']))
             ->when(filled($filters['oracle_vehicle_id'] ?? null), fn (Builder $query) => $query
                 ->where('oracle_vehicle_id', $filters['oracle_vehicle_id']))
@@ -86,10 +159,7 @@ class TripRepository
                         $query->orWhere('id', (int) $search);
                     }
                 });
-            })
-            ->latest('started_at')
-            ->paginate($perPage)
-            ->withQueryString();
+            });
     }
 
     public function findEditableManualForAssistant(int $tripId, int $ssoUserId): ?Trip
@@ -105,6 +175,10 @@ class TripRepository
     public function updateManual(Trip $trip, array $attributes, string $actor): Trip
     {
         return DB::transaction(function () use ($trip, $attributes, $actor): Trip {
+            $trip = Trip::query()->whereKey($trip->getKey())->where('entry_source', 'manual')->lockForUpdate()->firstOrFail();
+            if ($trip->review_status !== 'pending') {
+                throw ValidationException::withMessages(['trip' => 'لا يمكن تعديل الطلب بعد مراجعته.']);
+            }
             $trip->update($attributes);
 
             AuditLog::query()->create([

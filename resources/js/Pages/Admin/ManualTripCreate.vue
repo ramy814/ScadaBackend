@@ -122,7 +122,7 @@ function submit() {
       <div v-if="page.props.flash?.ok" class="alert success">{{ page.props.flash.ok }}</div>
       <div v-if="page.props.flash?.error" class="alert error">{{ page.props.flash.error }}</div>
       <div v-if="Object.keys(form.errors).length" class="alert error error-summary">
-        تعذر حفظ الرحلة. راجع الحقول الموضحة أدناه.
+        {{ form.errors.trip || 'تعذر حفظ الرحلة. راجع الحقول الموضحة أدناه.' }}
       </div>
 
       <section class="intro">

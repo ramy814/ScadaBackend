@@ -25,31 +25,22 @@ class SystemPermissionRepository
 
     public const DELETE_DIESEL_INVENTORY = 'wells.diesel-inventories.delete';
 
+    // Preserve the existing stored key for independent assistant-screen access.
     public const CREATE_MANUAL_TRIP = 'fleet.trips.create';
 
-    public const FLEET_VEHICLES_RENTED = 'fleet.vehicles.follow-to.125';
+    public const ENTER_MANUAL_TRIP = 'fleet.trips.enter';
 
-    public const FLEET_VEHICLES_MUNICIPALITY = 'fleet.vehicles.follow-to.126';
+    public const APPROVE_MANUAL_TRIP = 'fleet.manual-trips.approve';
 
-    public const FLEET_VEHICLES_INSTITUTIONS = 'fleet.vehicles.follow-to.132';
-
-    public const FLEET_VEHICLES_MINISTRIES = 'fleet.vehicles.follow-to.133';
-
-    public const FLEET_FOLLOW_TO_PERMISSIONS = [
-        self::FLEET_VEHICLES_RENTED => 125,
-        self::FLEET_VEHICLES_MUNICIPALITY => 126,
-        self::FLEET_VEHICLES_INSTITUTIONS => 132,
-        self::FLEET_VEHICLES_MINISTRIES => 133,
-    ];
+    public const REVIEW_TRIPS = 'fleet.trips.review';
 
     public const ACTION_KEYS = [
         self::DELETE_WELL_READING,
         self::DELETE_DIESEL_INVENTORY,
         self::CREATE_MANUAL_TRIP,
-        self::FLEET_VEHICLES_RENTED,
-        self::FLEET_VEHICLES_MUNICIPALITY,
-        self::FLEET_VEHICLES_INSTITUTIONS,
-        self::FLEET_VEHICLES_MINISTRIES,
+        self::ENTER_MANUAL_TRIP,
+        self::APPROVE_MANUAL_TRIP,
+        self::REVIEW_TRIPS,
     ];
 
     public const PERMISSION_KEYS = [
@@ -59,22 +50,17 @@ class SystemPermissionRepository
         self::DELETE_WELL_READING,
         self::DELETE_DIESEL_INVENTORY,
         self::CREATE_MANUAL_TRIP,
-        self::FLEET_VEHICLES_RENTED,
-        self::FLEET_VEHICLES_MUNICIPALITY,
-        self::FLEET_VEHICLES_INSTITUTIONS,
-        self::FLEET_VEHICLES_MINISTRIES,
     ];
 
     public const ACTION_REQUIREMENTS = [
         self::DELETE_WELL_READING => 'wells',
         self::DELETE_DIESEL_INVENTORY => 'wells',
-        self::FLEET_VEHICLES_RENTED => 'fleet',
-        self::FLEET_VEHICLES_MUNICIPALITY => 'fleet',
-        self::FLEET_VEHICLES_INSTITUTIONS => 'fleet',
-        self::FLEET_VEHICLES_MINISTRIES => 'fleet',
     ];
 
-    public function __construct(private readonly OracleReadiness $readiness) {}
+    public function __construct(
+        private readonly OracleReadiness $readiness,
+        private readonly MunicipalityVehicleRepository $vehicles,
+    ) {}
 
     /**
      * Check if a user has access to a specific system.
@@ -122,6 +108,19 @@ class SystemPermissionRepository
             return false;
         }
 
+        if (in_array($permissionKey, [self::ENTER_MANUAL_TRIP, self::APPROVE_MANUAL_TRIP, self::REVIEW_TRIPS], true)) {
+            $canAccessScreen = $permissionKey === self::REVIEW_TRIPS
+                ? $this->hasAccess($userId, 'fleet')
+                : $this->hasActionPermission($userId, self::CREATE_MANUAL_TRIP);
+            if (! $canAccessScreen) {
+                return false;
+            }
+
+            $access = $this->vehicles->operationAccessForUsers([$userId])->get($userId, []);
+
+            return (bool) ($access[$permissionKey === self::ENTER_MANUAL_TRIP ? 'can_enter' : 'can_review'] ?? false);
+        }
+
         try {
             return SystemPermission::query()
                 ->where('user_id', $userId)
@@ -130,31 +129,6 @@ class SystemPermissionRepository
         } catch (QueryException $e) {
             if ($this->isTableMissing($e)) {
                 return false;
-            }
-
-            throw $e;
-        }
-    }
-
-    /** @return array<int, int> */
-    public function fleetFollowToOids(int $userId): array
-    {
-        if (! $this->readiness->available()) {
-            return [];
-        }
-
-        try {
-            return SystemPermission::query()
-                ->where('user_id', $userId)
-                ->whereIn('system_key', array_keys(self::FLEET_FOLLOW_TO_PERMISSIONS))
-                ->pluck('system_key')
-                ->map(fn (string $key): int => self::FLEET_FOLLOW_TO_PERMISSIONS[$key])
-                ->unique()
-                ->values()
-                ->all();
-        } catch (QueryException $e) {
-            if ($this->isTableMissing($e)) {
-                return [];
             }
 
             throw $e;
@@ -186,8 +160,7 @@ class SystemPermissionRepository
     }
 
     /**
-     * The global admin gate also admits users whose only entry point is a
-     * standalone action page, such as manual trip entry.
+     * The global admin gate recognizes granted system access and managed actions.
      */
     public function hasAnyAccess(int $userId): bool
     {
@@ -289,6 +262,7 @@ class SystemPermissionRepository
 
         try {
             return SystemPermission::query()
+                ->whereIn('system_key', self::PERMISSION_KEYS)
                 ->orderByDesc('granted_at')
                 ->get();
         } catch (QueryException $e) {
@@ -313,16 +287,18 @@ class SystemPermissionRepository
             ->values();
 
         $users = $this->usersById($userIds);
+        $fleetAccess = $this->vehicles->operationAccessForUsers($userIds->all());
 
         return $permissions
             ->groupBy(fn (SystemPermission $permission): int => (int) $permission->user_id)
-            ->map(function (Collection $items, int $userId) use ($users): array {
+            ->map(function (Collection $items, int $userId) use ($users, $fleetAccess): array {
                 $user = $users->get($userId);
 
                 return [
                     'user_id' => $userId,
                     'name' => $user?->name,
                     'email' => $user?->email,
+                    'fleet_access' => $fleetAccess->get($userId, ['can_enter' => false, 'can_review' => false]),
                     'systems' => $items->pluck('system_key')->values()->all(),
                     'permissions' => $items->map(fn (SystemPermission $permission): array => [
                         'id' => $permission->getKey(),
@@ -369,11 +345,16 @@ class SystemPermissionRepository
                 ->get(['user_id', 'system_key'])
                 ->groupBy(fn (SystemPermission $permission): int => (int) $permission->user_id);
 
+            $fleetAccess = $this->vehicles->operationAccessForUsers(
+                $users->map(fn (MogSsoUser $user): int => (int) $user->getKey())->all(),
+            );
+
             return $users->map(fn (MogSsoUser $user): array => [
                 'id' => (int) $user->getKey(),
                 'emp_id' => $user->emp_id,
                 'full_name' => $user->full_name,
                 'user_mobile' => $user->user_mobile,
+                'fleet_access' => $fleetAccess->get((int) $user->getKey(), ['can_enter' => false, 'can_review' => false]),
                 'systems' => $permissionsByUser
                     ->get((int) $user->getKey(), collect())
                     ->pluck('system_key')

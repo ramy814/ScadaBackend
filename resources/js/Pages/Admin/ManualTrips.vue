@@ -1,6 +1,6 @@
 <script setup>
-import { Head, Link, router, usePage } from '@inertiajs/vue3'
-import { reactive } from 'vue'
+import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3'
+import { nextTick, reactive, ref } from 'vue'
 
 defineOptions({ layout: null })
 
@@ -10,12 +10,34 @@ const props = defineProps({
   filters: { type: Object, default: () => ({}) },
   indexUrl: { type: String, required: true },
   createUrl: { type: String, required: true },
+  canCreate: { type: Boolean, default: false },
+  approvalUrl: { type: String, default: null },
+  approvalMode: { type: Boolean, default: false },
   backUrl: { type: String, default: null },
   backLabel: { type: String, default: null },
   logoutUrl: { type: String, required: true },
 })
 
 const page = usePage()
+const approvalDialog = ref(null)
+const selectedTrip = ref(null)
+const approvalForm = useForm({ note: '' })
+
+async function openApproval(trip) {
+  selectedTrip.value = trip
+  approvalForm.reset()
+  approvalForm.clearErrors()
+  await nextTick()
+  approvalDialog.value.showModal()
+}
+
+function approve() {
+  if (!selectedTrip.value || approvalForm.processing) return
+  approvalForm.post(selectedTrip.value.approve_url, {
+    preserveScroll: true,
+    onSuccess: () => approvalDialog.value.close(),
+  })
+}
 const filterForm = reactive({
   search: props.filters.search ?? '',
   review_status: props.filters.review_status ?? '',
@@ -52,13 +74,14 @@ const statusLabels = {
 </script>
 
 <template>
-  <Head title="رحلاتي اليدوية" />
+  <Head :title="approvalMode ? 'اعتماد الطلبات اليدوية' : 'رحلاتي اليدوية'" />
 
   <div class="manual-page" dir="rtl">
     <header class="manual-header">
-      <div><p>نظام تتبع المركبات</p><h1>رحلاتي اليدوية</h1></div>
+      <div><p>نظام تتبع المركبات</p><h1>{{ approvalMode ? 'اعتماد الطلبات اليدوية' : 'رحلاتي اليدوية' }}</h1></div>
       <nav>
-        <Link class="primary" :href="createUrl">إدخال رحلة جديدة</Link>
+        <Link v-if="approvalUrl" class="approval-link" :href="approvalUrl">اعتماد الطلبات</Link>
+        <Link v-if="canCreate" class="primary" :href="createUrl">إدخال رحلة جديدة</Link>
         <Link v-if="backUrl" :href="backUrl">{{ backLabel }}</Link>
         <a :href="logoutUrl" rel="external">تسجيل خروج</a>
       </nav>
@@ -69,13 +92,13 @@ const statusLabels = {
       <div v-if="page.props.flash?.error" class="alert error">{{ page.props.flash.error }}</div>
 
       <section class="intro">
-        <div><span class="step">سجل المساعد الإداري</span><h2>الرحلات التي أدخلتها</h2></div>
+        <div><span class="step">سجل المساعد الإداري</span><h2>{{ approvalMode ? 'طلبات المركبات المسندة للاعتماد' : 'الرحلات التي أدخلتها' }}</h2></div>
         <div class="vehicle-count">{{ trips.total }} رحلة</div>
       </section>
 
       <form class="filters" @submit.prevent="applyFilters">
         <label><span>بحث</span><input v-model="filterForm.search" placeholder="رقم الرحلة، المركبة، السائق أو المسار" /></label>
-        <label><span>الحالة</span><select v-model="filterForm.review_status"><option value="">كل الحالات</option><option value="pending">بانتظار المراجعة</option><option value="approved">معتمدة</option><option value="rejected">مرفوضة</option></select></label>
+        <label><span>الحالة</span><select v-model="filterForm.review_status"><option :value="approvalMode ? 'all' : ''">كل الحالات</option><option value="pending">بانتظار المراجعة</option><option value="approved">معتمدة</option><option value="rejected">مرفوضة</option></select></label>
         <label><span>المركبة</span><select v-model="filterForm.oracle_vehicle_id"><option value="">كل المركبات</option><option v-for="vehicle in vehicles" :key="vehicle.oracle_id" :value="vehicle.oracle_id">{{ vehicle.plate_number }} — {{ vehicle.name || 'مركبة بلدية' }}</option></select></label>
         <label><span>من تاريخ</span><input v-model="filterForm.date_from" type="date" lang="en-GB" dir="ltr" /></label>
         <label><span>إلى تاريخ</span><input v-model="filterForm.date_to" type="date" lang="en-GB" dir="ltr" /></label>
@@ -85,7 +108,7 @@ const statusLabels = {
       <section class="table-panel">
         <div class="table-scroll">
           <table>
-            <thead><tr><th>#</th><th>التاريخ والوقت</th><th>المركبة</th><th>السائق</th><th>المسار</th><th>المسافة التقديرية</th><th>الحالة</th><th>الإجراء</th></tr></thead>
+            <thead><tr><th>#</th><th>التاريخ والوقت</th><th>المركبة</th><th>السائق</th><th>المسار</th><th>المسافة التقديرية</th><th v-if="approvalMode">مقدم الطلب</th><th>الحالة</th><th>الإجراء</th></tr></thead>
             <tbody>
               <tr v-for="trip in trips.data" :key="trip.id">
                 <td class="mono">#{{ trip.id }}</td>
@@ -94,10 +117,15 @@ const statusLabels = {
                 <td>{{ trip.driver_name }}</td>
                 <td>{{ trip.origin_text }} ← {{ trip.destination_text }}<small>{{ trip.mission_type }}</small></td>
                 <td class="nowrap">{{ trip.distance_km ?? '-' }} كم</td>
+                <td v-if="approvalMode">{{ trip.entered_by_name || '-' }}<small>{{ trip.notes || '-' }}</small></td>
                 <td><span :class="['status', trip.review_status]">{{ statusLabels[trip.review_status] || trip.review_status }}</span></td>
-                <td><Link v-if="trip.review_status === 'pending'" class="edit-link" :href="`${indexUrl}/${trip.id}/edit`">تعديل</Link><span v-else class="locked">مقفلة بعد المراجعة</span></td>
+                <td>
+                  <button v-if="approvalMode && trip.review_status === 'pending'" class="approve-button" type="button" @click="openApproval(trip)">اعتماد</button>
+                  <Link v-else-if="canCreate && trip.review_status === 'pending'" class="edit-link" :href="`${indexUrl}/${trip.id}/edit`">تعديل</Link>
+                  <span v-else class="locked">{{ trip.review_status === 'pending' ? 'عرض فقط' : 'مقفلة بعد المراجعة' }}</span>
+                </td>
               </tr>
-              <tr v-if="!trips.data.length"><td colspan="8" class="empty">لا توجد رحلات مطابقة للفلاتر.</td></tr>
+              <tr v-if="!trips.data.length"><td :colspan="approvalMode ? 9 : 8" class="empty">{{ approvalMode ? 'لا توجد طلبات مطابقة للفلاتر ضمن مركباتك.' : 'لا توجد رحلات مطابقة للفلاتر.' }}</td></tr>
             </tbody>
           </table>
         </div>
@@ -107,10 +135,48 @@ const statusLabels = {
         </div>
       </section>
     </main>
+    <dialog ref="approvalDialog" class="approval-dialog" aria-labelledby="approval-title" @cancel="approvalForm.processing && $event.preventDefault()" @close="selectedTrip = null">
+      <form v-if="selectedTrip" @submit.prevent="approve">
+        <h2 id="approval-title">اعتماد الطلب #{{ selectedTrip.id }}</h2>
+        <dl>
+          <dt>المركبة</dt><dd>{{ selectedTrip.vehicle_plate }}</dd>
+          <dt>السائق</dt><dd>{{ selectedTrip.driver_name }}</dd>
+          <dt>مقدم الطلب</dt><dd>{{ selectedTrip.entered_by_name || '-' }}</dd>
+          <dt>المهمة</dt><dd>{{ selectedTrip.mission_type || '-' }}</dd>
+          <dt>المسار</dt><dd>{{ selectedTrip.origin_text }} ← {{ selectedTrip.destination_text }}</dd>
+          <dt>البدء</dt><dd><bdi>{{ formatDate(selectedTrip.started_at) }}</bdi></dd>
+          <dt>الانتهاء</dt><dd><bdi>{{ formatDate(selectedTrip.ended_at) }}</bdi></dd>
+          <dt>المسافة التقديرية</dt><dd>{{ selectedTrip.distance_km ?? '-' }} كم</dd>
+          <dt>الملاحظات</dt><dd>{{ selectedTrip.notes || '-' }}</dd>
+        </dl>
+        <label for="approval-note">ملاحظة الاعتماد (اختياري)</label>
+        <textarea id="approval-note" v-model="approvalForm.note" maxlength="1000" rows="3" :disabled="approvalForm.processing" />
+        <p v-if="approvalForm.errors.note || approvalForm.errors.approval" class="approval-error" role="alert">{{ approvalForm.errors.note || approvalForm.errors.approval }}</p>
+        <footer>
+          <button type="button" :disabled="approvalForm.processing" @click="approvalDialog.close()">إلغاء</button>
+          <button class="approve-button" type="submit" :disabled="approvalForm.processing">{{ approvalForm.processing ? 'جاري الاعتماد...' : 'تأكيد الاعتماد' }}</button>
+        </footer>
+      </form>
+    </dialog>
   </div>
 </template>
 
 <style scoped>
+.manual-header a.approval-link, .approve-button { background:#047857; color:#fff; border:1px solid #047857; }
+.approve-button { min-height:36px; padding:7px 14px; border-radius:8px; font:inherit; font-weight:700; cursor:pointer; white-space:nowrap; }
+.approval-dialog { box-sizing:border-box; position:fixed; inset:0; margin:auto; width:min(560px, calc(100% - 32px)); max-height:85dvh; padding:24px; border:1px solid var(--theme-border); border-radius:8px; background:var(--theme-bg); color:var(--theme-text); font-family:'Tajawal','Segoe UI',sans-serif; line-height:1.6; overflow:auto; }
+.approval-dialog::backdrop { background:rgba(0,0,0,.55); }
+.approval-dialog h2 { margin:0 0 20px; font-size:20px; }
+.approval-dialog dl { display:grid; grid-template-columns:100px minmax(0,1fr); gap:12px; font-size:14px; }
+.approval-dialog dt { color:var(--theme-text-muted); }
+.approval-dialog dd { margin:0; overflow-wrap:anywhere; }
+.approval-dialog label { display:block; margin:18px 0 8px; font-size:14px; }
+.approval-dialog textarea { box-sizing:border-box; width:100%; padding:10px; border:1px solid var(--theme-border); border-radius:8px; background:var(--theme-input); color:var(--theme-text); font:inherit; resize:vertical; }
+.approval-dialog footer { display:flex; justify-content:flex-end; flex-wrap:wrap; gap:10px; margin-top:20px; }
+.approval-dialog footer button { min-height:40px; padding:8px 16px; border:1px solid var(--theme-border); border-radius:8px; font:inherit; cursor:pointer; }
+.approval-dialog footer button:not(.approve-button) { background:var(--theme-bg); color:var(--theme-text); }
+.approval-dialog button:disabled { opacity:.6; cursor:wait; }
+.approval-error { color:var(--theme-danger, #dc2626); font-size:14px; }
 .manual-page { box-sizing: border-box; min-height: 100vh; padding-bottom: 60px; background: var(--theme-bg); color: var(--theme-text); font-family: 'Tajawal', 'Segoe UI', sans-serif; }
 .manual-header { display:flex;align-items:center;justify-content:space-between;gap:24px;padding:20px max(24px, calc((100vw - 1180px) / 2));background:var(--theme-surface);border-bottom:1px solid var(--theme-border); }
 .manual-header p { margin:0 0 4px;color:#3b82f6;font-size:13px;font-weight:800; }.manual-header h1 { margin:0;font-size:24px; }.manual-header nav { display:flex;gap:10px;flex-wrap:wrap; }.manual-header a { color:var(--theme-text);text-decoration:none;border:1px solid var(--theme-border);border-radius:10px;padding:9px 14px;font-size:13px;font-weight:700; }.manual-header a.primary { background:#2563eb;color:white;border-color:#2563eb; }

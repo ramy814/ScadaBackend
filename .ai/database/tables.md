@@ -7,9 +7,9 @@ The system uses a hybrid database approach:
 
 ## External Oracle Vehicle/Station Scope
 
-- `G_STORE.VEHICLE`: Vehicle source; `OID` is matched to `G_STORE.VEHICLE_STAGES.VEHICLE_OID`. `FOLLOW_TO_OID` is the live Fleet supervisor scope: `125` rented, `126` municipality-owned, `132` institutions, and `133` government ministries.
-- `G_STORE.VEHICLE_STAGES`: Vehicle-to-station history. Only rows with `REMOVED_USER IS NULL` represent an active station assignment for manual-trip access; non-null means the station was removed from the vehicle.
-- `TRACKING.USER_STATION`: Connects a station through `STAGE_OID` to the tracking user. Manual entry requires `ACCESS_TYPE >= 3`.
+- `G_STORE.VEHICLE`: Vehicle source; `OID` is matched to `G_STORE.VEHICLE_STAGES.VEHICLE_OID`. Vehicle ownership categories no longer grant Fleet permissions.
+- `G_STORE.VEHICLE_STAGES`: Vehicle-to-station history. Active rows require `REMOVED_USER IS NULL`. Its `ACCESS_TYPE` is authoritative: `1` entry, `2` review/approval, `3` both; null/other values deny both.
+- `TRACKING.USER_STATION`: Connects a station through `STAGE_OID` to the tracking user. Its own `ACCESS_TYPE` is not the Fleet operation selector; do not substitute it for `VEHICLE_STAGES.ACCESS_TYPE`.
 - `MOG_USERS.USERS_LIST`: Resolves the tracking user through `TRACKING_ID`; `ID` must equal the authenticated SSO user ID.
 - `MunicipalityVehicleRepository` owns this complete Oracle scope and applies it both when listing assistant vehicles and when authorizing the selected vehicle before create/update.
 
@@ -158,7 +158,7 @@ Central per-system access table for the unified portal.
 - `user_id`: SSO user ID from `mog_users.users_list` (`id` column, NOT `emp_id`).
 - `system_key`: One of `fleet`, `wells`, or `valves`.
 - Sensitive Wells action keys also use this column: `wells.readings.delete` and `wells.diesel-inventories.delete`; both depend on base `wells` access.
-- Fleet vehicle-review keys also use this column: `fleet.vehicles.follow-to.125`, `.126`, `.132`, and `.133`; all require base `fleet` access and map exactly to `G_STORE.VEHICLE.FOLLOW_TO_OID`.
+- Fleet dashboard uses managed `fleet` access. The separate assistant-screen grant retains `fleet.trips.create` and does not require or imply `fleet`. Runtime `fleet.trips.enter` requires that screen grant plus Oracle entry scope; `fleet.manual-trips.approve` requires the screen grant plus Oracle review scope for the separate manual queue. Dashboard `fleet.trips.review` requires dashboard access plus Oracle review scope. Operations derive live from active `G_STORE.VEHICLE_STAGES.ACCESS_TYPE` and station membership; runtime keys and retired ownership categories are not grantable roles. The permission screen displays `fleet_access` read-only.
 - `granted_by`: Display name or identifier of the admin who granted access.
 - `granted_at`: Oracle-side grant timestamp.
 - Used by `SystemPermissionRepository`, `PortalController`, and `EnsureSystemAccess`.

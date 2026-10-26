@@ -536,28 +536,13 @@ class AdminAuthController extends Controller
         $vehicleSearch = trim((string) $request->query('vehicle_search', $request->query('vehicle_id', '')));
         [$from, $to] = $this->periodRange($period);
 
-        $trips = Trip::query()
-            ->whereBetween('started_at', [$from, $to])
-            ->latest('started_at');
-
-        if ($driverSearch !== '') {
-            $driverLikeSearch = "%{$driverSearch}%";
-            $trips->where(function ($query) use ($driverLikeSearch, $driverSearch): void {
-                $query->where('driver_name', 'like', $driverLikeSearch)
-                    ->orWhere('driver_phone', 'like', $driverLikeSearch)
-                    ->orWhere('driver_employee_number', 'like', $driverLikeSearch)
-                    ->orWhere('oracle_driver_id', $driverSearch);
-            });
-        }
-
-        if ($vehicleSearch !== '') {
-            $vehicleLikeSearch = "%{$vehicleSearch}%";
-            $trips->where(function ($query) use ($vehicleLikeSearch, $vehicleSearch): void {
-                $query->where('vehicle_plate', 'like', $vehicleLikeSearch)
-                    ->orWhere('vehicle_name', 'like', $vehicleLikeSearch)
-                    ->orWhere('oracle_vehicle_id', $vehicleSearch);
-            });
-        }
+        $trips = app(TripRepository::class)->reportQuery(
+            $from,
+            $to,
+            $driverSearch,
+            $vehicleSearch,
+            app(FleetVehicleAccessService::class)->allowedVehicleIds((int) Auth::guard('admin')->id()),
+        );
 
         return [[
             'period' => $period,

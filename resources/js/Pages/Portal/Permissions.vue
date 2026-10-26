@@ -32,7 +32,7 @@ const groupDefinitions = [
     key: 'fleet',
     title: 'تتبع المركبات',
     icon: '🚚',
-    description: 'الدخول، أدوار الإدخال، ونطاق المركبات التي يراجعها المستخدم.',
+    description: 'الدخول إلى المنظومة وصلاحيات المركبات المرتبطة بالمستخدم.',
   },
   {
     key: 'wells',
@@ -50,7 +50,6 @@ const groupDefinitions = [
 
 const sectionDefinitions = [
   { key: 'role', title: 'الأدوار المستقلة', hint: 'لا تمنح دخول لوحة المشرف ما لم تُحدد صلاحية الدخول أيضاً.' },
-  { key: 'scope', title: 'نطاق المراجعة والاعتماد', hint: 'تحدد فئات المركبات التي تظهر للمشرف ويمكنه اعتماد رحلاتها.' },
   { key: 'action', title: 'صلاحيات إضافية', hint: 'إجراءات حساسة تتطلب دخول المنظومة.' },
 ]
 
@@ -71,6 +70,7 @@ const permissionGroups = computed(() => groupDefinitions.map(group => {
 
 const selectedUserName = ref('')
 const selectedUserEmployeeId = ref(null)
+const selectedFleetAccess = ref({ can_enter: false, can_review: false })
 const searchQuery = ref('')
 const searchResults = ref([])
 const searching = ref(false)
@@ -78,6 +78,11 @@ let searchTimeout = null
 let searchSequence = 0
 
 const selectedPermissionCount = computed(() => form.systems.length)
+
+const fleetAccessLabel = computed(() => {
+  const { can_enter, can_review } = selectedFleetAccess.value
+  return can_enter && can_review ? 'إدخال واعتماد' : can_enter ? 'إدخال' : can_review ? 'اعتماد' : 'لا توجد صلاحيات مركبات مرتبطة بالمستخدم'
+})
 
 function normalizedPermissions(permissions = []) {
   const selected = new Set(permissions)
@@ -97,6 +102,7 @@ function selectUser(user) {
   form.systems = normalizedPermissions(user.systems)
   selectedUserName.value = user.name || user.full_name || ''
   selectedUserEmployeeId.value = user.emp_id ?? null
+  selectedFleetAccess.value = user.fleet_access ?? { can_enter: false, can_review: false }
   searchQuery.value = ''
   searchResults.value = []
 }
@@ -106,6 +112,7 @@ function clearSelectedUser() {
   form.clearErrors()
   selectedUserName.value = ''
   selectedUserEmployeeId.value = null
+  selectedFleetAccess.value = { can_enter: false, can_review: false }
   searchQuery.value = ''
   searchResults.value = []
 }
@@ -132,9 +139,7 @@ function togglePermission(permission, checked) {
 }
 
 function selectedInGroup(group) {
-  const keys = [group.primary, ...group.sections.flatMap(section => section.permissions)]
-    .filter(Boolean)
-    .map(permission => permission.key)
+  const keys = props.systems.filter(permission => permission.group === group.key).map(permission => permission.key)
 
   return keys.filter(key => form.systems.includes(key)).length
 }
@@ -425,6 +430,13 @@ function onSearch() {
                     </span>
                   </label>
 
+                  <div v-if="group.key === 'fleet'" class="permission-section">
+                    <dl class="fleet-access" aria-live="polite">
+                      <dt>صلاحيات المركبات المسندة</dt>
+                      <dd>{{ fleetAccessLabel }}</dd>
+                    </dl>
+                  </div>
+
                   <div v-for="section in group.sections" :key="section.key" class="permission-section">
                     <div class="section-heading">
                       <strong>{{ section.title }}</strong>
@@ -452,7 +464,7 @@ function onSearch() {
                     </div>
                   </div>
 
-                  <div v-if="group.sections.length === 0" class="no-extra-permissions">
+                  <div v-if="group.key !== 'fleet' && group.sections.length === 0" class="no-extra-permissions">
                     لا توجد أدوار أو صلاحيات إضافية لهذه المنظومة حالياً.
                   </div>
                 </article>
@@ -519,6 +531,9 @@ h1 { font-size: 28px; font-weight: 800; }
 input[type="text"], textarea { width: 100%; min-height: 44px; border: 1px solid var(--theme-border); border-radius: 8px; background: var(--theme-input); color: var(--theme-text); padding: 0 13px; font: inherit; }
 textarea { min-height: 92px; padding: 12px 14px; resize: vertical; }
 input[type="text"]:focus, textarea:focus { outline: 2px solid #38bdf8; outline-offset: 2px; }
+.fleet-access { display: grid; gap: 8px; margin: 0; padding-top: 8px; }
+.fleet-access dt { color: var(--theme-text-muted); font-size: 13px; }
+.fleet-access dd { margin: 0; font-weight: 700; }
 .authorized-users, .search-results { max-height: 620px; overflow-y: auto; }
 .user-list-item { display: grid; grid-template-columns: 38px minmax(0, 1fr) auto; gap: 10px; align-items: center; width: 100%; padding: 13px 14px; border: 0; border-bottom: 1px solid var(--theme-border); background: transparent; color: var(--theme-text); text-align: right; cursor: pointer; }
 .user-list-item:hover, .user-list-item.active { background: rgba(14, 165, 233, 0.1); }

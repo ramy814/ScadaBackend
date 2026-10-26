@@ -19,7 +19,7 @@ Therefore:
 ### 2.1 Manual-Entry Vehicle Scope
 
 - An administrative assistant may select a vehicle only when an Oracle existence path links `G_STORE.VEHICLE` → `G_STORE.VEHICLE_STAGES` → `TRACKING.USER_STATION` → `MOG_USERS.USERS_LIST` to the authenticated SSO user.
-- The matching `USER_STATION` row requires `ACCESS_TYPE >= 3` and the matching `VEHICLE_STAGES` row requires `REMOVED_USER IS NULL`.
+- The matching `VEHICLE_STAGES` row requires `ACCESS_TYPE IN (1, 3)` and `REMOVED_USER IS NULL`. `USER_STATION` supplies station membership, not the operation type.
 - A non-null `REMOVED_USER` means the station assignment was removed and must not expose or authorize that vehicle, even if the stage IDs still match.
 - The list, create, and update paths must reuse the same repository query. The submitted vehicle ID and vehicle/driver snapshot fields are never authoritative.
 - Manual start/end values must use the same calendar date. The end time must be strictly greater than the start time; equality, an earlier time, or a different end date is invalid. No comparison is made against the current clock time.
@@ -106,7 +106,7 @@ The `audit_logs` table must never have rows updated or deleted. It is append-onl
 - The default dashboard visibility rule still applies: completed trips with fewer than 50 stored points are excluded unless `show_experimental=1`; enabling that toggle also includes their official fuel in the KPI.
 - A manual trip with `review_status = pending` is always included in the supervisor dashboard list even when `started_at` is outside the selected period. This exception applies only to the review list; approved/rejected manual trips and dashboard period KPIs continue to use the normal date range.
 - The supervisor dashboard separates its list by `trip_source`: the default `mobile` tab excludes manual rows and the `manual` tab includes only assistant-entered rows. Manual pending rows are ordered before already reviewed rows.
-- Fleet supervisor visibility is the intersection of base `fleet` access and the granted live vehicle categories: `125` rented, `126` municipality-owned, `132` institutions, and `133` government ministries. Match `TRIPS.ORACLE_VEHICLE_ID` to `G_STORE.VEHICLE.OID`, then require its current `FOLLOW_TO_OID` to be granted. The scope applies to dashboard rows, trip-derived counts/fuel, active app vehicle/driver counts, details, and review actions. No category permission means no vehicle data; never fall back to unrestricted access.
+- Fleet supervisor visibility requires base `fleet` system access and the authenticated user's station path to an active `VEHICLE_STAGES` row with `ACCESS_TYPE IN (2, 3)`. Entry similarly requires `(1, 3)`. Runtime action checks derive automatically from these live rows, never stored action grants. Match trips by `ORACLE_VEHICLE_ID`. Apply review scope to dashboard rows, counts/fuel, app counts, reports/exports, details, and review actions. Missing station scope denies data; ownership categories are not permissions.
 - Daily, weekly, and monthly use the dashboard's existing rolling ranges. A custom range includes the entire `date_from` and `date_to` calendar days using start-of-day and end-of-day boundaries.
 
 ## 9. Wells Diesel Consumption Status
