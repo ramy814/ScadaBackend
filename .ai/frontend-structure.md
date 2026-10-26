@@ -92,6 +92,9 @@ resources/
 
 ## Assistant Approval Screen
 
+- Manual-screen return navigation follows granted system access only: users with `fleet` return to `admin.dashboard` even when Oracle currently grants no review vehicles. Users without Fleet access return to the portal only if another system is granted; standalone assistants receive no unauthorized dashboard link.
+- The assistant register keeps entry/approval commands visible but disabled when their server-owned capability is unavailable, with domain-specific messages explaining the missing assigned-vehicle access. A screen-access grant alone does not substitute for Oracle station/vehicle assignments.
+
 - `Admin/ManualTrips.vue` has an assistant-owned register and a separate `approvalMode` queue. The register receives a server-owned `approvalUrl` only when Oracle permits manual approval and shows **اعتماد الطلبات**. The queue links back to the register, includes requester/notes, defaults to pending, and preserves server filters/pagination.
 - Each pending approval row opens a native dialog with complete request details, an optional note, loading/error states, and explicit confirmation. `approve_url` comes from Laravel. Never infer approval scope from ownership or entry scope alone.
 

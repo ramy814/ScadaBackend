@@ -81,7 +81,9 @@ const statusLabels = {
       <div><p>نظام تتبع المركبات</p><h1>{{ approvalMode ? 'اعتماد الطلبات اليدوية' : 'رحلاتي اليدوية' }}</h1></div>
       <nav>
         <Link v-if="approvalUrl" class="approval-link" :href="approvalUrl">اعتماد الطلبات</Link>
+        <button v-else-if="!approvalMode" type="button" disabled title="لا تتوفر مركبات مسندة إليك بصلاحية الاعتماد حالياً">اعتماد الطلبات</button>
         <Link v-if="canCreate" class="primary" :href="createUrl">إدخال رحلة جديدة</Link>
+        <button v-else-if="!approvalMode" type="button" disabled title="لا تتوفر مركبات مسندة إليك بصلاحية الإدخال حالياً">إدخال رحلة جديدة</button>
         <Link v-if="backUrl" :href="backUrl">{{ backLabel }}</Link>
         <a :href="logoutUrl" rel="external">تسجيل خروج</a>
       </nav>
@@ -90,6 +92,10 @@ const statusLabels = {
     <main>
       <div v-if="page.props.flash?.ok" class="alert success">{{ page.props.flash.ok }}</div>
       <div v-if="page.props.flash?.error" class="alert error">{{ page.props.flash.error }}</div>
+      <div v-if="!approvalMode && (!canCreate || !approvalUrl)" class="assignment-notice" role="status">
+        <p v-if="!canCreate">لا تتوفر لك حالياً مركبات مرتبطة بمحطاتك بصلاحية الإدخال.</p>
+        <p v-if="!approvalUrl">لا تتوفر لك حالياً مركبات مرتبطة بمحطاتك بصلاحية الاعتماد.</p>
+      </div>
 
       <section class="intro">
         <div><span class="step">سجل المساعد الإداري</span><h2>{{ approvalMode ? 'طلبات المركبات المسندة للاعتماد' : 'الرحلات التي أدخلتها' }}</h2></div>
@@ -162,6 +168,10 @@ const statusLabels = {
 </template>
 
 <style scoped>
+.manual-header nav button:disabled { min-height:40px; padding:9px 14px; border:1px solid var(--theme-border); border-radius:8px; background:var(--theme-surface); color:var(--theme-text-muted); font:inherit; font-size:13px; opacity:.65; cursor:not-allowed; }
+.assignment-notice { margin-bottom:18px; padding:12px 16px; border-inline-start:3px solid #d97706; background:var(--theme-warning-bg); color:var(--theme-text); font-size:14px; line-height:1.7; }
+.assignment-notice p { margin:0; }
+@media (max-width:700px) { .manual-header nav button:disabled { flex:1; } }
 .manual-header a.approval-link, .approve-button { background:#047857; color:#fff; border:1px solid #047857; }
 .approve-button { min-height:36px; padding:7px 14px; border-radius:8px; font:inherit; font-weight:700; cursor:pointer; white-space:nowrap; }
 .approval-dialog { box-sizing:border-box; position:fixed; inset:0; margin:auto; width:min(560px, calc(100% - 32px)); max-height:85dvh; padding:24px; border:1px solid var(--theme-border); border-radius:8px; background:var(--theme-bg); color:var(--theme-text); font-family:'Tajawal','Segoe UI',sans-serif; line-height:1.6; overflow:auto; }

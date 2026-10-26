@@ -127,13 +127,10 @@ class ManualTripController extends Controller
     {
         $systems = $this->permissions->accessibleSystems($this->userId());
 
-        if ($systems->contains('fleet') && $this->permissions->hasActionPermission(
-            $this->userId(),
-            SystemPermissionRepository::REVIEW_TRIPS,
-        )) {
+        if ($systems->contains('fleet')) {
             return [
                 'backUrl' => route('admin.dashboard'),
-                'backLabel' => 'العودة لتتبع المركبات',
+                'backLabel' => 'العودة لداشبورد التتبع',
             ];
         }
 
