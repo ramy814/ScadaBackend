@@ -247,7 +247,7 @@
                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                     </Link>
 
-                    <template v-if="!['approved','rejected'].includes(trip.review_status)">
+                    <template v-if="trip.can_review && !['approved','rejected'].includes(trip.review_status)">
                       <!-- Approve -->
                       <button class="btn-icon approve" title="اعتماد" @click="submitReview('approve', trip.id)">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
@@ -260,7 +260,7 @@
                   </div>
 
                   <!-- Clarify -->
-                  <template v-if="trip.entry_source !== 'manual' && !['approved','rejected'].includes(trip.review_status)">
+                  <template v-if="trip.can_review && trip.entry_source !== 'manual' && !['approved','rejected'].includes(trip.review_status)">
                     <div v-if="trip.review_status === 'needs_clarification'" style="font-size:12px; background:var(--warn-bg); border:1px solid rgba(245,158,11,0.25); border-radius:8px; padding:6px 10px; max-width:220px;">
                       <div style="font-weight:700; color:var(--warn); margin-bottom:2px;">💬 توضيح مُرسل</div>
                       <div style="color:var(--text-primary); white-space:normal; line-height:1.4;">{{ trip.review_note }}</div>

@@ -29,7 +29,7 @@ class EnsureFleetTripAccessTest extends TestCase
     {
         $trip = new Trip;
         $access = Mockery::mock(FleetVehicleAccessService::class);
-        $access->shouldReceive('canAccessTrip')->once()->with(140, $trip)->andReturnTrue();
+        $access->shouldReceive('canViewTrip')->once()->with(140, $trip)->andReturnTrue();
 
         $response = (new EnsureFleetTripAccess($access))->handle(
             $this->requestForTrip($trip),
@@ -43,7 +43,7 @@ class EnsureFleetTripAccessTest extends TestCase
     {
         $trip = new Trip;
         $access = Mockery::mock(FleetVehicleAccessService::class);
-        $access->shouldReceive('canAccessTrip')->once()->with(140, $trip)->andReturnFalse();
+        $access->shouldReceive('canViewTrip')->once()->with(140, $trip)->andReturnFalse();
 
         try {
             (new EnsureFleetTripAccess($access))->handle(
@@ -56,7 +56,21 @@ class EnsureFleetTripAccessTest extends TestCase
         }
     }
 
-    private function requestForTrip(Trip $trip): Request
+    public function test_a_post_still_requires_review_permission_instead_of_view_permission(): void
+    {
+        $trip = new Trip;
+        $access = Mockery::mock(FleetVehicleAccessService::class);
+        $access->shouldNotReceive('canViewTrip');
+        $access->shouldReceive('canAccessTrip')->once()->with(140, $trip)->andReturnFalse();
+        $this->expectException(HttpException::class);
+
+        (new EnsureFleetTripAccess($access))->handle(
+            $this->requestForTrip($trip, 'POST'),
+            fn (): Response => new Response('unreachable'),
+        );
+    }
+
+    private function requestForTrip(Trip $trip, string $method = 'GET'): Request
     {
         $guard = Mockery::mock(StatefulGuard::class);
         $guard->shouldReceive('id')->once()->andReturn(140);
@@ -65,7 +79,7 @@ class EnsureFleetTripAccessTest extends TestCase
         $route = Mockery::mock(Route::class);
         $route->shouldReceive('parameter')->once()->with('trip', null)->andReturn($trip);
 
-        $request = Request::create('/admin/trips/1');
+        $request = Request::create('/admin/trips/1', $method);
         $request->setRouteResolver(fn (): Route => $route);
 
         return $request;

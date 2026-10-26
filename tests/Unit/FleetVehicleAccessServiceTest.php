@@ -72,4 +72,37 @@ class FleetVehicleAccessServiceTest extends TestCase
 
         self::assertFalse((new FleetVehicleAccessService($permissions, $vehicles))->canAccessTrip(140, $trip));
     }
+
+    public function test_fleet_access_allows_viewing_mobile_and_legacy_trips_without_manual_station_assignments(): void
+    {
+        $permissions = Mockery::mock(SystemPermissionRepository::class);
+        $permissions->shouldReceive('hasAccess')->twice()->with(166, 'fleet')->andReturnTrue();
+        $permissions->shouldNotReceive('hasActionPermission');
+        $vehicles = Mockery::mock(MunicipalityVehicleRepository::class);
+        $vehicles->shouldNotReceive('reviewerCanAccessVehicle');
+        $service = new FleetVehicleAccessService($permissions, $vehicles);
+        foreach (['mobile', null] as $source) {
+            $trip = new Trip;
+            $trip->entry_source = $source;
+            self::assertTrue($service->canViewTrip(166, $trip));
+        }
+    }
+
+    public function test_screen_access_alone_does_not_expose_mobile_trips_without_fleet_access(): void
+    {
+        $permissions = Mockery::mock(SystemPermissionRepository::class);
+        $permissions->shouldReceive('hasAccess')->once()->with(166, 'fleet')->andReturnFalse();
+        $trip = new Trip;
+        $trip->entry_source = 'mobile';
+        self::assertFalse((new FleetVehicleAccessService($permissions, Mockery::mock(MunicipalityVehicleRepository::class)))->canViewTrip(166, $trip));
+    }
+
+    public function test_viewing_a_manual_trip_still_requires_its_review_station_scope(): void
+    {
+        $permissions = Mockery::mock(SystemPermissionRepository::class);
+        $permissions->shouldReceive('hasActionPermission')->once()->with(166, SystemPermissionRepository::REVIEW_TRIPS)->andReturnFalse();
+        $trip = new Trip;
+        $trip->entry_source = 'manual';
+        self::assertFalse((new FleetVehicleAccessService($permissions, Mockery::mock(MunicipalityVehicleRepository::class)))->canViewTrip(166, $trip));
+    }
 }

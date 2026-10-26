@@ -25,7 +25,7 @@ class TripRepository
         string $vehicleSearch,
         array $allowedVehicleIds,
     ): Builder {
-        return $this->scopeToVehicleIds(Trip::query(), $allowedVehicleIds)
+        return $this->scopeToFleetVisibility(Trip::query(), $allowedVehicleIds)
             ->whereBetween('started_at', [$from, $to])
             ->latest('started_at')
             ->when($driverSearch !== '', function (Builder $query) use ($driverSearch): void {
@@ -284,7 +284,7 @@ class TripRepository
         int $perPage = 30,
         ?array $allowedVehicleIds = null,
     ): LengthAwarePaginator {
-        $query = $this->scopeToVehicleIds(
+        $query = $this->scopeToFleetVisibility(
             $this->dashboardTrips($showExperimental),
             $allowedVehicleIds,
         )
@@ -345,7 +345,7 @@ class TripRepository
     ): array {
         $todayStart = now()->startOfDay();
         $todayEnd = now()->endOfDay();
-        $counts = $this->scopeToVehicleIds(
+        $counts = $this->scopeToFleetVisibility(
             $this->dashboardTrips($showExperimental),
             $allowedVehicleIds,
         )
@@ -382,7 +382,7 @@ class TripRepository
         bool $showExperimental = false,
         ?array $allowedVehicleIds = null,
     ): array {
-        $fuel = $this->scopeToVehicleIds(
+        $fuel = $this->scopeToFleetVisibility(
             $this->dashboardTrips($showExperimental),
             $allowedVehicleIds,
         )
@@ -408,6 +408,22 @@ class TripRepository
                 ->whereNull('ended_at')
                 ->orWhere('entry_source', 'manual')
                 ->orWhere('points_received', '>=', 50));
+    }
+
+    private function scopeToFleetVisibility(Builder $query, ?array $allowedManualVehicleIds): Builder
+    {
+        if ($allowedManualVehicleIds === null) {
+            return $query;
+        }
+
+        return $query->where(function (Builder $visible) use ($allowedManualVehicleIds): void {
+            $visible->whereNull('entry_source')
+                ->orWhere('entry_source', 'mobile')
+                ->orWhere(function (Builder $manual) use ($allowedManualVehicleIds): void {
+                    $manual->where('entry_source', 'manual');
+                    $this->scopeToVehicleIds($manual, $allowedManualVehicleIds);
+                });
+        });
     }
 
     private function scopeToVehicleIds(Builder $query, ?array $allowedVehicleIds): Builder

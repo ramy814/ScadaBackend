@@ -6,16 +6,10 @@ All admin-facing routes are handled via web routes mapped to Inertia.js views.
 
 ## Fleet Supervisor Vehicle Scope
 
-- `GET /admin/dashboard` requires base `fleet` access and returns only trips
-  whose `ORACLE_VEHICLE_ID` belongs to a live `G_STORE.VEHICLE` row covered by
-  the user's active station assignment with
-  `G_STORE.VEHICLE_STAGES.ACCESS_TYPE IN (2, 3)`. Reports and exports use the same scope.
-- `GET /admin/trips/{trip}` and the `approve`, `reject`, and `clarify` POST
-  routes repeat this authorization against the vehicle's current active station
-  assignment; a trip URL is never authorization by itself.
-- Fine-grained vehicle permissions fail closed. Missing permissions, unavailable
-  Oracle scope, or a missing vehicle match produce no dashboard data and deny
-  trip-level actions rather than falling back to all vehicles.
+- `GET /admin/dashboard` requires base `fleet` access. Mobile and legacy null-source trips remain visible under the normal period/search/experimental filters even when the user has no manual station assignments.
+- Manual rows alone are limited by active Oracle review-vehicle scope `(2, 3)`. `scopeToFleetVisibility()` applies this source-aware boundary to lists, trip counts, official fuel, and reports/exports. An empty manual scope must never hide app trips.
+- `GET /admin/trips/{trip}` allows mobile details with Fleet system access; manual details repeat the review-station check. Every `approve`, `reject`, or `clarify` POST still requires the live review-vehicle scope, regardless of source. Server-owned `can_review`/`canReview` props hide unavailable actions.
+- Manual scope and write checks fail closed on missing assignments or unavailable Oracle data. The portal Fleet card goes to the dashboard whenever the user has Fleet access, independently of manual capabilities.
 
 ## Manual Admin Trip Entry
 

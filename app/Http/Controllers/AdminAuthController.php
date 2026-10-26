@@ -75,7 +75,7 @@ class AdminAuthController extends Controller
             $showExperimental,
             $allowedVehicleIds,
         );
-        $activeAppCounts = $driverAppUsage->dashboardActiveCounts($allowedVehicleIds);
+        $activeAppCounts = $driverAppUsage->dashboardActiveCounts();
 
         $recentTrips = $tripRepository->paginateForDashboard(
             $from,
@@ -87,6 +87,9 @@ class AdminAuthController extends Controller
             allowedVehicleIds: $allowedVehicleIds,
         );
         $this->hydrateTripDrivers($recentTrips->getCollection(), $driverRepository);
+        $recentTrips->getCollection()->each(function (Trip $trip) use ($allowedVehicleIds): void {
+            $trip->setAttribute('can_review', in_array((string) $trip->oracle_vehicle_id, $allowedVehicleIds, true));
+        });
 
         return Inertia::render('Admin/Dashboard', [
             ...$tripCounts,
@@ -221,7 +224,7 @@ class AdminAuthController extends Controller
         return redirect()->route('admin.mission-types')->with('ok', 'تم تعديل نوع المهمة.');
     }
 
-    public function showTrip(Trip $trip, VirtualFuelService $fuel): InertiaResponse
+    public function showTrip(Trip $trip, VirtualFuelService $fuel, FleetVehicleAccessService $access): InertiaResponse
     {
         $this->hydrateTripDrivers(collect([$trip]), app(MunicipalityDriverRepository::class));
 
@@ -293,6 +296,7 @@ class AdminAuthController extends Controller
 
         return Inertia::render('Admin/TripShow', [
             'trip' => $trip,
+            'canReview' => $access->canAccessTrip((int) Auth::guard('admin')->id(), $trip),
             'qualityVersion' => $qualityVersion,
             'hasFilteredDistance' => $hasFilteredDistance,
             'pointsCount' => $pointsCount,

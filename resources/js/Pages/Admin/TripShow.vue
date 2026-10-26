@@ -299,6 +299,12 @@
         </div>
       </div>
 
+      <div v-else-if="!canReview" style="padding:20px;color:var(--text-secondary);">
+        عرض فقط. لا تتوفر لك صلاحية مراجعة هذه المركبة حالياً.
+        <p v-if="trip.review_note">{{ trip.review_note }}</p>
+        <p v-if="trip.clarification_response">رد السائق: {{ trip.clarification_response }}</p>
+      </div>
+
       <!-- Needs clarification: show history + approve/reject -->
       <template v-else-if="trip.review_status === 'needs_clarification'">
         <div style="padding:24px;display:flex;flex-direction:column;gap:20px;">
@@ -361,6 +367,7 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 const page = usePage();
 
 const props = defineProps({
+  canReview: { type: Boolean, default: false },
   trip: { type: Object, required: true },
   qualityVersion: { type: Number, default: 0 },
   hasFilteredDistance: { type: Boolean, default: false },

@@ -20,8 +20,11 @@ class EnsureFleetTripAccess
         $trip = $request->route('trip');
         abort_unless($trip instanceof Trip, 404);
 
+        $userId = (int) Auth::guard('admin')->id();
         abort_unless(
-            $this->access->canAccessTrip((int) Auth::guard('admin')->id(), $trip),
+            $request->isMethodSafe()
+                ? $this->access->canViewTrip($userId, $trip)
+                : $this->access->canAccessTrip($userId, $trip),
             403,
             'ليست لديك صلاحية اعتماد الرحلات لهذه المركبة ضمن محطاتك.',
         );

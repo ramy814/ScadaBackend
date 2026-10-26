@@ -115,7 +115,7 @@ class SystemPermissionUserIdTest extends TestCase
         $this->assertSame(1061, $permissions->resolvedUserId);
     }
 
-    public function test_portal_redirects_a_fleet_user_with_only_oracle_entry_access_to_their_trip_register(): void
+    public function test_fleet_users_keep_the_dashboard_entry_even_without_manual_review_scope(): void
     {
         $permissions = new class extends SystemPermissionRepository
         {
@@ -144,10 +144,11 @@ class SystemPermissionUserIdTest extends TestCase
                 }
             });
 
-        $response = (new PortalController($permissions))->index(Request::create('/'));
+        $request = Request::create('/', 'GET', server: ['HTTP_X_INERTIA' => 'true']);
+        $response = (new PortalController($permissions))->index($request)->toResponse($request);
 
-        $this->assertInstanceOf(RedirectResponse::class, $response);
-        $this->assertSame(route('admin.manual-trips.index'), $response->getTargetUrl());
+        self::assertSame('Portal', $response->getData(true)['component']);
+        self::assertSame(route('admin.dashboard'), $response->getData(true)['props']['systems'][0]['route']);
     }
 
     public function test_portal_admits_a_standalone_manual_assistant_without_dashboard_access(): void

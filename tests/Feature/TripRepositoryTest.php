@@ -29,7 +29,7 @@ class TripRepositoryTest extends TestCase
             $table->text('clarification_response')->nullable();
             $table->decimal('virtual_fuel_liters', 10, 3)->nullable();
             $table->unsignedInteger('points_received')->default(0);
-            $table->string('entry_source')->default('mobile');
+            $table->string('entry_source')->nullable()->default('mobile');
             $table->unsignedBigInteger('entered_by_user_id')->nullable();
             $table->string('entered_by_name')->nullable();
             $table->string('oracle_vehicle_id')->nullable();
@@ -205,13 +205,14 @@ class TripRepositoryTest extends TestCase
         $this->assertSame([42], $trips->getCollection()->pluck('id')->all());
     }
 
-    public function test_dashboard_is_limited_to_the_authorized_vehicle_ids(): void
+    public function test_manual_dashboard_is_limited_to_the_authorized_vehicle_ids(): void
     {
         $now = now();
 
         DB::table('trips')->insert([
             [
                 'id' => 44,
+                'entry_source' => 'manual',
                 'vehicle_plate' => '10-0044',
                 'driver_name' => 'سائق مصرح',
                 'oracle_vehicle_id' => '501',
@@ -223,6 +224,7 @@ class TripRepositoryTest extends TestCase
             ],
             [
                 'id' => 45,
+                'entry_source' => 'manual',
                 'vehicle_plate' => '10-0045',
                 'driver_name' => 'سائق غير مصرح',
                 'oracle_vehicle_id' => '502',
@@ -239,6 +241,7 @@ class TripRepositoryTest extends TestCase
             $now->copy()->addDay(),
             'all',
             '',
+            tripSource: 'manual',
             allowedVehicleIds: ['501'],
         );
 
@@ -255,12 +258,12 @@ class TripRepositoryTest extends TestCase
         ));
     }
 
-    public function test_reports_exclude_unassigned_vehicles_and_deny_empty_scope(): void
+    public function test_reports_exclude_unassigned_manual_vehicles_and_deny_empty_manual_scope(): void
     {
         $now = now();
         DB::table('trips')->insert([
-            ['id' => 80, 'vehicle_plate' => '10-0080', 'driver_name' => 'Assigned', 'oracle_vehicle_id' => '501', 'started_at' => $now],
-            ['id' => 81, 'vehicle_plate' => '10-0081', 'driver_name' => 'Unassigned', 'oracle_vehicle_id' => '502', 'started_at' => $now],
+            ['id' => 80, 'entry_source' => 'manual', 'vehicle_plate' => '10-0080', 'driver_name' => 'Assigned', 'oracle_vehicle_id' => '501', 'started_at' => $now],
+            ['id' => 81, 'entry_source' => 'manual', 'vehicle_plate' => '10-0081', 'driver_name' => 'Unassigned', 'oracle_vehicle_id' => '502', 'started_at' => $now],
         ]);
         $repository = app(TripRepository::class);
         $from = $now->copy()->subDay();
@@ -269,6 +272,37 @@ class TripRepositoryTest extends TestCase
         self::assertSame([80], $repository->reportQuery($from, $to, '', '', ['501'])->pluck('id')->all());
         self::assertSame([], $repository->reportQuery($from, $to, '', '', [])->pluck('id')->all());
         self::assertSame([], $repository->reportQuery($from, $to, '', '10-0081', ['501'])->pluck('id')->all());
+    }
+
+    public function test_mobile_dashboard_reports_and_fuel_remain_visible_without_manual_vehicle_assignments(): void
+    {
+        $now = now();
+        foreach ([
+            [44, 'mobile', '501'], [45, 'mobile', '502'], [46, 'manual', '501'],
+            [47, 'manual', '502'], [48, null, '503'],
+        ] as [$id, $source, $vehicleId]) {
+            DB::table('trips')->insert([
+                'id' => $id, 'entry_source' => $source, 'oracle_vehicle_id' => $vehicleId,
+                'vehicle_plate' => '10-'.$id, 'driver_name' => 'Driver',
+                'started_at' => $now, 'ended_at' => $now, 'status' => 'confirmed',
+                'review_status' => 'pending', 'points_received' => 50, 'virtual_fuel_liters' => 1,
+            ]);
+        }
+        $repository = app(TripRepository::class);
+        $from = $now->copy()->subDay();
+        $to = $now->copy()->addDay();
+        self::assertEqualsCanonicalizing([44, 45, 48], $repository->paginateForDashboard(
+            $from, $to, 'all', '', allowedVehicleIds: [],
+        )->pluck('id')->all());
+        self::assertSame(3, $repository->dashboardCounts(false, [])['todayTrips']);
+        self::assertSame(0, $repository->dashboardCounts(false, [])['manualPendingTrips']);
+        self::assertSame(['fuelConsumptionLiters' => 3.0, 'fuelConsumptionTrips' => 3], $repository->dashboardFuelConsumption($from, $to, false, []));
+        self::assertEqualsCanonicalizing([44, 45, 48], $repository->reportQuery($from, $to, '', '', [])->pluck('id')->all());
+        self::assertCount(0, $repository->paginateForDashboard($from, $to, 'all', '', tripSource: 'manual', allowedVehicleIds: []));
+        self::assertEqualsCanonicalizing([46], $repository->paginateForDashboard($from, $to, 'all', '', tripSource: 'manual', allowedVehicleIds: ['501'])->pluck('id')->all());
+        self::assertSame(4, $repository->dashboardCounts(false, ['501'])['todayTrips']);
+        self::assertEqualsCanonicalizing([44, 45, 46, 48], $repository->reportQuery($from, $to, '', '', ['501'])->pluck('id')->all());
+        self::assertSame(0, $repository->reportQuery($from, $to, '', '10-47', [])->count());
     }
 
     public function test_route_preview_sampling_runs_in_the_database_and_keeps_endpoints(): void
