@@ -29,6 +29,10 @@ class FleetVehicleAccessService
 
     public function canAccessTrip(int $userId, Trip $trip): bool
     {
+        if ($trip->entry_source === 'manual' && $trip->review_status === 'draft') {
+            return false;
+        }
+
         return $this->permissions->hasActionPermission($userId, SystemPermissionRepository::REVIEW_TRIPS)
             && $this->vehicles->reviewerCanAccessVehicle($userId, $trip->oracle_vehicle_id);
     }

@@ -25,7 +25,7 @@ class SystemPermissionRepository
 
     public const DELETE_DIESEL_INVENTORY = 'wells.diesel-inventories.delete';
 
-    // Preserve the existing stored key for independent assistant-screen access.
+    // Runtime assistant-screen access derived from active Oracle station links.
     public const CREATE_MANUAL_TRIP = 'fleet.trips.create';
 
     public const ENTER_MANUAL_TRIP = 'fleet.trips.enter';
@@ -49,7 +49,6 @@ class SystemPermissionRepository
         'valves',
         self::DELETE_WELL_READING,
         self::DELETE_DIESEL_INVENTORY,
-        self::CREATE_MANUAL_TRIP,
     ];
 
     public const ACTION_REQUIREMENTS = [
@@ -108,15 +107,16 @@ class SystemPermissionRepository
             return false;
         }
 
-        if (in_array($permissionKey, [self::ENTER_MANUAL_TRIP, self::APPROVE_MANUAL_TRIP, self::REVIEW_TRIPS], true)) {
-            $canAccessScreen = $permissionKey === self::REVIEW_TRIPS
-                ? $this->hasAccess($userId, 'fleet')
-                : $this->hasActionPermission($userId, self::CREATE_MANUAL_TRIP);
-            if (! $canAccessScreen) {
+        if (in_array($permissionKey, [self::CREATE_MANUAL_TRIP, self::ENTER_MANUAL_TRIP, self::APPROVE_MANUAL_TRIP, self::REVIEW_TRIPS], true)) {
+            if ($permissionKey === self::REVIEW_TRIPS && ! $this->hasAccess($userId, 'fleet')) {
                 return false;
             }
 
             $access = $this->vehicles->operationAccessForUsers([$userId])->get($userId, []);
+
+            if ($permissionKey === self::CREATE_MANUAL_TRIP) {
+                return (bool) ($access['can_enter'] ?? false) || (bool) ($access['can_review'] ?? false);
+            }
 
             return (bool) ($access[$permissionKey === self::ENTER_MANUAL_TRIP ? 'can_enter' : 'can_review'] ?? false);
         }
@@ -165,6 +165,10 @@ class SystemPermissionRepository
     public function hasAnyAccess(int $userId): bool
     {
         if (! $this->readiness->available()) {
+            return true;
+        }
+
+        if ($this->hasActionPermission($userId, self::CREATE_MANUAL_TRIP)) {
             return true;
         }
 

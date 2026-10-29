@@ -56,8 +56,6 @@ class SystemPermissionActionTest extends TestCase
     {
         foreach ([
             ['fleet'],
-            [SystemPermissionRepository::CREATE_MANUAL_TRIP],
-            ['fleet', SystemPermissionRepository::CREATE_MANUAL_TRIP],
             ['fleet', 'wells'],
             ['fleet', 'wells', SystemPermissionRepository::DELETE_WELL_READING],
         ] as $systems) {
@@ -71,6 +69,7 @@ class SystemPermissionActionTest extends TestCase
     public function test_automatic_fleet_operations_cannot_be_granted_through_the_permission_form(): void
     {
         foreach ([
+            [SystemPermissionRepository::CREATE_MANUAL_TRIP],
             [SystemPermissionRepository::REVIEW_TRIPS],
             ['fleet', SystemPermissionRepository::ENTER_MANUAL_TRIP],
             [SystemPermissionRepository::CREATE_MANUAL_TRIP, SystemPermissionRepository::APPROVE_MANUAL_TRIP],
@@ -91,7 +90,6 @@ class SystemPermissionActionTest extends TestCase
         $vehicles = Mockery::mock(MunicipalityVehicleRepository::class);
         $repository = Mockery::mock(SystemPermissionRepository::class, [$readiness, $vehicles])->makePartial();
         $repository->shouldReceive('hasAccess')->with(140, 'fleet')->andReturnTrue();
-        $repository->shouldReceive('hasActionPermission')->with(140, SystemPermissionRepository::CREATE_MANUAL_TRIP)->andReturnTrue();
 
         foreach ([
             ['can_enter' => true, 'can_review' => false],
@@ -99,25 +97,27 @@ class SystemPermissionActionTest extends TestCase
             ['can_enter' => true, 'can_review' => true],
             ['can_enter' => false, 'can_review' => false],
         ] as $access) {
-            $vehicles->shouldReceive('operationAccessForUsers')->times(3)->with([140])->andReturn(collect([140 => $access]));
+            $vehicles->shouldReceive('operationAccessForUsers')->times(4)->with([140])->andReturn(collect([140 => $access]));
+            self::assertSame($access['can_enter'] || $access['can_review'], $repository->hasActionPermission(140, SystemPermissionRepository::CREATE_MANUAL_TRIP));
             self::assertSame($access['can_enter'], $repository->hasActionPermission(140, SystemPermissionRepository::ENTER_MANUAL_TRIP));
             self::assertSame($access['can_review'], $repository->hasActionPermission(140, SystemPermissionRepository::APPROVE_MANUAL_TRIP));
             self::assertSame($access['can_review'], $repository->hasActionPermission(140, SystemPermissionRepository::REVIEW_TRIPS));
         }
     }
 
-    public function test_oracle_operation_access_does_not_bypass_system_access(): void
+    public function test_oracle_assistant_access_does_not_grant_fleet_dashboard_access(): void
     {
         $readiness = Mockery::mock(OracleReadiness::class);
         $readiness->shouldReceive('available')->andReturnTrue();
         $vehicles = Mockery::mock(MunicipalityVehicleRepository::class);
-        $vehicles->shouldNotReceive('operationAccessForUsers');
+        $vehicles->shouldReceive('operationAccessForUsers')->times(3)->with([140])
+            ->andReturn(collect([140 => ['can_enter' => true, 'can_review' => true]]));
         $repository = Mockery::mock(SystemPermissionRepository::class, [$readiness, $vehicles])->makePartial();
         $repository->shouldReceive('hasAccess')->with(140, 'fleet')->andReturnFalse();
-        $repository->shouldReceive('hasActionPermission')->with(140, SystemPermissionRepository::CREATE_MANUAL_TRIP)->andReturnFalse();
 
-        self::assertFalse($repository->hasActionPermission(140, SystemPermissionRepository::ENTER_MANUAL_TRIP));
-        self::assertFalse($repository->hasActionPermission(140, SystemPermissionRepository::APPROVE_MANUAL_TRIP));
+        self::assertTrue($repository->hasActionPermission(140, SystemPermissionRepository::CREATE_MANUAL_TRIP));
+        self::assertTrue($repository->hasActionPermission(140, SystemPermissionRepository::ENTER_MANUAL_TRIP));
+        self::assertTrue($repository->hasActionPermission(140, SystemPermissionRepository::APPROVE_MANUAL_TRIP));
         self::assertFalse($repository->hasActionPermission(140, SystemPermissionRepository::REVIEW_TRIPS));
     }
 }

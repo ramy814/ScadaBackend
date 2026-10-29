@@ -31,6 +31,12 @@ class EnsureSystemAccess
         }
 
         if (! $this->permissions->hasAccess((int) $user->getAuthIdentifier(), $systemKey)) {
+            if ($request->isMethodSafe() && $this->permissions->hasActionPermission(
+                (int) $user->getAuthIdentifier(), SystemPermissionRepository::CREATE_MANUAL_TRIP,
+            )) {
+                return redirect()->route('portal');
+            }
+
             return $this->denyAccess(
                 sprintf('ليس لديك صلاحية الوصول إلى نظام "%s".', $this->systemLabel($systemKey)),
                 $systemKey
@@ -45,10 +51,10 @@ class EnsureSystemAccess
     private function systemLabel(string $key): string
     {
         return match ($key) {
-            'fleet'  => 'تتبع المركبات',
-            'wells'  => 'إدارة الآبار',
+            'fleet' => 'تتبع المركبات',
+            'wells' => 'إدارة الآبار',
             'valves' => 'متابعة المحابس',
-            default  => $key,
+            default => $key,
         };
     }
 
@@ -101,7 +107,7 @@ class EnsureSystemAccess
     <div class="card">
         <div class="icon">🔒</div>
         <h1>ليس لديك صلاحية وصول</h1>
-        <p>' . htmlspecialchars($reason, ENT_QUOTES, 'UTF-8') . '</p>
+        <p>'.htmlspecialchars($reason, ENT_QUOTES, 'UTF-8').'</p>
         <p>تواصل مع مسؤول النظام لمنحك الصلاحية المطلوبة.</p>
         <a href="/">العودة للبوابة الرئيسية</a>
     </div>

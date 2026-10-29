@@ -1,5 +1,44 @@
 # Changelog & Recent Actions
 
+## [2026-10-29] Automatic Administrative Assistant Login From Oracle
+
+- Assistant-screen access now derives directly from active station/vehicle
+  `ACCESS_TYPE` values 1 (entry), 2 (approval), or 3 (both), excluding removed links.
+- Removed the editable assistant permission from the catalog/form. Legacy
+  `fleet.trips.create` rows no longer authorize access; no data migration is needed.
+- The global login gate admits assistants with no SYSTEM_PERMISSIONS records.
+  The portal sends standalone entry users to their register and review-only users
+  to the approval queue. Forbidden system GET URLs return to this entry flow.
+- Automatic assistant access never grants Fleet, Wells, or Valves system access.
+  Existing explicit system grants retain their meaning; individual operations
+  still recheck live entry/review scope and the selected vehicle on submit.
+
+## [2026-10-29] Dropdown-Only Manual Trip Locations And Mission Type
+
+- Replaced free-text datalist inputs with required native selects for origin,
+  destination, and mission type. Options remain the existing active catalog names.
+- Create/update validation uses the same repository options as the form and
+  rejects unknown/inactive values, including direct requests bypassing the UI.
+- Verified 18 request/service tests (47 assertions) and the frontend build.
+
+## [2026-10-29] Manual Trip Distance From Odometers
+
+- Both odometer readings automatically fill and lock the estimated distance
+  field using end minus start. Removing a reading clears/unlocks the estimate.
+- Request normalization and service persistence both use the odometer difference
+  on create/update. An estimate is required when the pair is incomplete.
+- Covered zero/equal/reversed readings, incomplete pairs, and forged estimates.
+
+## [2026-10-29] Explicit Manual Trip Submission Before Approval
+
+- New manual trips save as `review_status=draft`; the creator submits them from
+  the register to `pending` using an authenticated entry-scoped POST.
+- Submission rechecks ownership/current vehicle scope and records an atomic audit
+  under a row lock. Edits and repeat submission are blocked after posting.
+- Drafts are excluded from approval queues, dashboard/counts/reports, and direct
+  Fleet detail/review access. Existing pending/reviewed rows retain their states.
+- No schema change is required; `review_status` is an existing string column.
+
 ## [2026-10-25] Signal App Access To The Existing GeoServer Gateway
 
 - Extended the existing PNG tile route to accept either Hiraf or signal-app tokens.

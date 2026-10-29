@@ -31,8 +31,13 @@ class ManualTripService
     /** @param array<string, mixed> $filters */
     public function indexOptions(int $ssoUserId, array $filters): array
     {
+        $trips = $this->trips->paginateManualForAssistant($ssoUserId, $filters);
+        $trips->getCollection()->each(function (Trip $trip): void {
+            $trip->setAttribute('submit_url', route('admin.manual-trips.submit', $trip->getKey()));
+        });
+
         return [
-            'trips' => $this->trips->paginateManualForAssistant($ssoUserId, $filters),
+            'trips' => $trips,
             'vehicles' => $this->vehicles->forAdministrativeAssistant($ssoUserId),
         ];
     }
@@ -90,7 +95,7 @@ class ManualTripService
             'local_id' => (string) Str::uuid(),
             ...$this->attributes($ssoUserId, $data),
             'status' => 'confirmed',
-            'review_status' => 'pending',
+            'review_status' => 'draft',
             'confirmed_at' => now(),
             'points_expected' => 0,
             'points_received' => 0,
@@ -107,6 +112,15 @@ class ManualTripService
             $this->attributes($ssoUserId, $data),
             $actorName,
         );
+    }
+
+    public function submit(int $ssoUserId, int $tripId, string $actorName): Trip
+    {
+        $trip = $this->editableTrip($ssoUserId, $tripId);
+        abort_unless($this->vehicles->findForAdministrativeAssistant($ssoUserId, (int) $trip->oracle_vehicle_id), 403,
+            'المركبة غير متاحة لمحطاتك.');
+
+        return $this->trips->submitManual($tripId, $ssoUserId, $actorName);
     }
 
     private function editableTrip(int $ssoUserId, int $tripId): Trip
@@ -158,7 +172,9 @@ class ManualTripService
             'start_odometer' => $data['start_odometer'] ?? null,
             'end_odometer' => $data['end_odometer'] ?? null,
             'wait_minutes' => (int) ($data['wait_minutes'] ?? 0),
-            'distance_km' => round((float) $data['estimated_distance_km'], 3),
+            'distance_km' => filled($data['start_odometer'] ?? null) && filled($data['end_odometer'] ?? null)
+                ? (float) ($data['end_odometer'] - $data['start_odometer'])
+                : round((float) $data['estimated_distance_km'], 3),
             'duration_minutes' => (int) $startedAt->diffInMinutes($endedAt),
         ];
     }

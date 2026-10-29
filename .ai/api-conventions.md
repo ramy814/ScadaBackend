@@ -16,8 +16,9 @@ All admin-facing routes are handled via web routes mapped to Inertia.js views.
 - `GET /admin/manual-trips`, `GET /admin/manual-trips/create`,
   `POST /admin/manual-trips`, `GET /admin/manual-trips/{trip}/edit`, and
   `PUT /admin/manual-trips/{trip}` require admin
-  authentication, the operational gate, and independent assistant-screen access
-  `fleet.trips.create`. Dashboard `fleet` access is not required or implied.
+  authentication, the operational gate, and runtime assistant-screen access
+  `fleet.trips.create`, derived from live Oracle entry OR review scope. No saved
+  assistant grant is required. Dashboard `fleet` access is not required or implied.
   Create/edit/store/update additionally require runtime `fleet.trips.enter`,
   derived from Oracle entry scope. The register remains accessible for history
   when current vehicle assignments no longer permit entry; mutation buttons are hidden.
@@ -28,20 +29,32 @@ All admin-facing routes are handled via web routes mapped to Inertia.js views.
   stations removed from a vehicle. The save path must re-run the scope;
   client-provided vehicle details are never authoritative.
 - This is an Inertia web workflow, not a mobile sync endpoint. It creates a
-  confirmed/pending trip with zero GPS points, manual source/actor snapshots,
+  confirmed/draft trip with zero GPS points, manual source/actor snapshots,
   and an audit event.
+- Manual origin, destination, and mission type are dropdown-only. Both create
+  and update validate names against `TripRepository::manualTripOptions()` so
+  unknown or inactive options are rejected even in direct HTTP requests.
+- When both odometer readings are provided, `estimated_distance_km` is derived
+  from end minus start before validation, and `ManualTripService` independently
+  recalculates persisted `distance_km` on create/update. Zero/equal readings are
+  valid; reversed readings are rejected. Without both readings, the entered
+  estimate remains required. The Vue form fills and locks the distance field
+  while both readings are present, and unlocks/clears it when a reading is removed.
 - Manual trip start and end timestamps must fall on the same calendar day, and
   the end timestamp must be strictly later than the start timestamp. The end is
   intentionally not compared with the current clock time.
 - The index is server-paginated at 15 rows and always scoped to the authenticated
   `entered_by_user_id`; filters are search, review status, scoped vehicle, and
-  inclusive date bounds. Update also requires the same creator and a still-pending
+  inclusive date bounds. Update also requires the same creator and a draft
   review status, and creates `trip.manual.updated` audit history.
+- `POST /admin/manual-trips/{trip}/submit` requires live entry scope and ownership,
+  locks the completed draft and moves it to pending with an atomic submission audit.
+  Drafts are excluded from review queues, Fleet reports/counts, and direct review URLs.
 
 ## Assistant Manual Approval
 
 - `GET /admin/manual-trips/requests` lists completed confirmed manual requests within the assistant's current review-vehicle scope, including other creators' entries. It defaults to `review_status=pending`; `all` shows reviewed history with the same filters and pagination.
-- `POST /admin/manual-trips/{trip}/approve` accepts an optional `note` (at most 1000 characters). Both routes require the independent `fleet.trips.create` screen grant and runtime `fleet.manual-trips.approve`, derived from active Oracle `ACCESS_TYPE IN (2, 3)`. They do not require dashboard access or another editable role.
+- `POST /admin/manual-trips/{trip}/approve` accepts an optional `note` (at most 1000 characters). Both routes require runtime `fleet.trips.create` and `fleet.manual-trips.approve`, derived directly from active Oracle `ACCESS_TYPE IN (2, 3)`. They do not require saved assistant/dashboard grants or another editable role.
 - `ManualTripService` repeats the selected vehicle's live review check. `TripRepository::approveManual()` locks the manual row inside a transaction, requires confirmed/ended/pending state, updates approval metadata, and creates a `trip.reviewed` audit row atomically. Mobile, rejected, already-approved, and incomplete trips cannot be approved here.
 
 ## Authentication

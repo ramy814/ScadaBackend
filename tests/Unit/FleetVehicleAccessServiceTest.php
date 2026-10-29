@@ -46,6 +46,19 @@ class FleetVehicleAccessServiceTest extends TestCase
         self::assertTrue($service->canAccessTrip(140, $trip));
     }
 
+    public function test_manual_drafts_cannot_be_viewed_or_reviewed_through_direct_dashboard_urls(): void
+    {
+        $permissions = Mockery::mock(SystemPermissionRepository::class);
+        $permissions->shouldNotReceive('hasActionPermission');
+        $vehicles = Mockery::mock(MunicipalityVehicleRepository::class);
+        $vehicles->shouldNotReceive('reviewerCanAccessVehicle');
+        $service = new FleetVehicleAccessService($permissions, $vehicles);
+        $trip = new Trip(['entry_source' => 'manual', 'review_status' => 'draft']);
+
+        self::assertFalse($service->canViewTrip(140, $trip));
+        self::assertFalse($service->canAccessTrip(140, $trip));
+    }
+
     public function test_entry_only_users_cannot_list_or_review_supervisor_trips(): void
     {
         $permissions = Mockery::mock(SystemPermissionRepository::class);

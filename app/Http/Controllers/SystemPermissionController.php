@@ -122,13 +122,6 @@ class SystemPermissionController extends Controller
                 'category' => 'access',
             ],
             [
-                'key' => SystemPermissionRepository::CREATE_MANUAL_TRIP,
-                'label' => 'الدخول لشاشة المساعد الإداري',
-                'description' => 'الدخول المستقل إلى شاشة الرحلات اليدوية، مع تحديد صلاحيات المركبات تلقائياً.',
-                'group' => 'fleet',
-                'category' => 'role',
-            ],
-            [
                 'key' => 'wells',
                 'label' => 'الدخول إلى منظومة إدارة الآبار',
                 'description' => 'الوصول إلى متابعة الآبار والقراءات وفرق الفحص.',

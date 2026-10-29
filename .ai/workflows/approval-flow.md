@@ -1,13 +1,20 @@
 # Administrative Approval Flow
 
-Manual assistant entries join this flow as `confirmed` / `pending` without GPS
-points. They can be approved or rejected normally. `needs_clarification` is not
+New manual assistant entries are saved as `confirmed` / `draft` without GPS
+points. The creator can edit the draft, then explicitly POST to
+`/admin/manual-trips/{trip}/submit` to move it to `pending` (مرحلة).
+Submission requires assistant-screen and live entry scope, rechecks ownership,
+locks the row, and commits the transition with a `trip.manual.submitted` audit.
+Submitted trips can no longer be edited or submitted again. Drafts are excluded
+from both review queues, dashboard counts, and reports; direct Fleet detail/review
+URLs reject drafts as well. Existing pending/reviewed entries keep their state.
+Only submitted trips can be approved or rejected normally. `needs_clarification` is not
 available for them because no driver-app session can receive or answer the
 request; the backend enforces this in addition to hiding the action in Vue. The
 supervisor reviews them in the dashboard's separate **الإدخال اليدوي** tab;
 the default **رحلات التطبيق** tab never mixes them with driver-app trips. The
-creating assistant may edit the entry only while it remains `pending`; approval
-or rejection immediately makes it immutable in both the register UI and the
+creating assistant may edit the entry only while it remains `draft`; submission
+immediately makes it immutable in both the register UI and the
 repository query. Before create or update, the backend reauthorizes the vehicle
 through the assistant's station path with `VEHICLE_STAGES.ACCESS_TYPE IN (1, 3)` and requires the matched
 `VEHICLE_STAGES.REMOVED_USER` to remain null; a removed station assignment can
@@ -25,8 +32,8 @@ permission editor grants system entry only and displays the derived scope read-o
 ## Assistant Approval Queue
 
 The assistant register exposes **اعتماد الطلبات** when runtime
-`fleet.manual-trips.approve` permits it. This requires the independent assistant
-screen grant plus Oracle review scope `(2, 3)`, without dashboard permission.
+`fleet.manual-trips.approve` permits it. This derives directly from active Oracle
+review scope `(2, 3)`, without any saved assistant-screen or dashboard grant.
 The separate queue lists only completed manual requests for eligible vehicles,
 including entries created by other assistants. Each pending row opens a native
 confirmation dialog showing request details and an optional approval note.

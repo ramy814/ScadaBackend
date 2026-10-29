@@ -48,7 +48,7 @@ class ManualTripServiceTest extends TestCase
             ->withArgs(function (array $attributes, string $actor): bool {
                 self::assertSame('manual', $attributes['entry_source']);
                 self::assertSame('confirmed', $attributes['status']);
-                self::assertSame('pending', $attributes['review_status']);
+                self::assertSame('draft', $attributes['review_status']);
                 self::assertSame('501', $attributes['oracle_driver_id']);
                 self::assertSame('88', $attributes['oracle_vehicle_id']);
                 self::assertSame(0, $attributes['points_expected']);
@@ -78,6 +78,36 @@ class ManualTripServiceTest extends TestCase
         self::assertSame(77, $result->getKey());
     }
 
+    public function test_it_recalculates_distance_from_odometer_readings_for_create_and_update(): void
+    {
+        $vehicles = Mockery::mock(MunicipalityVehicleRepository::class);
+        $trips = Mockery::mock(TripRepository::class);
+        $trip = new Trip(['id' => 77]);
+        $trips->shouldReceive('findEditableManualForAssistant')->with(77, 140)->andReturn($trip);
+        $vehicles->shouldReceive('findForAdministrativeAssistant')->with(140, 88)->andReturn([
+            'oracle_id' => 88, 'plate_number' => 'TEST', 'oracle_driver_id' => 501,
+        ]);
+        $data = [
+            'oracle_vehicle_id' => 88,
+            'started_at' => '2026-10-12 10:00:00', 'ended_at' => '2026-10-12 11:00:00',
+            'origin_text' => 'أ', 'destination_text' => 'ب', 'mission_type' => 'مهمة',
+            'start_odometer' => 0, 'end_odometer' => 25, 'estimated_distance_km' => 999,
+        ];
+        $trips->shouldReceive('createManual')->once()->withArgs(function (array $attributes): bool {
+            self::assertSame(25.0, $attributes['distance_km']);
+
+            return true;
+        })->andReturn($trip);
+        $trips->shouldReceive('updateManual')->once()->withArgs(function (Trip $trip, array $attributes): bool {
+            self::assertSame(25.0, $attributes['distance_km']);
+
+            return true;
+        })->andReturn($trip);
+        $service = new ManualTripService($vehicles, $trips);
+        $service->create(140, 'Assistant', $data);
+        $service->update(140, 77, 'Assistant', $data);
+    }
+
     public function test_it_rejects_a_vehicle_outside_the_assistants_scope(): void
     {
         $vehicles = Mockery::mock(MunicipalityVehicleRepository::class);
@@ -98,7 +128,7 @@ class ManualTripServiceTest extends TestCase
         ]);
     }
 
-    public function test_it_updates_only_an_owned_pending_manual_trip(): void
+    public function test_it_updates_only_an_owned_draft_manual_trip(): void
     {
         $vehicles = Mockery::mock(MunicipalityVehicleRepository::class);
         $trips = Mockery::mock(TripRepository::class);
@@ -143,6 +173,31 @@ class ManualTripServiceTest extends TestCase
         $this->expectException(ModelNotFoundException::class);
 
         (new ManualTripService($vehicles, $trips))->update(140, 77, 'مساعد إداري', []);
+    }
+
+    public function test_submission_rechecks_live_entry_scope(): void
+    {
+        $vehicles = Mockery::mock(MunicipalityVehicleRepository::class);
+        $trips = Mockery::mock(TripRepository::class);
+        $trip = new Trip(['oracle_vehicle_id' => '88', 'review_status' => 'draft']);
+        $trips->shouldReceive('findEditableManualForAssistant')->with(77, 140)->once()->andReturn($trip);
+        $vehicles->shouldReceive('findForAdministrativeAssistant')->with(140, 88)->once()->andReturnNull();
+        $trips->shouldNotReceive('submitManual');
+
+        $this->expectException(HttpException::class);
+        (new ManualTripService($vehicles, $trips))->submit(140, 77, 'Assistant');
+    }
+
+    public function test_it_submits_an_owned_draft_in_the_current_vehicle_scope(): void
+    {
+        $vehicles = Mockery::mock(MunicipalityVehicleRepository::class);
+        $trips = Mockery::mock(TripRepository::class);
+        $trip = new Trip(['oracle_vehicle_id' => '88', 'review_status' => 'draft']);
+        $trips->shouldReceive('findEditableManualForAssistant')->with(77, 140)->once()->andReturn($trip);
+        $vehicles->shouldReceive('findForAdministrativeAssistant')->with(140, 88)->once()->andReturn(['oracle_id' => 88]);
+        $trips->shouldReceive('submitManual')->with(77, 140, 'Assistant')->once()->andReturn($trip);
+
+        self::assertSame($trip, (new ManualTripService($vehicles, $trips))->submit(140, 77, 'Assistant'));
     }
 
     public function test_approval_rechecks_the_specific_vehicle_scope(): void

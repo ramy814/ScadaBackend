@@ -13,7 +13,7 @@ use Symfony\Component\HttpFoundation\Response;
  * Middleware: EnsureAdminIsAllowlisted
  *
  * Runs after auth:admin. Verifies that the authenticated SSO user has at least
- * one recognized permission in SYSTEM_PERMISSIONS.
+ * a recognized system permission or live Oracle manual-entry/review access.
  * This replaces the old FLEET_ADMIN_ALLOWLIST gate which only covered fleet users.
  *
  * Local rule: normalize the configured development identity, then skip the gate.

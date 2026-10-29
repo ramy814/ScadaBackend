@@ -22,6 +22,24 @@ const page = usePage()
 const approvalDialog = ref(null)
 const selectedTrip = ref(null)
 const approvalForm = useForm({ note: '' })
+const submitDialog = ref(null)
+const tripToSubmit = ref(null)
+const submitForm = useForm({})
+
+async function openSubmit(trip) {
+  tripToSubmit.value = trip
+  submitForm.clearErrors()
+  await nextTick()
+  submitDialog.value.showModal()
+}
+
+function submitTrip() {
+  if (!tripToSubmit.value || submitForm.processing) return
+  submitForm.post(tripToSubmit.value.submit_url, {
+    preserveScroll: true,
+    onSuccess: () => submitDialog.value.close(),
+  })
+}
 
 async function openApproval(trip) {
   selectedTrip.value = trip
@@ -67,7 +85,8 @@ function formatDate(value) {
 }
 
 const statusLabels = {
-  pending: 'بانتظار المراجعة',
+  draft: 'مسودة — غير مرحلة',
+  pending: 'مرحلة — بانتظار الاعتماد',
   approved: 'معتمدة',
   rejected: 'مرفوضة',
 }
@@ -81,9 +100,7 @@ const statusLabels = {
       <div><p>نظام تتبع المركبات</p><h1>{{ approvalMode ? 'اعتماد الطلبات اليدوية' : 'رحلاتي اليدوية' }}</h1></div>
       <nav>
         <Link v-if="approvalUrl" class="approval-link" :href="approvalUrl">اعتماد الطلبات</Link>
-        <button v-else-if="!approvalMode" type="button" disabled title="لا تتوفر مركبات مسندة إليك بصلاحية الاعتماد حالياً">اعتماد الطلبات</button>
         <Link v-if="canCreate" class="primary" :href="createUrl">إدخال رحلة جديدة</Link>
-        <button v-else-if="!approvalMode" type="button" disabled title="لا تتوفر مركبات مسندة إليك بصلاحية الإدخال حالياً">إدخال رحلة جديدة</button>
         <Link v-if="backUrl" :href="backUrl">{{ backLabel }}</Link>
         <a :href="logoutUrl" rel="external">تسجيل خروج</a>
       </nav>
@@ -104,7 +121,7 @@ const statusLabels = {
 
       <form class="filters" @submit.prevent="applyFilters">
         <label><span>بحث</span><input v-model="filterForm.search" placeholder="رقم الرحلة، المركبة، السائق أو المسار" /></label>
-        <label><span>الحالة</span><select v-model="filterForm.review_status"><option :value="approvalMode ? 'all' : ''">كل الحالات</option><option value="pending">بانتظار المراجعة</option><option value="approved">معتمدة</option><option value="rejected">مرفوضة</option></select></label>
+        <label><span>الحالة</span><select v-model="filterForm.review_status"><option :value="approvalMode ? 'all' : ''">كل الحالات</option><option v-if="!approvalMode" value="draft">مسودة — غير مرحلة</option><option value="pending">مرحلة — بانتظار الاعتماد</option><option value="approved">معتمدة</option><option value="rejected">مرفوضة</option></select></label>
         <label><span>المركبة</span><select v-model="filterForm.oracle_vehicle_id"><option value="">كل المركبات</option><option v-for="vehicle in vehicles" :key="vehicle.oracle_id" :value="vehicle.oracle_id">{{ vehicle.plate_number }} — {{ vehicle.name || 'مركبة بلدية' }}</option></select></label>
         <label><span>من تاريخ</span><input v-model="filterForm.date_from" type="date" lang="en-GB" dir="ltr" /></label>
         <label><span>إلى تاريخ</span><input v-model="filterForm.date_to" type="date" lang="en-GB" dir="ltr" /></label>
@@ -127,8 +144,11 @@ const statusLabels = {
                 <td><span :class="['status', trip.review_status]">{{ statusLabels[trip.review_status] || trip.review_status }}</span></td>
                 <td>
                   <button v-if="approvalMode && trip.review_status === 'pending'" class="approve-button" type="button" @click="openApproval(trip)">اعتماد</button>
-                  <Link v-else-if="canCreate && trip.review_status === 'pending'" class="edit-link" :href="`${indexUrl}/${trip.id}/edit`">تعديل</Link>
-                  <span v-else class="locked">{{ trip.review_status === 'pending' ? 'عرض فقط' : 'مقفلة بعد المراجعة' }}</span>
+                  <div v-else-if="!approvalMode && canCreate && trip.review_status === 'draft'" class="row-actions">
+                    <Link class="edit-link" :href="`${indexUrl}/${trip.id}/edit`">تعديل</Link>
+                    <button class="approve-button" type="button" @click="openSubmit(trip)">ترحيل للاعتماد</button>
+                  </div>
+                  <span v-else class="locked">{{ trip.review_status === 'draft' ? 'عرض فقط' : trip.review_status === 'pending' ? 'مقفلة بعد الترحيل' : 'مقفلة بعد المراجعة' }}</span>
                 </td>
               </tr>
               <tr v-if="!trips.data.length"><td :colspan="approvalMode ? 9 : 8" class="empty">{{ approvalMode ? 'لا توجد طلبات مطابقة للفلاتر ضمن مركباتك.' : 'لا توجد رحلات مطابقة للفلاتر.' }}</td></tr>
@@ -141,6 +161,17 @@ const statusLabels = {
         </div>
       </section>
     </main>
+    <dialog ref="submitDialog" class="approval-dialog" aria-labelledby="submit-title" @cancel="submitForm.processing && $event.preventDefault()" @close="tripToSubmit = null">
+      <form v-if="tripToSubmit" @submit.prevent="submitTrip">
+        <h2 id="submit-title">ترحيل الرحلة #{{ tripToSubmit.id }} للاعتماد</h2>
+        <p>هل تأكدت من بيانات الرحلة للمركبة {{ tripToSubmit.vehicle_plate }}؟ بعد الترحيل ستظهر للمراجعة ولن تتمكن من تعديلها.</p>
+        <p v-if="submitForm.errors.trip" class="approval-error" role="alert">{{ submitForm.errors.trip }}</p>
+        <footer>
+          <button type="button" :disabled="submitForm.processing" @click="submitDialog.close()">إلغاء</button>
+          <button class="approve-button" type="submit" :disabled="submitForm.processing">{{ submitForm.processing ? 'جاري الترحيل...' : 'تأكيد الترحيل' }}</button>
+        </footer>
+      </form>
+    </dialog>
     <dialog ref="approvalDialog" class="approval-dialog" aria-labelledby="approval-title" @cancel="approvalForm.processing && $event.preventDefault()" @close="selectedTrip = null">
       <form v-if="selectedTrip" @submit.prevent="approve">
         <h2 id="approval-title">اعتماد الطلب #{{ selectedTrip.id }}</h2>
@@ -168,6 +199,8 @@ const statusLabels = {
 </template>
 
 <style scoped>
+.row-actions { display:flex; gap:8px; align-items:center; }
+.status.draft { color:var(--theme-text-muted); background:var(--theme-bg); }
 .manual-header nav button:disabled { min-height:40px; padding:9px 14px; border:1px solid var(--theme-border); border-radius:8px; background:var(--theme-surface); color:var(--theme-text-muted); font:inherit; font-size:13px; opacity:.65; cursor:not-allowed; }
 .assignment-notice { margin-bottom:18px; padding:12px 16px; border-inline-start:3px solid #d97706; background:var(--theme-warning-bg); color:var(--theme-text); font-size:14px; line-height:1.7; }
 .assignment-notice p { margin:0; }

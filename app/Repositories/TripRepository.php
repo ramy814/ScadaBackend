@@ -96,6 +96,7 @@ class TripRepository
     public function paginateManualForApproval(array $vehicleIds, array $filters, int $perPage = 15): LengthAwarePaginator
     {
         return $this->scopeToVehicleIds($this->manualTripsQuery($filters), $vehicleIds)
+            ->where('review_status', '!=', 'draft')
             ->where('status', 'confirmed')->whereNotNull('ended_at')
             ->orderByRaw("case when review_status = 'pending' then 0 else 1 end")
             ->latest('started_at')->paginate($perPage)->withQueryString();
@@ -168,7 +169,7 @@ class TripRepository
             ->whereKey($tripId)
             ->where('entry_source', 'manual')
             ->where('entered_by_user_id', $ssoUserId)
-            ->where('review_status', 'pending')
+            ->where('review_status', 'draft')
             ->first();
     }
 
@@ -176,8 +177,8 @@ class TripRepository
     {
         return DB::transaction(function () use ($trip, $attributes, $actor): Trip {
             $trip = Trip::query()->whereKey($trip->getKey())->where('entry_source', 'manual')->lockForUpdate()->firstOrFail();
-            if ($trip->review_status !== 'pending') {
-                throw ValidationException::withMessages(['trip' => 'لا يمكن تعديل الطلب بعد مراجعته.']);
+            if ($trip->review_status !== 'draft') {
+                throw ValidationException::withMessages(['trip' => 'لا يمكن تعديل الرحلة بعد ترحيلها للاعتماد.']);
             }
             $trip->update($attributes);
 
@@ -193,6 +194,28 @@ class TripRepository
                     'ended_at' => optional($trip->ended_at)->toISOString(),
                     'estimated_distance_km' => $trip->distance_km,
                 ],
+            ]);
+
+            return $trip->refresh();
+        });
+    }
+
+    public function submitManual(int $tripId, int $actorId, string $actorName): Trip
+    {
+        return DB::transaction(function () use ($tripId, $actorId, $actorName): Trip {
+            $trip = Trip::query()->whereKey($tripId)->where('entry_source', 'manual')
+                ->where('entered_by_user_id', $actorId)->lockForUpdate()->firstOrFail();
+            if ($trip->review_status !== 'draft' || $trip->status !== 'confirmed' || $trip->ended_at === null) {
+                throw ValidationException::withMessages(['trip' => 'لا يمكن ترحيل الرحلة إلا إذا كانت مسودة مكتملة.']);
+            }
+
+            $trip->update(['review_status' => 'pending']);
+            AuditLog::query()->create([
+                'event_type' => 'trip.manual.submitted',
+                'entity_type' => 'trip',
+                'entity_id' => $trip->getKey(),
+                'actor' => (string) $actorId,
+                'payload' => ['review_status' => 'pending', 'actor_name' => $actorName],
             ]);
 
             return $trip->refresh();
@@ -412,6 +435,11 @@ class TripRepository
 
     private function scopeToFleetVisibility(Builder $query, ?array $allowedManualVehicleIds): Builder
     {
+        $query->where(fn (Builder $visible) => $visible
+            ->whereNull('entry_source')->orWhere('entry_source', '!=', 'manual')
+            ->orWhereNull('review_status')
+            ->orWhere('review_status', '!=', 'draft'));
+
         if ($allowedManualVehicleIds === null) {
             return $query;
         }

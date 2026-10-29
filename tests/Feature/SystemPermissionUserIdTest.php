@@ -156,6 +156,7 @@ class SystemPermissionUserIdTest extends TestCase
         $permissions = \Mockery::mock(SystemPermissionRepository::class);
         $permissions->shouldReceive('accessibleSystems')->with(1061)->andReturn(collect());
         $permissions->shouldReceive('hasActionPermission')->with(1061, SystemPermissionRepository::CREATE_MANUAL_TRIP)->andReturnTrue();
+        $permissions->shouldReceive('hasActionPermission')->with(1061, SystemPermissionRepository::ENTER_MANUAL_TRIP)->andReturnTrue();
         $permissions->shouldReceive('hasActionPermission')->with(1061, SystemPermissionRepository::REVIEW_TRIPS)->andReturnFalse();
         $guard = \Mockery::mock(StatefulGuard::class);
         $guard->shouldReceive('user')->andReturn($this->ssoUser());

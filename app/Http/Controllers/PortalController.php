@@ -24,7 +24,11 @@ class PortalController extends Controller
         $canAccessManualTrips = $this->permissions->hasActionPermission($userId, SystemPermissionRepository::CREATE_MANUAL_TRIP);
         $manualOnly = $canAccessManualTrips && ! in_array('fleet', $accessible, true);
         if ($accessible === [] && $canAccessManualTrips) {
-            return redirect()->route('admin.manual-trips.index');
+            return redirect()->route(
+                $this->permissions->hasActionPermission($userId, SystemPermissionRepository::ENTER_MANUAL_TRIP)
+                    ? 'admin.manual-trips.index'
+                    : 'admin.manual-trips.requests',
+            );
         }
 
         $systems = [

@@ -49,7 +49,6 @@ const groupDefinitions = [
 ]
 
 const sectionDefinitions = [
-  { key: 'role', title: 'الأدوار المستقلة', hint: 'لا تمنح دخول لوحة المشرف ما لم تُحدد صلاحية الدخول أيضاً.' },
   { key: 'action', title: 'صلاحيات إضافية', hint: 'إجراءات حساسة تتطلب دخول المنظومة.' },
 ]
 
@@ -418,7 +417,7 @@ function onSearch() {
                     <span class="group-total">{{ selectedInGroup(group) }} محددة</span>
                   </header>
 
-                  <label v-if="group.primary" class="primary-permission">
+                  <label v-if="group.primary && group.key !== 'wells'" class="primary-permission">
                     <input
                       type="checkbox"
                       :checked="form.systems.includes(group.primary.key)"
@@ -435,6 +434,7 @@ function onSearch() {
                       <dt>صلاحيات المركبات المسندة</dt>
                       <dd>{{ fleetAccessLabel }}</dd>
                     </dl>
+                    <p>دخول المساعد الإداري تلقائي حسب صلاحيات الإدخال والاعتماد في قاعدة البيانات، ولا يتطلب منح صلاحية لأي منظومة.</p>
                   </div>
 
                   <div v-for="section in group.sections" :key="section.key" class="permission-section">

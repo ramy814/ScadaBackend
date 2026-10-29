@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Trip;
 use App\Repositories\TripRepository;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\QueryException;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -102,6 +103,72 @@ class TripRepositoryTest extends TestCase
         self::assertCount(3, $repository->paginateManualForApproval(['501'], ['review_status' => 'all']));
         self::assertCount(0, $repository->paginateManualForApproval([], ['review_status' => 'all']));
         self::assertNull($repository->findManualForApproval(83));
+    }
+
+    public function test_manual_draft_must_be_submitted_before_approval_and_is_locked_after_submission(): void
+    {
+        DB::table('trips')->insert([
+            'id' => 80, 'entry_source' => 'manual', 'status' => 'confirmed', 'review_status' => 'draft',
+            'entered_by_user_id' => 140, 'oracle_vehicle_id' => '501',
+            'vehicle_plate' => 'TEST', 'driver_name' => 'Driver', 'started_at' => now(), 'ended_at' => now(),
+        ]);
+        $repository = app(TripRepository::class);
+        $draft = $repository->findEditableManualForAssistant(80, 140);
+        self::assertNotNull($draft);
+        self::assertNull($repository->findEditableManualForAssistant(80, 141));
+        self::assertCount(1, $repository->paginateManualForAssistant(140, ['review_status' => 'draft']));
+        self::assertCount(0, $repository->paginateManualForApproval(['501'], ['review_status' => 'all']));
+        self::assertCount(0, $repository->paginateForDashboard(now()->subDay(), now()->addDay(), 'all', '', tripSource: 'manual'));
+        self::assertSame(0, $repository->dashboardCounts()['todayTrips']);
+        self::assertCount(0, $repository->reportQuery(now()->subDay(), now()->addDay(), '', '', ['501'])->get());
+        try {
+            $repository->approveManual(80, 141, 'Reviewer', null);
+            self::fail('An unsubmitted draft must not be approved.');
+        } catch (ValidationException) {
+            self::assertSame('draft', $draft->refresh()->review_status);
+        }
+
+        $submitted = $repository->submitManual(80, 140, 'Assistant');
+        self::assertSame('pending', $submitted->review_status);
+        self::assertSame('trip.manual.submitted', DB::table('audit_logs')->value('event_type'));
+        self::assertCount(1, $repository->paginateManualForApproval(['501'], []));
+        self::assertNull($repository->findEditableManualForAssistant(80, 140));
+        try {
+            $repository->updateManual($draft, ['distance_km' => 99], 'Assistant');
+            self::fail('An edit opened before submission must not modify the submitted trip.');
+        } catch (ValidationException) {
+            self::assertNull($draft->refresh()->distance_km);
+        }
+        try {
+            $repository->submitManual(80, 140, 'Assistant');
+            self::fail('Submission must not be repeated.');
+        } catch (ValidationException) {
+            self::assertSame(1, DB::table('audit_logs')->count());
+        }
+        self::assertSame('approved', $repository->approveManual(80, 141, 'Reviewer', null)->review_status);
+    }
+
+    public function test_manual_submission_requires_ownership_and_rolls_back_if_auditing_fails(): void
+    {
+        DB::table('trips')->insert([
+            'id' => 80, 'entry_source' => 'manual', 'status' => 'confirmed', 'review_status' => 'draft',
+            'entered_by_user_id' => 140, 'vehicle_plate' => 'TEST', 'driver_name' => 'Driver',
+            'started_at' => now(), 'ended_at' => now(),
+        ]);
+        $repository = app(TripRepository::class);
+        try {
+            $repository->submitManual(80, 141, 'Other assistant');
+            self::fail('Only the creator may submit the draft.');
+        } catch (ModelNotFoundException) {
+            self::assertSame('draft', Trip::findOrFail(80)->review_status);
+        }
+        Schema::drop('audit_logs');
+        try {
+            $repository->submitManual(80, 140, 'Assistant');
+            self::fail('Submission must be atomic with its audit.');
+        } catch (QueryException) {
+            self::assertSame('draft', Trip::findOrFail(80)->review_status);
+        }
     }
 
     public function test_manual_approval_is_audited_and_cannot_be_repeated(): void
@@ -657,7 +724,7 @@ class TripRepositoryTest extends TestCase
             'vehicle_plate' => '3-1234',
             'driver_name' => 'سائق المحطة',
             'status' => 'confirmed',
-            'review_status' => 'pending',
+            'review_status' => 'draft',
             'entry_source' => 'manual',
             'entered_by_user_id' => 140,
             'oracle_vehicle_id' => 88,

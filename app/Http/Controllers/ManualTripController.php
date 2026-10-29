@@ -82,7 +82,7 @@ class ManualTripController extends Controller
 
         return redirect()
             ->route('admin.manual-trips.index')
-            ->with('ok', 'تم حفظ الرحلة اليدوية بنجاح. رقم الرحلة: #'.$trip->getKey());
+            ->with('ok', 'تم حفظ مسودة الرحلة #'.$trip->getKey().'. راجع البيانات ثم رحّلها للاعتماد.');
     }
 
     public function edit(int $trip): Response
@@ -94,6 +94,13 @@ class ManualTripController extends Controller
             ...$this->navigationProps(),
             'logoutUrl' => route('logout'),
         ]);
+    }
+
+    public function submit(int $trip): RedirectResponse
+    {
+        $this->service->submit($this->userId(), $trip, $this->actorName());
+
+        return redirect()->back()->with('ok', 'تم ترحيل الرحلة #'.$trip.' وإرسالها للاعتماد.');
     }
 
     public function update(StoreManualTripRequest $request, int $trip): RedirectResponse

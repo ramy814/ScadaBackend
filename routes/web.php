@@ -67,6 +67,8 @@ Route::middleware(['auth:admin', 'admin.allowlisted', 'systems.operational'])->g
                 ->name('admin.manual-trips.edit');
             Route::put('/admin/manual-trips/{trip}', [ManualTripController::class, 'update'])
                 ->name('admin.manual-trips.update');
+            Route::post('/admin/manual-trips/{trip}/submit', [ManualTripController::class, 'submit'])
+                ->name('admin.manual-trips.submit');
         });
     });
 

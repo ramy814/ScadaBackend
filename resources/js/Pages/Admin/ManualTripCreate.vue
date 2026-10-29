@@ -1,6 +1,6 @@
 <script setup>
 import { Head, Link, useForm, usePage } from '@inertiajs/vue3'
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 
 defineOptions({ layout: null })
 
@@ -67,6 +67,18 @@ const form = useForm({
 })
 
 const isEditing = computed(() => Boolean(props.trip))
+const hasOdometers = computed(() => [form.start_odometer, form.end_odometer].every(
+  value => value !== '' && value !== null && value !== undefined,
+))
+
+watch([() => form.start_odometer, () => form.end_odometer], (values, previous) => {
+  if (hasOdometers.value) {
+    const distance = Number(values[1]) - Number(values[0])
+    form.estimated_distance_km = Number.isFinite(distance) && distance >= 0 ? distance : ''
+  } else if (previous?.length === 2 && previous.every(value => value !== '' && value !== null && value !== undefined)) {
+    form.estimated_distance_km = ''
+  }
+}, { immediate: true })
 
 const selectedVehicle = computed(() => props.vehicles.find(
   vehicle => String(vehicle.oracle_id) === String(form.oracle_vehicle_id),
@@ -128,8 +140,8 @@ function submit() {
       <section class="intro">
         <div>
           <span class="step">نموذج مختصر</span>
-          <h2>{{ isEditing ? 'تحديث بيانات الرحلة قبل اعتمادها' : 'بيانات الرحلة بعد عودة السائق' }}</h2>
-          <p>اختر المركبة ثم أدخل وقت ومسار الرحلة. تُحفظ الرحلة كإدخال يدوي بلا مسار GPS وتنتقل للمراجعة الإدارية.</p>
+          <h2>{{ isEditing ? 'تحديث مسودة الرحلة' : 'بيانات الرحلة بعد عودة السائق' }}</h2>
+          <p>اختر المركبة ثم أدخل وقت ومسار الرحلة. تُحفظ كمسودة يمكنك تعديلها، ثم ترحيلها للاعتماد من شاشة رحلاتي اليدوية.</p>
         </div>
         <div class="vehicle-count">{{ vehicles.length }} مركبة متاحة</div>
       </section>
@@ -200,28 +212,35 @@ function submit() {
             </fieldset>
             <label class="field">
               <span>مكان الانطلاق <b>*</b></span>
-              <input v-model="form.origin_text" list="trip-locations" placeholder="مثال: محطة البلدية" required />
+              <select v-model="form.origin_text" required>
+                <option disabled value="">اختر مكان الانطلاق</option>
+                <option v-for="location in locations" :key="location" :value="location">{{ location }}</option>
+              </select>
               <small v-if="form.errors.origin_text" class="error-text">{{ form.errors.origin_text }}</small>
             </label>
             <label class="field">
               <span>الوجهة <b>*</b></span>
-              <input v-model="form.destination_text" list="trip-locations" placeholder="اكتب الوجهة" required />
+              <select v-model="form.destination_text" required>
+                <option disabled value="">اختر الوجهة</option>
+                <option v-for="location in locations" :key="location" :value="location">{{ location }}</option>
+              </select>
               <small v-if="form.errors.destination_text" class="error-text">{{ form.errors.destination_text }}</small>
             </label>
             <label class="field full">
               <span>نوع المهمة <b>*</b></span>
-              <input v-model="form.mission_type" list="mission-types" placeholder="اختر أو اكتب نوع المهمة" required />
+              <select v-model="form.mission_type" required>
+                <option disabled value="">اختر نوع المهمة</option>
+                <option v-for="type in mission_types" :key="type" :value="type">{{ type }}</option>
+              </select>
               <small v-if="form.errors.mission_type" class="error-text">{{ form.errors.mission_type }}</small>
             </label>
             <label class="field full">
               <span>المسافة التقديرية (كم) <b>*</b></span>
-              <input v-model="form.estimated_distance_km" type="number" min="0" max="99999.999" step="0.001" inputmode="decimal" placeholder="مثال: 12.750" required />
-              <small>أدخل المسافة التي أفاد بها السائق حتى ثلاث خانات عشرية.</small>
+              <input v-model="form.estimated_distance_km" type="number" min="0" max="99999.999" step="0.001" inputmode="decimal" placeholder="مثال: 12.750" :readonly="hasOdometers" :required="!hasOdometers" />
+              <small>{{ hasOdometers ? 'تُحتسب تلقائياً: عداد النهاية − عداد البداية، ولا يمكن تعديلها يدوياً.' : 'أدخل المسافة التي أفاد بها السائق، أو أدخل قراءتي العداد لحسابها تلقائياً.' }}</small>
               <small v-if="form.errors.estimated_distance_km" class="error-text">{{ form.errors.estimated_distance_km }}</small>
             </label>
           </div>
-          <datalist id="trip-locations"><option v-for="location in locations" :key="location" :value="location" /></datalist>
-          <datalist id="mission-types"><option v-for="type in mission_types" :key="type" :value="type" /></datalist>
         </section>
 
         <section class="form-section optional">
@@ -229,12 +248,12 @@ function submit() {
           <div class="grid three">
             <label class="field">
               <span>عداد البداية</span>
-              <input v-model="form.start_odometer" type="number" min="0" inputmode="numeric" />
+              <input v-model="form.start_odometer" type="number" min="0" max="999999999" step="1" inputmode="numeric" />
               <small v-if="form.errors.start_odometer" class="error-text">{{ form.errors.start_odometer }}</small>
             </label>
             <label class="field">
               <span>عداد النهاية</span>
-              <input v-model="form.end_odometer" type="number" min="0" inputmode="numeric" />
+              <input v-model="form.end_odometer" type="number" :min="form.start_odometer === '' ? 0 : Number(form.start_odometer)" max="999999999" step="1" inputmode="numeric" />
               <small v-if="form.errors.end_odometer" class="error-text">{{ form.errors.end_odometer }}</small>
             </label>
             <label class="field">
@@ -251,7 +270,7 @@ function submit() {
         </section>
 
         <button class="submit-button" type="submit" :disabled="form.processing">
-          {{ form.processing ? 'جاري حفظ الرحلة...' : isEditing ? 'حفظ التعديلات' : 'حفظ الرحلة وإرسالها للمراجعة' }}
+          {{ form.processing ? 'جاري حفظ الرحلة...' : isEditing ? 'حفظ التعديلات' : 'حفظ مسودة الرحلة' }}
         </button>
       </form>
     </main>

@@ -14,7 +14,7 @@ class ManualTripIndexRequest extends FormRequest
     {
         return [
             'search' => ['nullable', 'string', 'max:120'],
-            'review_status' => ['nullable', Rule::in(['all', 'pending', 'approved', 'rejected'])],
+            'review_status' => ['nullable', Rule::in(['all', 'draft', 'pending', 'approved', 'rejected'])],
             'oracle_vehicle_id' => ['nullable', 'integer', 'min:1'],
             'date_from' => ['nullable', 'date_format:Y-m-d'],
             'date_to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:date_from'],
