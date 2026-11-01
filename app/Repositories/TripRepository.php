@@ -18,6 +18,10 @@ class TripRepository
 {
     private const ROUTE_PREVIEW_POINTS = 100;
 
+    private const REVIEW_DECISIONS = ['approved', 'rejected', 'needs_clarification'];
+
+    private const FINAL_REVIEW_STATUSES = ['approved', 'rejected'];
+
     public function reportQuery(
         DateTimeInterface $from,
         DateTimeInterface $to,
@@ -127,6 +131,69 @@ class TripRepository
                 'entity_id' => $trip->getKey(),
                 'actor' => (string) $actorId,
                 'payload' => ['review_status' => 'approved', 'note' => $note, 'actor_name' => $actorName, 'source' => 'manual_assistant'],
+            ]);
+
+            return $trip->refresh();
+        });
+    }
+
+    /**
+     * Records a supervisor review decision (approved / rejected / needs_clarification)
+     * atomically: the trip row is locked, its current state re-checked, then the
+     * review fields and the audit row are written in the same transaction.
+     *
+     * `approved` and `rejected` are final (audit compliance): any later decision is refused.
+     *
+     * @param  bool  $noteProvided  false when the request carried no `note` field at all;
+     *                              the stored review_note is then left untouched.
+     */
+    public function decide(int $tripId, string $status, ?string $note, string $actor, bool $noteProvided = true): Trip
+    {
+        if (! in_array($status, self::REVIEW_DECISIONS, true)) {
+            throw ValidationException::withMessages(['review' => 'قرار المراجعة غير معروف.']);
+        }
+
+        return DB::transaction(function () use ($tripId, $status, $note, $actor, $noteProvided): Trip {
+            $trip = Trip::query()->whereKey($tripId)->lockForUpdate()->firstOrFail();
+
+            if (in_array($trip->review_status, self::FINAL_REVIEW_STATUSES, true)) {
+                throw ValidationException::withMessages(['review' => 'تم اتخاذ قرار نهائي بشأن هذه الرحلة مسبقاً ولا يمكن تغييره.']);
+            }
+            if ($trip->entry_source === 'manual' && $trip->review_status === 'draft') {
+                throw ValidationException::withMessages(['review' => 'الرحلة اليدوية ما زالت مسودة ولم تُرحَّل للاعتماد بعد.']);
+            }
+            if ($trip->status !== 'confirmed' || $trip->ended_at === null) {
+                throw ValidationException::withMessages(['review' => 'لا يمكن مراجعة الرحلة قبل انتهائها وتأكيدها.']);
+            }
+            if ($status === 'needs_clarification' && $trip->entry_source === 'manual') {
+                throw ValidationException::withMessages(['review' => 'الرحلة اليدوية لا ترتبط بتطبيق سائق لاستقبال طلب التوضيح.']);
+            }
+
+            $attributes = [
+                'review_status' => $status,
+                'reviewed_at' => now(),
+                'reviewed_by' => $actor,
+            ];
+
+            if ($noteProvided) {
+                $storedNote = $note;
+                if ($storedNote && $trip->review_note && $trip->clarification_response) {
+                    $storedNote = 'الإجراء النهائي: '.$storedNote."\n---\nسؤال التوضيح: ".$trip->review_note;
+                }
+                $attributes['review_note'] = $storedNote ?: null;
+            }
+
+            $trip->update($attributes);
+
+            AuditLog::query()->create([
+                'event_type' => 'trip.reviewed',
+                'entity_type' => 'trip',
+                'entity_id' => $trip->getKey(),
+                'actor' => $actor,
+                'payload' => [
+                    'review_status' => $status,
+                    'note' => $noteProvided ? $note : '(unchanged)',
+                ],
             ]);
 
             return $trip->refresh();

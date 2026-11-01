@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\DashboardIndexRequest;
-use App\Models\AuditLog;
 use App\Models\MissionLocation;
 use App\Models\MissionType;
 use App\Models\Trip;
@@ -464,32 +463,13 @@ class AdminAuthController extends Controller
 
     private function review(Request $request, Trip $trip, string $status, string $message = 'تم تحديث حالة المراجعة.'): RedirectResponse
     {
-        $updatePayload = [
-            'review_status' => $status,
-            'reviewed_at' => now(),
-            'reviewed_by' => Auth::guard('admin')->id() ?? 'admin',
-        ];
-
-        if ($request->has('note')) {
-            $newNote = $request->input('note');
-            if ($newNote && $trip->review_note && $trip->clarification_response) {
-                $newNote = 'الإجراء النهائي: '.$newNote."\n---\nسؤال التوضيح: ".$trip->review_note;
-            }
-            $updatePayload['review_note'] = $newNote ?: null;
-        }
-
-        $trip->update($updatePayload);
-
-        AuditLog::query()->create([
-            'event_type' => 'trip.reviewed',
-            'entity_type' => 'trip',
-            'entity_id' => $trip->id,
-            'actor' => Auth::guard('admin')->id() ?? 'admin',
-            'payload' => [
-                'review_status' => $status,
-                'note' => $request->has('note') ? $request->input('note') : '(unchanged)',
-            ],
-        ]);
+        app(TripRepository::class)->decide(
+            (int) $trip->getKey(),
+            $status,
+            $request->input('note'),
+            (string) (Auth::guard('admin')->id() ?? 'admin'),
+            $request->has('note'),
+        );
 
         $fromShow = $request->input('_from') === 'show';
 
