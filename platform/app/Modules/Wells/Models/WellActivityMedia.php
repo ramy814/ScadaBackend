@@ -1,0 +1,46 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Modules\Wells\Models;
+
+use App\Platform\Concerns\UppercaseKeys;
+use Illuminate\Database\Eloquent\Model;
+
+class WellActivityMedia extends Model
+{
+    use UppercaseKeys;
+
+    protected $table = 'well_activity_media';
+
+    protected $primaryKey = 'oid';
+
+    protected $fillable = [
+        'ACTIVITY_TYPE',
+        'ACTIVITY_OID',
+        'CLIENT_LOCAL_ID',
+        'FILE_PATH',
+        'ORIGINAL_NAME',
+        'MIME_TYPE',
+        'FILE_SIZE',
+    ];
+
+    protected $appends = ['url'];
+
+    protected function casts(): array
+    {
+        return [
+            'ACTIVITY_OID' => 'integer',
+            'FILE_SIZE' => 'integer',
+        ];
+    }
+
+    public function getUrlAttribute(): string
+    {
+        return route(
+            'wells.media',
+            ['media' => $this->getKey()],
+            false,
+        );
+    }
+}

@@ -1,0 +1,46 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Providers;
+
+use App\Modules\Fleet\FleetModule;
+use App\Modules\Fleet\Services\FleetAccessService;
+use App\Platform\Access\AccessService;
+use App\Platform\Applications\ApplicationRegistry;
+use Illuminate\Database\Events\ConnectionEstablished;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\ServiceProvider;
+
+class AppServiceProvider extends ServiceProvider
+{
+    public function register(): void
+    {
+        $this->app->singleton(ApplicationRegistry::class);
+        // Per-request memoization of permission and Oracle vehicle-scope lookups.
+        $this->app->scoped(AccessService::class);
+        $this->app->scoped(FleetAccessService::class);
+        $this->app->scoped(FleetModule::class);
+    }
+
+    public function boot(): void
+    {
+        // SQLite fixture: emulate Oracle schemas (g_store.VEHICLE, mog_users.users_list, ...)
+        // by attaching one database per schema. Never active against real Oracle.
+        Event::listen(ConnectionEstablished::class, function (ConnectionEstablished $event): void {
+            $connection = $event->connection;
+            $schemas = $connection->getConfig('attach_schemas') ?? [];
+            if ($connection->getDriverName() !== 'sqlite' || $schemas === []) {
+                return;
+            }
+
+            $database = (string) $connection->getConfig('database');
+            foreach ($schemas as $schema) {
+                $path = $database === ':memory:'
+                    ? ':memory:'
+                    : preg_replace('/\.sqlite$/', ".{$schema}.sqlite", $database);
+                $connection->statement("ATTACH DATABASE ? AS {$schema}", [$path]);
+            }
+        });
+    }
+}
