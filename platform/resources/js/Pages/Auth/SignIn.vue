@@ -3,7 +3,7 @@ import { Head } from '@inertiajs/vue3';
 import Icon from '../../Components/Icon.vue';
 import { useI18n } from '../../lib/i18n.js';
 
-defineProps({ ssoError: Boolean, ssoAvailable: Boolean, devLoginUrl: String });
+defineProps({ ssoError: Boolean, ssoAvailable: Boolean, devLoginUrl: String, demoIdentities: { type: Array, default: () => [] } });
 const { t } = useI18n();
 </script>
 
@@ -17,7 +17,13 @@ const { t } = useI18n();
             <div v-if="ssoError" class="notice danger" style="text-align: start"><Icon name="alert-triangle" />{{ t('auth.sso_error') }}</div>
             <a v-if="ssoAvailable" href="/login" class="btn btn-primary" style="width: 100%">{{ t('auth.sso') }}</a>
             <div v-else class="notice warning" style="text-align: start"><Icon name="info" />{{ t('auth.sso_missing') }}</div>
-            <a v-if="devLoginUrl" :href="devLoginUrl" class="btn" style="width: 100%">{{ t('auth.dev') }}</a>
+            <a v-if="devLoginUrl && !demoIdentities.length" :href="devLoginUrl" class="btn" style="width: 100%">{{ t('auth.dev') }}</a>
+            <div v-if="demoIdentities.length" class="stack" style="gap: var(--s-2); width: 100%; text-align: start">
+                <p class="hint">{{ t('auth.demo_hint') }}</p>
+                <a v-for="identity in demoIdentities" :key="identity.id" :href="identity.url" class="btn" style="width: 100%; justify-content: space-between">
+                    <span>{{ t(`auth.demo.${identity.scope}`) }}</span><span class="subtle num">SSO #{{ identity.id }}</span>
+                </a>
+            </div>
         </div>
     </main>
 </template>

@@ -47,8 +47,9 @@ class AccessService
     /** Access and operations management (legacy MOG_PERMISSIONS_ADMIN_USER_IDS rule). */
     public function isPlatformAdmin(int $userId): bool
     {
-        return app()->environment('local')
-            || in_array($userId, config('platform.permissions_admin_user_ids', []), true);
+        // Locally only the configured dev identity manages access, so other demo users keep their real scope.
+        return in_array($userId, config('platform.permissions_admin_user_ids', []), true)
+            || (app()->environment('local') && $userId === (int) config('platform.local_admin_user_id'));
     }
 
     public function hasAnyAccess(int $userId): bool

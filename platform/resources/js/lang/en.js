@@ -228,6 +228,8 @@ export default {
     auth: {
         title: 'Sign in', subtitle: 'Use your Gaza Municipality single sign-on account.', sso: 'Sign in with SSO',
         sso_error: 'The SSO token could not be verified. Try again.', sso_missing: 'The SSO package is not installed on this server.', dev: 'Local development sign-in',
+        demo_hint: 'Demo environment: pick a demo user to see what each permission shows.',
+        demo: { admin: 'Access manager (all systems)', fleet: 'Fleet supervisor only', wells: 'Wells supervisor only', valves: 'Valves supervisor only', assistant: 'Administrative assistant (manual entry only)' },
     },
     errors: {
         no_access: 'You don’t have access', back_overview: 'Back to overview', suspended: 'Systems temporarily suspended',

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Platform\Identity;
 
 use App\Http\Controllers\Controller;
+use Database\Fixture\DemoData;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -28,6 +29,10 @@ class AuthController extends Controller
             'ssoError' => $request->has('sso_error'),
             'ssoAvailable' => class_exists($sso),
             'devLoginUrl' => app()->environment('local') ? route('dev-login') : null,
+            'demoIdentities' => $this->demoFixture() ? array_map(
+                fn (int $id, string $scope): array => ['id' => $id, 'scope' => $scope, 'url' => route('dev-login', ['as' => $id])],
+                array_keys(DemoData::IDENTITIES), DemoData::IDENTITIES,
+            ) : [],
         ])->toResponse($request);
     }
 
@@ -48,12 +53,21 @@ class AuthController extends Controller
     /** APP_ENV=local only (route is not registered otherwise). */
     public function devLogin(Request $request): Response
     {
-        $userId = (int) config('platform.local_admin_user_id');
+        // Switching identity is limited to the demo fixture's fictional users (to check each permission scope).
+        $requested = (int) $request->query('as');
+        $userId = $requested > 0 && $this->demoFixture() && isset(DemoData::IDENTITIES[$requested])
+            ? $requested
+            : (int) config('platform.local_admin_user_id');
         abort_if($userId <= 0, 404, 'Set MOG_LOCAL_ADMIN_USER_ID to use local sign-in.');
 
         Auth::guard('admin')->loginUsingId($userId);
         $request->session()->regenerate();
 
         return redirect()->route('overview');
+    }
+
+    private function demoFixture(): bool
+    {
+        return app()->environment('local') && config('database.connections.oracle.driver') === 'sqlite';
     }
 }

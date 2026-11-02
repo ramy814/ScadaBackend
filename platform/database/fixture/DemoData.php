@@ -17,6 +17,9 @@ final class DemoData
 {
     public const ADMIN_ID = 1;
 
+    /** Demo identities offered by /dev-login on the fixture only (id => scope label key). */
+    public const IDENTITIES = [1 => 'admin', 5 => 'fleet', 2 => 'wells', 3 => 'valves', 4 => 'assistant'];
+
     public static function seed(): void
     {
         if (config('database.connections.oracle.driver') !== 'sqlite') {
@@ -30,13 +33,16 @@ final class DemoData
         $db->table('mog_users.users_list')->insert([
             ['id' => self::ADMIN_ID, 'emp_id' => 9001, 'full_name' => 'مستخدم العرض المحلي', 'tracking_id' => 100, 'is_active' => 1, 'user_mobile' => '0599000001'],
             ['id' => 2, 'emp_id' => 9002, 'full_name' => 'مشرف آبار تجريبي', 'tracking_id' => 101, 'is_active' => 1, 'user_mobile' => '0599000002'],
-            ['id' => 3, 'emp_id' => 9003, 'full_name' => 'مفتش محابس تجريبي', 'tracking_id' => 102, 'is_active' => 1, 'user_mobile' => '0599000003'],
+            ['id' => 3, 'emp_id' => 9003, 'full_name' => 'مشرف محابس تجريبي', 'tracking_id' => 102, 'is_active' => 1, 'user_mobile' => '0599000003'],
+            ['id' => 5, 'emp_id' => 9005, 'full_name' => 'مشرف أسطول تجريبي', 'tracking_id' => 104, 'is_active' => 1, 'user_mobile' => '0599000005'],
         ]);
         foreach (['fleet', 'wells', 'valves'] as $key) {
             $db->table('control_unit.system_permissions')->insert(['user_id' => self::ADMIN_ID, 'system_key' => $key, 'granted_by' => 'demo']);
         }
         $db->table('control_unit.system_permissions')->insert(['user_id' => 2, 'system_key' => 'wells', 'granted_by' => 'demo']);
         $db->table('control_unit.system_permissions')->insert(['user_id' => 2, 'system_key' => 'wells.readings.delete', 'granted_by' => 'demo']);
+        $db->table('control_unit.system_permissions')->insert(['user_id' => 3, 'system_key' => 'valves', 'granted_by' => 'demo']);
+        $db->table('control_unit.system_permissions')->insert(['user_id' => 5, 'system_key' => 'fleet', 'granted_by' => 'demo']);
 
         // ── Fleet ───────────────────────────────────────────────────────────
         $drivers = ['أحمد سالم', 'محمود عودة', 'خالد النجار', 'يوسف حمدان', 'سامي الخطيب', 'إياد شعت'];
@@ -47,6 +53,7 @@ final class DemoData
             $db->table('g_store.vehicle_stages')->insert(['vehicle_oid' => 700 + $i, 'stage_oid' => 10, 'access_type' => 3]);
         }
         $db->table('tracking.user_station')->insert(['stage_oid' => 10, 'user_oid' => 100]);
+        $db->table('tracking.user_station')->insert(['stage_oid' => 10, 'user_oid' => 104]);
         $db->table('mog_users.users_list')->insert(['id' => 4, 'emp_id' => 9004, 'full_name' => 'مساعد إداري تجريبي', 'tracking_id' => 103, 'is_active' => 1]);
         $db->table('g_store.vehicle_stages')->insert(['vehicle_oid' => 700, 'stage_oid' => 20, 'access_type' => 1]);
         $db->table('tracking.user_station')->insert(['stage_oid' => 20, 'user_oid' => 103]);

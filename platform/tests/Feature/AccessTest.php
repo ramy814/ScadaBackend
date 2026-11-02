@@ -101,4 +101,46 @@ class AccessTest extends TestCase
         $this->get('/fleet/manual')->assertForbidden()->assertInertia(fn (Assert $page) => $page
             ->component('Errors/NoAccess')->where('reason', 'oracle_unavailable')->where('shell.oracleAvailable', false));
     }
+
+    public function test_fleet_only_user_never_sees_other_systems(): void
+    {
+        $this->actingAsUser(7, ['fleet']);
+        $onlyFleet = fn (Assert $page) => $page
+            ->has('shell.applications', 1)
+            ->where('shell.applications.0.key', 'fleet')
+            ->where('shell.urls.operations', null);
+
+        $this->get('/')->assertOk()->assertInertia(fn (Assert $page) => $onlyFleet($page)
+            ->component('Overview')->has('applications', 1)->where('applications.0.key', 'fleet'));
+
+        $this->get('/platform/applications')->assertOk()->assertInertia(fn (Assert $page) => $onlyFleet($page)
+            ->has('applications', 1)->where('applications.0.key', 'fleet')
+            ->where('shell.navigation.0.items', fn ($items) => collect($items)->pluck('key')->all() === ['applications', 'audit']));
+
+        foreach (['/wells', '/wells/readings', '/wells/assets', '/wells/map', '/valves', '/valves/maintenance', '/valves/map', '/platform/access', '/platform/operations'] as $url) {
+            $this->get($url)->assertForbidden();
+        }
+    }
+
+    public function test_wells_only_user_never_sees_fleet_or_valves(): void
+    {
+        $this->actingAsUser(7, ['wells']);
+
+        $this->get('/platform/applications')->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->has('applications', 1)->where('applications.0.key', 'wells')
+            ->where('shell.navigation.0.items', fn ($items) => collect($items)->pluck('key')->all() === ['applications']));
+
+        foreach (['/fleet/reviews', '/fleet/manual', '/fleet/reports', '/valves', '/platform/audit'] as $url) {
+            $this->get($url)->assertForbidden();
+        }
+    }
+
+    public function test_local_environment_makes_only_the_dev_identity_an_access_manager(): void
+    {
+        $this->app['env'] = 'local';
+        config(['platform.local_admin_user_id' => 1, 'platform.permissions_admin_user_ids' => []]);
+
+        $this->actingAsUser(7, ['fleet']);
+        $this->get('/platform/access')->assertForbidden();
+    }
 }
