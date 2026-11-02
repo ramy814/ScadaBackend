@@ -26,6 +26,7 @@ resources/
 │       ├── Admin/
 │       │   ├── Dashboard.vue   # Map view and pending trips
 │       │   ├── Reports.vue     # Filtering and exporting data
+│       │   ├── VehicleClaims.vue # Monthly vehicle financial claims (hours × hourly price)
 │       │   ├── DriverApps.vue  # Driver app adoption/version monitoring
 │       │   ├── ManualTripCreate.vue # Restricted assistant manual-entry form
 │       │   ├── ManualTrips.vue # Assistant-owned paginated/filterable register

@@ -52,6 +52,7 @@ class Trip extends Model
         'reviewed_by',
         'clarification_response',
         'clarification_responded_at',
+        'hourly_price',
     ];
 
     protected $appends = ['driver', 'vehicle'];
@@ -69,6 +70,7 @@ class Trip extends Model
             'duration_minutes' => 'integer',
             'quality_version' => 'integer',
             'entered_by_user_id' => 'integer',
+            'hourly_price' => 'decimal:2',
         ];
     }
 

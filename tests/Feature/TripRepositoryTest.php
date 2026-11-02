@@ -21,6 +21,8 @@ class TripRepositoryTest extends TestCase
         Schema::create('trips', function (Blueprint $table): void {
             $table->id();
             $table->string('vehicle_plate');
+            $table->string('vehicle_name')->nullable();
+            $table->decimal('hourly_price', 10, 2)->nullable();
             $table->string('driver_name');
             $table->string('status')->nullable();
             $table->string('review_status')->nullable();
@@ -203,6 +205,46 @@ class TripRepositoryTest extends TestCase
             self::assertSame(1, DB::table('audit_logs')->count());
             self::assertSame('140', (string) $trip->refresh()->reviewed_by);
         }
+    }
+
+    public function test_manual_approval_stores_the_hourly_price_captured_at_approval(): void
+    {
+        DB::table('trips')->insert([
+            'id' => 80, 'entry_source' => 'manual', 'status' => 'confirmed', 'review_status' => 'pending',
+            'vehicle_plate' => 'TEST', 'driver_name' => 'Driver', 'started_at' => now(), 'ended_at' => now(),
+        ]);
+
+        $trip = app(TripRepository::class)->approveManual(80, 140, 'Reviewer', null, 37.5);
+
+        self::assertSame('37.50', $trip->hourly_price);
+        $audit = json_decode(DB::table('audit_logs')->value('payload'), true);
+        self::assertSame(37.5, $audit['hourly_price']);
+    }
+
+    public function test_claim_trips_are_approved_finished_in_range_and_scoped(): void
+    {
+        $base = ['status' => 'confirmed', 'driver_name' => 'Driver', 'vehicle_plate' => 'P'];
+        DB::table('trips')->insert([
+            [...$base, 'id' => 1, 'oracle_vehicle_id' => '10', 'entry_source' => 'mobile', 'review_status' => 'approved',
+                'started_at' => '2026-11-03 08:00:00', 'ended_at' => '2026-11-03 10:00:00', 'hourly_price' => 30],
+            [...$base, 'id' => 2, 'oracle_vehicle_id' => '10', 'entry_source' => 'mobile', 'review_status' => 'pending',
+                'started_at' => '2026-11-03 11:00:00', 'ended_at' => '2026-11-03 12:00:00', 'hourly_price' => null],
+            [...$base, 'id' => 3, 'oracle_vehicle_id' => '10', 'entry_source' => 'mobile', 'review_status' => 'approved',
+                'started_at' => '2026-10-31 08:00:00', 'ended_at' => '2026-10-31 09:00:00', 'hourly_price' => 30],
+            [...$base, 'id' => 4, 'oracle_vehicle_id' => '20', 'entry_source' => 'manual', 'review_status' => 'approved',
+                'started_at' => '2026-11-04 08:00:00', 'ended_at' => '2026-11-04 09:00:00', 'hourly_price' => 25],
+            [...$base, 'id' => 5, 'oracle_vehicle_id' => '30', 'entry_source' => 'manual', 'review_status' => 'approved',
+                'started_at' => '2026-11-05 08:00:00', 'ended_at' => '2026-11-05 09:00:00', 'hourly_price' => 25],
+            [...$base, 'id' => 6, 'oracle_vehicle_id' => '10', 'entry_source' => 'mobile', 'review_status' => 'approved',
+                'started_at' => '2026-11-06 08:00:00', 'ended_at' => null, 'hourly_price' => 30],
+        ]);
+        $repository = app(TripRepository::class);
+        $from = now()->setDate(2026, 11, 1)->startOfDay();
+        $to = now()->setDate(2026, 11, 30)->endOfDay();
+
+        self::assertSame([1, 4], $repository->approvedTripsForClaims($from, $to, '', ['20'])->pluck('id')->all());
+        self::assertSame([4], $repository->approvedTripsForClaims($from, $to, '20', ['20'])->pluck('id')->all());
+        self::assertSame([1], $repository->approvedTripsForClaims($from, $to, '', [])->pluck('id')->all());
     }
 
     public function test_manual_approval_rolls_back_when_audit_write_fails(): void

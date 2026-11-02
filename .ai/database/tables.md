@@ -7,7 +7,7 @@ The system uses a hybrid database approach:
 
 ## External Oracle Vehicle/Station Scope
 
-- `G_STORE.VEHICLE`: Vehicle source; `OID` is matched to `G_STORE.VEHICLE_STAGES.VEHICLE_OID`. Vehicle ownership categories no longer grant Fleet permissions.
+- `G_STORE.VEHICLE`: Vehicle source; `OID` is matched to `G_STORE.VEHICLE_STAGES.VEHICLE_OID`. Vehicle ownership categories no longer grant Fleet permissions. `HOURLY_PRICE` is the hourly rental price used for vehicle financial claims; read it only through `MunicipalityVehicleRepository::hourlyPriceFor()` / `hourlyPricesFor()`.
 - `G_STORE.VEHICLE_STAGES`: Vehicle-to-station history. Active rows require `REMOVED_USER IS NULL`. Its `ACCESS_TYPE` is authoritative: `1` entry, `2` review/approval, `3` both; null/other values deny both.
 - `TRACKING.USER_STATION`: Connects a station through `STAGE_OID` to the tracking user. Its own `ACCESS_TYPE` is not the Fleet operation selector; do not substitute it for `VEHICLE_STAGES.ACCESS_TYPE`.
 - `MOG_USERS.USERS_LIST`: Resolves the tracking user through `TRACKING_ID`; `ID` must equal the authenticated SSO user ID.
@@ -45,6 +45,7 @@ The core entity representing a single vehicle journey.
 - `distance_km`: Server-confirmed trip distance. Quality-v2 trips store filtered distance; legacy confirmation uses the legacy/recorded policy when quality metadata is insufficient.
 - `duration_minutes`: Server-confirmed trusted duration, capped by the trip-duration guardrail.
 - `entry_source`: `mobile` by default or `manual` for an assistant-entered completed trip.
+- `hourly_price`: Nullable snapshot of `G_STORE.VEHICLE.HOURLY_PRICE` captured when the trip is approved; cleared by any other review status. It is the price used by the vehicle claims page so later price changes do not alter past claims.
 - `entered_by_user_id`, `entered_by_name`: Nullable SSO actor snapshot for manual entry. These fields identify the data-entry actor, while the driver snapshot remains the assigned vehicle beneficiary.
 - A manual trip has zero expected/received GPS points and no checksum. It remains dashboard-visible despite the normal completed-trip 50-point display threshold and starts as `confirmed` / `pending`.
 - For manual trips, existing `distance_km` stores the assistant-entered estimated kilometers (up to three decimals), not a GPS-calculated official distance. `started_at` and `ended_at` retain second precision. No duplicate manual-distance column is required.

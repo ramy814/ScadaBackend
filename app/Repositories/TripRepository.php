@@ -45,6 +45,36 @@ class TripRepository
             });
     }
 
+    /**
+     * Approved, finished trips that form a vehicle financial claim, attributed by start time.
+     *
+     * @return Collection<int, Trip>
+     */
+    public function approvedTripsForClaims(
+        DateTimeInterface $from,
+        DateTimeInterface $to,
+        string $vehicleSearch,
+        array $allowedVehicleIds,
+    ): Collection {
+        return $this->scopeToFleetVisibility(Trip::query(), $allowedVehicleIds)
+            ->where('review_status', 'approved')
+            ->whereNotNull('oracle_vehicle_id')
+            ->whereNotNull('ended_at')
+            ->whereBetween('started_at', [$from, $to])
+            ->when($vehicleSearch !== '', function (Builder $query) use ($vehicleSearch): void {
+                $query->where(function (Builder $query) use ($vehicleSearch): void {
+                    $query->where('vehicle_plate', 'like', "%{$vehicleSearch}%")
+                        ->orWhere('vehicle_name', 'like', "%{$vehicleSearch}%")
+                        ->orWhere('oracle_vehicle_id', $vehicleSearch);
+                });
+            })
+            ->orderBy('started_at')
+            ->get([
+                'id', 'oracle_vehicle_id', 'vehicle_plate', 'vehicle_name', 'driver_name',
+                'entry_source', 'started_at', 'ended_at', 'hourly_price',
+            ]);
+    }
+
     /** @return array{locations: Collection<int, string>, mission_types: Collection<int, string>} */
     public function manualTripOptions(): array
     {
@@ -107,9 +137,9 @@ class TripRepository
         return Trip::query()->whereKey($tripId)->where('entry_source', 'manual')->first();
     }
 
-    public function approveManual(int $tripId, int $actorId, string $actorName, ?string $note): Trip
+    public function approveManual(int $tripId, int $actorId, string $actorName, ?string $note, ?float $hourlyPrice = null): Trip
     {
-        return DB::transaction(function () use ($tripId, $actorId, $actorName, $note): Trip {
+        return DB::transaction(function () use ($tripId, $actorId, $actorName, $note, $hourlyPrice): Trip {
             $trip = Trip::query()->whereKey($tripId)->where('entry_source', 'manual')->lockForUpdate()->firstOrFail();
             if ($trip->review_status !== 'pending' || $trip->status !== 'confirmed' || $trip->ended_at === null) {
                 throw ValidationException::withMessages(['approval' => 'الطلب غير جاهز للاعتماد أو تمت مراجعته مسبقاً.']);
@@ -120,13 +150,17 @@ class TripRepository
                 'review_note' => $note,
                 'reviewed_by' => $actorId,
                 'reviewed_at' => now(),
+                'hourly_price' => $hourlyPrice,
             ]);
             AuditLog::query()->create([
                 'event_type' => 'trip.reviewed',
                 'entity_type' => 'trip',
                 'entity_id' => $trip->getKey(),
                 'actor' => (string) $actorId,
-                'payload' => ['review_status' => 'approved', 'note' => $note, 'actor_name' => $actorName, 'source' => 'manual_assistant'],
+                'payload' => [
+                    'review_status' => 'approved', 'note' => $note, 'actor_name' => $actorName,
+                    'source' => 'manual_assistant', 'hourly_price' => $hourlyPrice,
+                ],
             ]);
 
             return $trip->refresh();
