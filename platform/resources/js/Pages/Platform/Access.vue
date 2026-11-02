@@ -13,7 +13,7 @@ const { t, date } = useI18n();
 
 // Station-only users come from the Oracle station scope (manual entry/approval) and have no grant rows.
 const filter = ref('');
-const tab = ref('all');
+const tab = ref('granted'); // Same list as the legacy portal by default; station-only users have their own tab.
 const stationOnly = (u) => !u.systems?.length;
 const counts = computed(() => ({ all: props.users.length, granted: props.users.filter((u) => !stationOnly(u)).length, station: props.users.filter(stationOnly).length }));
 const listed = computed(() => props.users
@@ -59,7 +59,7 @@ function save() {
     <div class="grid" style="grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); align-items: start">
         <section class="panel">
             <nav class="tabs" style="padding: 0 var(--s-3)" :aria-label="t('access.applications')">
-                <button v-for="key in ['all', 'granted', 'station']" :key="key" type="button" :aria-current="tab === key" @click="tab = key">
+                <button v-for="key in ['granted', 'station', 'all']" :key="key" type="button" :aria-current="tab === key" @click="tab = key">
                     {{ t(`access.tabs.${key}`) }}<span class="count">{{ counts[key] }}</span>
                 </button>
             </nav>
