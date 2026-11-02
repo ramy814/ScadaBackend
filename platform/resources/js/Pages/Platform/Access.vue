@@ -11,14 +11,8 @@ import { debounce } from '../../lib/query.js';
 const props = defineProps({ users: Array, catalog: Array, requirements: Object, searchUrl: String, updateBase: String, oracleAvailable: Boolean });
 const { t, date } = useI18n();
 
-// Station-only users come from the Oracle station scope (manual entry/approval) and have no grant rows.
 const filter = ref('');
-const tab = ref('granted'); // Same list as the legacy portal by default; station-only users have their own tab.
-const stationOnly = (u) => !u.systems?.length;
-const counts = computed(() => ({ all: props.users.length, granted: props.users.filter((u) => !stationOnly(u)).length, station: props.users.filter(stationOnly).length }));
-const listed = computed(() => props.users
-    .filter((u) => tab.value === 'all' || (tab.value === 'station') === stationOnly(u))
-    .filter((u) => !filter.value || `${u.name ?? ''} ${u.user_id}`.includes(filter.value.trim())));
+const listed = computed(() => props.users.filter((u) => !filter.value || `${u.name ?? ''} ${u.user_id}`.includes(filter.value.trim())));
 
 // SSO directory search (active users only, enforced server-side).
 const query = ref('');
@@ -58,11 +52,6 @@ function save() {
 
     <div class="grid" style="grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); align-items: start">
         <section class="panel">
-            <nav class="tabs" style="padding: 0 var(--s-3)" :aria-label="t('access.applications')">
-                <button v-for="key in ['granted', 'station', 'all']" :key="key" type="button" :aria-current="tab === key" @click="tab = key">
-                    {{ t(`access.tabs.${key}`) }}<span class="count">{{ counts[key] }}</span>
-                </button>
-            </nav>
             <div class="toolbar">
                 <label class="search-box"><Icon name="search" :size="15" /><input v-model="filter" class="input" type="search" :placeholder="t('access.filter')" /></label>
                 <span class="spacer" /><span class="subtle" style="font-size: var(--fs-xs)">{{ t('access.count', { n: listed.length }) }}</span>
@@ -74,7 +63,6 @@ function save() {
                         <td><div class="cell-main">{{ user.name ?? '—' }}</div><div class="cell-sub num">SSO #{{ user.user_id }}</div></td>
                         <td>
                             <span v-for="key in user.systems" :key="key" class="tag" style="margin-inline-end: 4px">{{ t(`access.keys.${key}`) }}</span>
-                            <span v-if="!user.systems.length" class="subtle" style="font-size: var(--fs-sm)">{{ t('access.station_only') }}</span>
                         </td>
                         <td>
                             <span v-if="user.fleet_access?.can_enter" class="tag">{{ t('access.scope_entry') }}</span>
@@ -122,7 +110,6 @@ function save() {
                     <span class="muted">{{ row.granted_by ? t('access.granted_by', { name: row.granted_by }) : '' }} · {{ date(row.granted_at) }}</span>
                 </div>
             </div>
-            <p v-else-if="!editing.systems?.length && (editing.fleet_access?.can_enter || editing.fleet_access?.can_review)" class="hint">{{ t('access.no_grants') }}</p>
             <div v-if="editing.fleet_access" class="notice"><Icon name="shield-check" /><span>{{ t('access.derived', { entry: t(editing.fleet_access.can_enter ? 'common.yes' : 'common.no'), review: t(editing.fleet_access.can_review ? 'common.yes' : 'common.no') }) }}</span></div>
         </form>
         <template #footer>

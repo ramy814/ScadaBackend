@@ -40,27 +40,6 @@ class MunicipalityVehicleRepository
         }
     }
 
-    /**
-     * Every SSO user with an active station link (manual entry or approval scope),
-     * so the access directory can list assistants that have no SYSTEM_PERMISSIONS row.
-     *
-     * @return Collection<int, array{can_enter: bool, can_review: bool}>
-     */
-    public function stationOperationUsers(): Collection
-    {
-        if (! $this->readiness->available()) {
-            return collect();
-        }
-
-        try {
-            return $this->operationAccessRows($this->operationAccessQuery());
-        } catch (QueryException $e) {
-            $this->logOracleReadFailure('station_operation_users', $e);
-
-            return collect();
-        }
-    }
-
     private function operationAccessQuery(): Builder
     {
         return DB::connection('oracle')

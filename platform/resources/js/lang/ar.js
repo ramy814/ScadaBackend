@@ -187,8 +187,6 @@ export default {
         search: 'ابحث في مستخدمي SSO بالاسم أو الرقم', search_hint: 'يظهر المستخدمون الفعّالون فقط.', emp: 'موظف :n', has_access: 'لديه وصول',
         fleet_scope_hint: 'نطاق الإدخال والاعتماد في الأسطول مشتق تلقائياً من محطات Oracle (ACCESS_TYPE) ولا يُمنح من هنا.',
         derived: 'نطاق Oracle الحالي — إدخال: :entry · اعتماد: :review',
-        tabs: { all: 'الكل', granted: 'وصول للتطبيقات', station: 'نطاق محطات فقط' },
-        station_only: 'نطاق محطات فقط', no_grants: 'لا يملك وصولاً لأي تطبيق — يرى شاشات الإدخال اليدوي فقط',
         granted_rows: 'الصلاحيات الممنوحة', granted_by: 'بواسطة :name', oracle_unavailable: 'لا يمكن قراءة المستخدمين والصلاحيات لأن اتصال Oracle غير مضبوط. لا يعني هذا أن القائمة فارغة.',
         filtered_empty: 'لا يوجد مستخدمون مطابقون',
         apps: { fleet: 'الأسطول', wells: 'الآبار', valves: 'المحابس' },

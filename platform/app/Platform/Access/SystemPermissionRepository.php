@@ -403,7 +403,7 @@ class SystemPermissionRepository
     /**
      * @param  Collection<int, int>  $userIds
      */
-    public function usersById(Collection $userIds): Collection
+    private function usersById(Collection $userIds): Collection
     {
         if ($userIds->isEmpty()) {
             return collect();

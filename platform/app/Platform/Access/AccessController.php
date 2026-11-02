@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Platform\Access;
 
 use App\Http\Controllers\Controller;
+use App\Platform\Support\OracleReadiness;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -15,14 +16,14 @@ class AccessController extends Controller
 {
     public function __construct(
         private readonly SystemPermissionRepository $permissions,
-        private readonly AccessDirectoryService $directory,
+        private readonly OracleReadiness $readiness,
     ) {}
 
     public function index(): Response
     {
         return Inertia::render('Platform/Access', [
-            'users' => $this->directory->users(),
-            'oracleAvailable' => $this->directory->oracleAvailable(),
+            'users' => $this->permissions->groupedByUser(),
+            'oracleAvailable' => $this->readiness->available(),
             'catalog' => [
                 ['application' => 'fleet', 'keys' => ['fleet']],
                 ['application' => 'wells', 'keys' => ['wells', SystemPermissionRepository::DELETE_WELL_READING, SystemPermissionRepository::DELETE_DIESEL_INVENTORY]],
