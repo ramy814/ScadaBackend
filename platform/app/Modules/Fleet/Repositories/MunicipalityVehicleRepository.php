@@ -153,6 +153,57 @@ class MunicipalityVehicleRepository
         ]);
     }
 
+    /**
+     * Current hourly rental price (G_STORE.VEHICLE.HOURLY_PRICE) used for vehicle claims.
+     * Returns null when the vehicle has no price or Oracle is unavailable.
+     */
+    public function hourlyPriceFor(int|string|null $vehicleId): ?float
+    {
+        if (! filled($vehicleId)) {
+            return null;
+        }
+
+        return $this->hourlyPricesFor([$vehicleId])[(string) $vehicleId] ?? null;
+    }
+
+    /** @return array<string, float|null> Current hourly price keyed by vehicle OID. */
+    public function hourlyPricesFor(array $vehicleIds): array
+    {
+        $ids = collect($vehicleIds)
+            ->filter(fn ($id): bool => filled($id))
+            ->map(fn ($id): string => (string) $id)
+            ->unique()
+            ->values();
+
+        if ($ids->isEmpty() || ! $this->readiness->available()) {
+            return [];
+        }
+
+        $columns = $this->vehicleColumns();
+
+        try {
+            $prices = [];
+            foreach ($ids->chunk(900) as $chunk) {
+                DB::connection('oracle')
+                    ->table($this->vehiclesTable())
+                    ->whereIn($columns['id'], $chunk->all())
+                    ->selectRaw(sprintf('%s as oracle_id, %s as hourly_price', $columns['id'], $columns['hourly_price']))
+                    ->get()
+                    ->each(function ($row) use (&$prices): void {
+                        $prices[(string) $row->oracle_id] = is_numeric($row->hourly_price)
+                            ? round((float) $row->hourly_price, 2)
+                            : null;
+                    });
+            }
+
+            return $prices;
+        } catch (QueryException $e) {
+            $this->logOracleReadFailure('vehicle_hourly_prices', $e);
+
+            return [];
+        }
+    }
+
     private function reviewerVehiclesQuery(int $ssoUserId): Builder
     {
         return DB::connection('oracle')
@@ -192,6 +243,7 @@ class MunicipalityVehicleRepository
             'type' => 'VEHICLE_TYPE_OID',
             'beneficiary_id' => 'BENEFICIARY_OID',
             'active' => 'IS_ACTIVE',
+            'hourly_price' => 'HOURLY_PRICE',
         ];
     }
 

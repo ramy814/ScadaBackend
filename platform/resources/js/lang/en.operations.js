@@ -3,7 +3,7 @@ export default {
     common: { delete: 'Delete', remove: 'Remove' },
     nav: {
         group: { manual: 'Manual entry' },
-        fleet: { manual: 'My manual trips', manual_requests: 'Approve requests' },
+        fleet: { manual: 'My manual trips', manual_requests: 'Approve requests', claims: 'Financial claims' },
         locked_hint: 'Requires your account to be linked to an Oracle station',
         wells: { diesel: 'Diesel', map: 'Wells map', signal_types: 'Signal types' },
         valves: { map: 'Valves map' },
@@ -26,6 +26,19 @@ export default {
         delete_hint: 'Only records without operational history can be deleted; the lock shows why.',
     },
     fleet: {
+        claims: {
+            title: 'Vehicle financial claims',
+            subtitle: 'Each vehicle’s amount = sum of its approved trip durations (start to end) × the hourly price frozen when each trip was approved.',
+            vehicles: 'Vehicles', trips: 'Approved trips', hours: 'Work hours', hours_hint: ':n hours', amount: 'Total claim', currency: 'ILS',
+            month: 'Month', from: 'From date', to: 'To date', search: 'Vehicle plate or name', include_unpriced: 'Show vehicles without an hourly price',
+            notice_current: ':n trips were approved before price capture and use the vehicle’s current hourly price.',
+            notice_unpriced: ':n trips belong to vehicles without an hourly price in G_STORE.VEHICLE and are not in the amount.',
+            notice_hidden: ':n vehicles with approved trips but no hourly price are hidden.',
+            cols: { vehicle: 'Vehicle', driver: 'Driver', trips: 'Trips', hours: 'Work hours', price: 'Hourly price', amount: 'Amount (ILS)', date: 'Date' },
+            current_price: 'Current price', current_price_hint: 'Trips priced at the current price', unpriced: 'No price :n',
+            show_days: 'Daily breakdown', hide_days: 'Hide days', total: 'Total',
+            empty: 'No approved trips in this period', empty_body: 'Change the month or range, or show vehicles without an hourly price.',
+        },
         manual: {
             title: 'My manual trips', subtitle: 'Trips for vehicles without the driver app: save as a draft, then submit for approval.',
             requests_title: 'Approve requests', requests_subtitle: 'Submitted manual trips for your station vehicles, from every assistant.',

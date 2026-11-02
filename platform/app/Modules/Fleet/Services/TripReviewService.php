@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Fleet\Services;
 
 use App\Modules\Fleet\Models\Trip;
+use App\Modules\Fleet\Repositories\MunicipalityVehicleRepository;
 use App\Modules\Fleet\Repositories\TripRepository;
 use Carbon\CarbonImmutable;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -21,6 +22,7 @@ class TripReviewService
     public function __construct(
         private readonly TripRepository $trips,
         private readonly FleetAccessService $access,
+        private readonly MunicipalityVehicleRepository $vehicles,
     ) {}
 
     /**
@@ -60,7 +62,11 @@ class TripReviewService
             throw new AuthorizationException(__('fleet.errors.scope'));
         }
 
-        return $this->trips->decide((int) $trip->getKey(), self::DECISIONS[$decision], $note, (string) $userId, $actorName);
+        $status = self::DECISIONS[$decision];
+        // Same snapshot as the legacy review(): G_STORE.VEHICLE.HOURLY_PRICE at approval time.
+        $price = $status === 'approved' ? $this->vehicles->hourlyPriceFor($trip->oracle_vehicle_id) : null;
+
+        return $this->trips->decide((int) $trip->getKey(), $status, $note, (string) $userId, $actorName, $price);
     }
 
     /** @return array<string, mixed> */

@@ -3,6 +3,7 @@
 use App\Modules\Fleet\Http\Controllers\ManualTripController;
 use App\Modules\Fleet\Http\Controllers\OperationsController;
 use App\Modules\Fleet\Http\Controllers\ReviewController;
+use App\Modules\Fleet\Http\Controllers\VehicleClaimController;
 use App\Platform\Access\SystemPermissionRepository as Permission;
 use Illuminate\Support\Facades\Route;
 
@@ -35,6 +36,9 @@ Route::name('fleet.')->middleware('app.access:fleet')->group(function (): void {
     Route::get('/reports', [OperationsController::class, 'reports'])->name('reports');
     Route::get('/reports/csv', [OperationsController::class, 'reportsCsv'])->name('reports.csv');
     Route::get('/reports/pdf', [OperationsController::class, 'reportsPdf'])->name('reports.pdf');
+    Route::get('/claims', [VehicleClaimController::class, 'index'])->name('claims');
+    Route::get('/claims/csv', [VehicleClaimController::class, 'csv'])->name('claims.csv');
+    Route::get('/claims/pdf', [VehicleClaimController::class, 'pdf'])->name('claims.pdf');
     Route::get('/catalogs', [OperationsController::class, 'catalogs'])->name('catalogs');
     Route::post('/catalogs/{type}/{id?}', [OperationsController::class, 'saveCatalog'])
         ->whereIn('type', ['locations', 'mission-types'])->whereNumber('id')->name('catalogs.save');

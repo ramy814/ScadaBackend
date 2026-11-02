@@ -61,6 +61,7 @@ class FleetModule implements Module
             ]],
             ['label' => 'nav.group.records', 'items' => [
                 ['key' => 'reports', 'label' => 'nav.fleet.reports', 'route' => route('fleet.reports'), 'icon' => 'file-text'],
+                ['key' => 'claims', 'label' => 'nav.fleet.claims', 'route' => route('fleet.claims'), 'icon' => 'banknote'],
             ]],
             ...$manualGroup,
             ['label' => 'nav.group.settings', 'items' => [

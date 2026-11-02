@@ -18,6 +18,9 @@ final class DemoData
     public const ADMIN_ID = 1;
 
     /** Demo identities offered by /dev-login on the fixture only (id => scope label key). */
+    /** G_STORE.VEHICLE.HOURLY_PRICE for demo vehicles 700..705 (null = no price). */
+    private const HOURLY_PRICES = [45.0, 60.0, 35.5, 120.0, 50.0, null];
+
     public const IDENTITIES = [1 => 'admin', 5 => 'fleet', 2 => 'wells', 3 => 'valves', 4 => 'assistant'];
 
     public static function seed(): void
@@ -49,7 +52,7 @@ final class DemoData
         foreach ($drivers as $i => $name) {
             $id = 500 + $i;
             $db->table('g_store.beneficiaries')->insert(['oid' => $id, 'full_name' => $name, 'mobile_num' => '05990'.(12340 + $i), 'national_id' => (string) (400100200 + $i)]);
-            $db->table('g_store.vehicle')->insert(['oid' => 700 + $i, 'plate_num' => (string) (31200 + $i * 17), 'vehicle_num' => ['شاحنة نفايات', 'صهريج مياه', 'بيك أب', 'جرافة', 'باص موظفين', 'سيارة صيانة'][$i], 'beneficiary_oid' => $id, 'odometer' => 40000 + $i * 913]);
+            $db->table('g_store.vehicle')->insert(['oid' => 700 + $i, 'plate_num' => (string) (31200 + $i * 17), 'vehicle_num' => ['شاحنة نفايات', 'صهريج مياه', 'بيك أب', 'جرافة', 'باص موظفين', 'سيارة صيانة'][$i], 'beneficiary_oid' => $id, 'odometer' => 40000 + $i * 913, 'hourly_price' => self::HOURLY_PRICES[$i]]);
             $db->table('g_store.vehicle_stages')->insert(['vehicle_oid' => 700 + $i, 'stage_oid' => 10, 'access_type' => 3]);
         }
         $db->table('tracking.user_station')->insert(['stage_oid' => 10, 'user_oid' => 100]);
@@ -90,6 +93,8 @@ final class DemoData
                 'oracle_vehicle_id' => (string) (700 + $d), 'vehicle_plate' => (string) (31200 + $d * 17), 'vehicle_name' => ['شاحنة نفايات', 'صهريج مياه', 'بيك أب', 'جرافة', 'باص موظفين', 'سيارة صيانة'][$d],
                 'origin_text' => $places[$n % 6], 'destination_text' => $places[($n + 2) % 6], 'mission_type' => ['جمع نفايات', 'نقل مياه', 'صيانة شبكة', 'مهمة إدارية'][$n % 4],
                 'status' => $row[0], 'review_status' => $row[1], 'entry_source' => 'mobile', 'quality_version' => 2,
+                // Price frozen at approval; every fifth approved trip predates capture (falls back to the current price).
+                'hourly_price' => $row[1] === 'approved' && $n % 5 !== 0 ? self::HOURLY_PRICES[$d] : null,
                 'started_at' => $start, 'ended_at' => $end, 'confirmed_at' => $end,
                 'points_expected' => $points, 'points_received' => $points,
                 'distance_km' => $active ? null : $distance, 'duration_minutes' => $end ? $start->diffInMinutes($end) : null,

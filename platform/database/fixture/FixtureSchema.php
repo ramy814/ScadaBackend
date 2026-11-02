@@ -57,6 +57,7 @@ final class FixtureSchema
             $t->integer('odometer')->nullable();
             $t->integer('beneficiary_oid')->nullable();
             $t->integer('is_active')->default(1);
+            $t->decimal('hourly_price', 10, 2)->nullable();
         });
         $s->create('g_store.vehicle_stages', function (Blueprint $t): void {
             $t->integer('vehicle_oid');
@@ -104,6 +105,7 @@ final class FixtureSchema
             }
             $t->decimal('virtual_fuel_liters', 12, 3)->nullable();
             $t->decimal('distance_km', 12, 3)->nullable();
+            $t->decimal('hourly_price', 10, 2)->nullable();
             $t->timestamps();
         });
         $s->create('trip_points', function (Blueprint $t): void {

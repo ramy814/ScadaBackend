@@ -62,7 +62,13 @@ class ManualTripService
         abort_unless($this->vehicles->reviewerCanAccessVehicle($ssoUserId, $trip->oracle_vehicle_id), 403,
             'ليست لديك صلاحية اعتماد الطلب لهذه المركبة.');
 
-        return $this->trips->approveManual($tripId, $ssoUserId, $actorName, $note);
+        return $this->trips->approveManual(
+            $tripId,
+            $ssoUserId,
+            $actorName,
+            $note,
+            $this->vehicles->hourlyPriceFor($trip->oracle_vehicle_id),
+        );
     }
 
     /** @return array<string, mixed> */

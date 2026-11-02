@@ -7,5 +7,5 @@ export {
     LayoutGrid as 'layout-grid', Languages as languages, List as list, Loader2 as loader, LogOut as 'log-out', MapPin as 'map-pin',
     Menu as menu, MessageSquare as 'message-square', Moon as moon, Pencil as pencil, Plus as plus, Power as power, Radio as radio,
     Route as route, Search as search, Settings as settings, ShieldCheck as 'shield-check', Smartphone as smartphone, Sun as sun,
-    Truck as truck, UserRound as user, Users as users, Wrench as wrench, X as x, Image as image, Lock as lock,
+    Truck as truck, UserRound as user, Users as users, Wrench as wrench, X as x, Image as image, Lock as lock, Banknote as banknote, ChevronUp as 'chevron-up',
 } from 'lucide-vue-next';

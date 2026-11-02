@@ -140,6 +140,28 @@ class TripRepository
             ->latest('started_at');
     }
 
+    /**
+     * Approved, finished trips that form a vehicle financial claim, attributed by start time
+     * (legacy approvedTripsForClaims(): fleet visibility scope, no experimental filter).
+     *
+     * @param  array<int, string>  $allowedVehicleIds
+     * @return Collection<int, Trip>
+     */
+    public function approvedTripsForClaims(DateTimeInterface $from, DateTimeInterface $to, string $vehicleSearch, array $allowedVehicleIds): Collection
+    {
+        return $this->visible(true, $allowedVehicleIds)
+            ->where('review_status', 'approved')
+            ->whereNotNull('oracle_vehicle_id')
+            ->whereNotNull('ended_at')
+            ->whereBetween('started_at', [$from, $to])
+            ->when($vehicleSearch !== '', fn (Builder $q) => $q->where(fn (Builder $q) => $q
+                ->where('vehicle_plate', 'like', "%{$vehicleSearch}%")
+                ->orWhere('vehicle_name', 'like', "%{$vehicleSearch}%")
+                ->orWhere('oracle_vehicle_id', $vehicleSearch)))
+            ->orderBy('started_at')
+            ->get(['id', 'oracle_vehicle_id', 'vehicle_plate', 'vehicle_name', 'driver_name', 'entry_source', 'started_at', 'ended_at', 'hourly_price']);
+    }
+
     public function find(int $tripId): ?Trip
     {
         return Trip::query()->find($tripId);
@@ -158,9 +180,9 @@ class TripRepository
      * Atomic review decision. Enforces the documented immutability rule that the
      * legacy controller only enforced in the UI.
      */
-    public function decide(int $tripId, string $status, ?string $note, string $actor, string $actorName): Trip
+    public function decide(int $tripId, string $status, ?string $note, string $actor, string $actorName, ?float $hourlyPrice = null): Trip
     {
-        return DB::transaction(function () use ($tripId, $status, $note, $actor, $actorName): Trip {
+        return DB::transaction(function () use ($tripId, $status, $note, $actor, $actorName, $hourlyPrice): Trip {
             $trip = Trip::query()->whereKey($tripId)->lockForUpdate()->firstOrFail();
 
             if (in_array($trip->review_status, ['approved', 'rejected'], true)) {
@@ -184,6 +206,8 @@ class TripRepository
                 'review_note' => $note ?: null,
                 'reviewed_at' => now(),
                 'reviewed_by' => $actor,
+                // The hourly price is frozen at approval only; any other status clears it (legacy rule).
+                'hourly_price' => $status === 'approved' ? $hourlyPrice : null,
             ]);
 
             AuditLog::query()->create([
@@ -191,7 +215,10 @@ class TripRepository
                 'entity_type' => 'trip',
                 'entity_id' => $trip->getKey(),
                 'actor' => $actor,
-                'payload' => ['review_status' => $status, 'note' => $note, 'actor_name' => $actorName, 'source' => 'platform'],
+                'payload' => [
+                    'review_status' => $status, 'note' => $note, 'actor_name' => $actorName, 'source' => 'platform',
+                    'hourly_price' => $status === 'approved' ? $hourlyPrice : null,
+                ],
             ]);
 
             return $trip->refresh();
@@ -334,9 +361,9 @@ class TripRepository
         return Trip::query()->whereKey($tripId)->where('entry_source', 'manual')->first();
     }
 
-    public function approveManual(int $tripId, int $actorId, string $actorName, ?string $note): Trip
+    public function approveManual(int $tripId, int $actorId, string $actorName, ?string $note, ?float $hourlyPrice = null): Trip
     {
-        return DB::transaction(function () use ($tripId, $actorId, $actorName, $note): Trip {
+        return DB::transaction(function () use ($tripId, $actorId, $actorName, $note, $hourlyPrice): Trip {
             $trip = Trip::query()->whereKey($tripId)->where('entry_source', 'manual')->lockForUpdate()->firstOrFail();
             if ($trip->review_status !== 'pending' || $trip->status !== 'confirmed' || $trip->ended_at === null) {
                 throw ValidationException::withMessages(['approval' => 'الطلب غير جاهز للاعتماد أو تمت مراجعته مسبقاً.']);
@@ -347,13 +374,17 @@ class TripRepository
                 'review_note' => $note,
                 'reviewed_by' => $actorId,
                 'reviewed_at' => now(),
+                'hourly_price' => $hourlyPrice,
             ]);
             AuditLog::query()->create([
                 'event_type' => 'trip.reviewed',
                 'entity_type' => 'trip',
                 'entity_id' => $trip->getKey(),
                 'actor' => (string) $actorId,
-                'payload' => ['review_status' => 'approved', 'note' => $note, 'actor_name' => $actorName, 'source' => 'manual_assistant'],
+                'payload' => [
+                    'review_status' => 'approved', 'note' => $note, 'actor_name' => $actorName,
+                    'source' => 'manual_assistant', 'hourly_price' => $hourlyPrice,
+                ],
             ]);
 
             return $trip->refresh();
