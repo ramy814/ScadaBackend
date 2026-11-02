@@ -45,10 +45,14 @@ class HandleInertiaRequests extends Middleware
             ],
             'shell' => fn () => $user === null ? null : [
                 'workspace' => $workspace,
-                'applications' => array_map(
-                    fn (string $key): array => $this->registry->present($key, $locale),
-                    $this->access->applications($userId),
-                ),
+                'applications' => array_map(function (string $key) use ($locale, $userId): array {
+                    $app = $this->registry->present($key, $locale);
+
+                    // Assistants without the Fleet grant land on their manual-trip workspace.
+                    return $key === 'fleet' && ! $this->access->canAccess($userId, 'fleet')
+                        ? [...$app, 'home' => $this->access->assistantHome($userId)]
+                        : $app;
+                }, $this->access->workspaces($userId)),
                 'navigation' => $this->navigation($workspace, $userId),
                 'urls' => [
                     'overview' => route('overview'),
@@ -77,7 +81,7 @@ class HandleInertiaRequests extends Middleware
     private function navigation(string $workspace, int $userId): array
     {
         if ($this->registry->has($workspace)) {
-            return $this->access->canAccess($userId, $workspace)
+            return in_array($workspace, $this->access->workspaces($userId), true)
                 ? $this->registry->module($workspace)->navigation($userId)
                 : [];
         }

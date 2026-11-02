@@ -60,7 +60,7 @@ class WellsService
             'well' => $this->attr($s->well, 'name'),
             'inspector' => $this->attr($s->inspector, 'name'),
             'type' => $s->notificationType ? ['name' => $this->attr($s->notificationType, 'name'), 'color' => $this->attr($s->notificationType, 'color'), 'icon' => $this->attr($s->notificationType, 'icon')] : null,
-            'media' => $media->get((int) $s->getKey(), collect())->map(fn (Model $m): array => ['oid' => (int) $m->getKey(), 'url' => route('wells.media', $m->getKey())])->values(),
+            'media' => $media->get((int) $s->getKey(), collect())->map(fn (Model $m): array => ['oid' => (int) $m->getKey(), 'url' => route('wells.activity-media.show', $m->getKey(), false)])->values(),
         ]);
 
         return ['signals' => $page, 'state' => $state ?? 'all', 'unread' => $this->wells->unreadSignalCount()];
@@ -69,47 +69,6 @@ class WellsService
     public function markRead(?int $id): void
     {
         $id === null ? $this->wells->markAllSignalsRead() : $this->wells->markSignalRead($id);
-    }
-
-    public function assets(array $filters): array
-    {
-        $page = $this->wells->paginateWells($filters);
-        $page->getCollection()->transform(fn (Model $w): array => [
-            'oid' => (int) $w->getKey(),
-            'name' => $this->attr($w, 'name'),
-            'number' => $this->attr($w, 'well_num'),
-            'is_active' => (bool) $this->attr($w, 'is_active'),
-            'operational_status' => $this->attr($w, 'operational_status'),
-            'damage_status' => $this->attr($w, 'damage_status'),
-            'pump_type' => $this->attr($w, 'pump_type'),
-            'power_source' => $this->attr($w, 'power_source'),
-            'capacity' => $this->attr($w, 'capacity'),
-            'readings_count' => (int) $this->attr($w, 'readings_count'),
-            'last_reading_at' => $this->date($this->attr($w, 'last_reading_at')),
-        ]);
-
-        return ['wells' => $page, 'filters' => $filters];
-    }
-
-    public function field(): array
-    {
-        return [
-            'teams' => $this->wells->teams()->map(fn (Model $t): array => [
-                'oid' => (int) $t->getKey(),
-                'name' => $this->attr($t, 'name'),
-                'is_active' => (bool) $this->attr($t, 'is_active'),
-                'wells' => (int) $this->attr($t, 'wells_count'),
-                'inspectors' => (int) $this->attr($t, 'inspectors_count'),
-            ])->values(),
-            'inspectors' => $this->wells->inspectors()->map(fn (Model $i): array => [
-                'oid' => (int) $i->getKey(),
-                'name' => $this->attr($i, 'name'),
-                'phone' => $this->attr($i, 'phone'),
-                'is_active' => (bool) $this->attr($i, 'is_active'),
-                'readings' => (int) $this->attr($i, 'readings_count'),
-                'teams' => $i->teams->map(fn (Model $t): string => (string) $this->attr($t, 'name'))->values(),
-            ])->values(),
-        ];
     }
 
     /** Same private-disk streaming as the legacy ActivityMediaService::response(). */

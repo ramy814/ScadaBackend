@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Modules\Fleet\Services;
 
 use App\Modules\Fleet\Repositories\TripRepository;
+use App\Platform\Support\ReportExporter;
+use Illuminate\Http\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class FleetReportService
@@ -13,6 +15,7 @@ class FleetReportService
         private readonly TripRepository $trips,
         private readonly FleetAccessService $access,
         private readonly TripReviewService $review,
+        private readonly ReportExporter $exporter,
     ) {}
 
     /** @return array<string, mixed> */
@@ -46,6 +49,18 @@ class FleetReportService
             }
             fclose($out);
         }, 'fleet-report-'.now()->format('Ymd_His').'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    /** Legacy PDF template and 2,000-row ceiling. */
+    public function pdf(int $userId, array $filters): Response
+    {
+        [$from, $to] = $this->review->period($filters['period'] ?? 'month', $filters['date_from'] ?? null, $filters['date_to'] ?? null);
+        $trips = $this->query($userId, $filters)->limit(2000)->get();
+
+        return $this->exporter->download('fleet.reports-pdf', [
+            'trips' => $trips, 'period' => $filters['period'] ?? 'month', 'from' => $from, 'to' => $to, 'generatedAt' => now(),
+            'summary' => ['trips_count' => $trips->count(), 'sum_virtual_fuel' => round((float) $trips->sum('virtual_fuel_liters'), 2)],
+        ], 'pdf', 'fleet-report-'.now()->format('Ymd_His'), 'A4-L');
     }
 
     private function query(int $userId, array $filters)

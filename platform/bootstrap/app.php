@@ -1,6 +1,7 @@
 <?php
 
 use App\Platform\Http\Middleware\EnsureApplicationAccess;
+use App\Platform\Http\Middleware\EnsureFleetAction;
 use App\Platform\Http\Middleware\EnsurePlatformAdmin;
 use App\Platform\Http\Middleware\EnsurePlatformUser;
 use App\Platform\Http\Middleware\HandleInertiaRequests;
@@ -26,6 +27,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'platform.admin' => EnsurePlatformAdmin::class,
             'platform.operational' => RejectWhenSuspended::class,
             'app.access' => EnsureApplicationAccess::class,
+            'fleet.action' => EnsureFleetAction::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

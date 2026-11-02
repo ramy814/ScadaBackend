@@ -70,28 +70,6 @@ class ValvesService
         ];
     }
 
-    public function field(): array
-    {
-        return [
-            'teams' => $this->valves->teams()->map(fn (Model $t): array => [
-                'oid' => (int) $t->getKey(),
-                'name' => $this->attr($t, 'name'),
-                'is_active' => (bool) $this->attr($t, 'is_active'),
-                'assign_all' => (bool) $this->attr($t, 'assign_all_valves'),
-                'valves' => (int) $this->attr($t, 'valves_count'),
-                'inspectors' => (int) $this->attr($t, 'inspectors_count'),
-            ])->values(),
-            'inspectors' => $this->valves->inspectors()->map(fn (Model $i): array => [
-                'oid' => (int) $i->getKey(),
-                'name' => $this->attr($i, 'name'),
-                'phone' => $this->attr($i, 'phone'),
-                'is_active' => (bool) $this->attr($i, 'is_active'),
-                'actions' => (int) $this->attr($i, 'logs_count'),
-                'teams' => $i->teams->map(fn (Model $t): string => (string) $this->attr($t, 'name'))->values(),
-            ])->values(),
-        ];
-    }
-
     /** Valve identity uses the legacy code convention WV-{W4_GENERAL_ID}. */
     private function valve(?Model $valve, int $id): array
     {

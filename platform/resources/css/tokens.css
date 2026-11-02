@@ -23,8 +23,6 @@
     --app-valves: #dc6a1f;
     --accent: var(--app-platform);
     --accent-fg: #ffffff;
-    --accent-soft: color-mix(in srgb, var(--accent) 10%, transparent);
-    --accent-text: color-mix(in srgb, var(--accent) 82%, var(--text));
 
     /* Status (semantic only) */
     --success: #1f8f4e;
@@ -75,6 +73,12 @@
     --shadow-pop: 0 1px 2px rgb(16 17 20 / 0.06), 0 8px 24px rgb(16 17 20 / 0.08);
     --focus: 0 0 0 2px var(--surface), 0 0 0 4px color-mix(in srgb, var(--accent) 55%, transparent);
     --ease: cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* Derived accents must be recomputed wherever --accent changes. */
+:root, [data-app] {
+    --accent-soft: color-mix(in srgb, var(--accent) 10%, transparent);
+    --accent-text: color-mix(in srgb, var(--accent) 82%, var(--text));
 }
 
 [data-app='fleet'] { --accent: var(--app-fleet); }

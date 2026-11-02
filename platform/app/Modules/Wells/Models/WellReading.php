@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Wells\Models;
 
+use App\Modules\Wells\Services\ActivityMediaService;
 use App\Platform\Concerns\UppercaseKeys;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -77,6 +78,6 @@ class WellReading extends Model
             WellActivityMedia::class,
             'activity_oid',
             'oid',
-        )->where('ACTIVITY_TYPE', 'reading');
+        )->where('ACTIVITY_TYPE', ActivityMediaService::TYPE_READING);
     }
 }

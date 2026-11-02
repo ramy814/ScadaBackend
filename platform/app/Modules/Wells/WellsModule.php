@@ -19,12 +19,17 @@ class WellsModule implements Module
                 ['key' => 'today', 'label' => 'nav.wells.today', 'route' => route('wells.today'), 'icon' => 'sun'],
                 ['key' => 'signals', 'label' => 'nav.wells.signals', 'route' => route('wells.signals'), 'icon' => 'bell', 'badge' => $this->wells->unreadSignalCount() ?: null],
                 ['key' => 'readings', 'label' => 'nav.wells.readings', 'route' => route('wells.readings'), 'icon' => 'activity'],
+                ['key' => 'diesel', 'label' => 'nav.wells.diesel', 'route' => route('wells.diesel'), 'icon' => 'fuel'],
             ]],
             ['label' => 'nav.group.assets', 'items' => [
                 ['key' => 'assets', 'label' => 'nav.wells.assets', 'route' => route('wells.assets'), 'icon' => 'droplets'],
+                ['key' => 'map', 'label' => 'nav.wells.map', 'route' => route('wells.map'), 'icon' => 'map-pin'],
             ]],
             ['label' => 'nav.group.field', 'items' => [
                 ['key' => 'field', 'label' => 'nav.wells.field', 'route' => route('wells.field'), 'icon' => 'users'],
+            ]],
+            ['label' => 'nav.group.settings', 'items' => [
+                ['key' => 'signal-types', 'label' => 'nav.wells.signal_types', 'route' => route('wells.signal-types'), 'icon' => 'list'],
             ]],
         ];
     }

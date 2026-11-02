@@ -1,3 +1,3 @@
 <?php
 
-return ['saved' => 'تم الحفظ.'];
+return ['saved' => 'تم الحفظ.', 'deleted' => 'تم الحذف.'];

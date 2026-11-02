@@ -17,12 +17,17 @@ use Illuminate\Support\Facades\DB;
  */
 abstract class TestCase extends BaseTestCase
 {
+    /** Ported legacy tests that build their own tables opt out of the shared fixture. */
+    protected bool $fixtureSchema = true;
+
     protected function setUp(): void
     {
         parent::setUp();
         $this->withoutVite();
         DB::purge('oracle');
-        FixtureSchema::create();
+        if ($this->fixtureSchema) {
+            FixtureSchema::create();
+        }
     }
 
     protected function db(): Connection

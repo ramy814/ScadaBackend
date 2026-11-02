@@ -21,6 +21,7 @@ class ValvesModule implements Module
                 ['key' => 'today', 'label' => 'nav.valves.today', 'route' => route('valves.today'), 'icon' => 'sun'],
                 ['key' => 'maintenance', 'label' => 'nav.valves.maintenance', 'route' => route('valves.maintenance'), 'icon' => 'wrench', 'badge' => $pending ?: null],
                 ['key' => 'actions', 'label' => 'nav.valves.actions', 'route' => route('valves.actions'), 'icon' => 'history'],
+                ['key' => 'map', 'label' => 'nav.valves.map', 'route' => route('valves.map'), 'icon' => 'map-pin'],
             ]],
             ['label' => 'nav.group.field', 'items' => [
                 ['key' => 'field', 'label' => 'nav.valves.field', 'route' => route('valves.field'), 'icon' => 'users'],

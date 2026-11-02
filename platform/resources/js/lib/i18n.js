@@ -1,8 +1,20 @@
 import { computed } from 'vue';
 import { usePage } from '@inertiajs/vue3';
-import ar from '../lang/ar.js';
-import en from '../lang/en.js';
+import arCore from '../lang/ar.js';
+import enCore from '../lang/en.js';
+import arOperations from '../lang/ar.operations.js';
+import enOperations from '../lang/en.operations.js';
 
+function merge(base, extra) {
+    const out = { ...base };
+    for (const [key, value] of Object.entries(extra)) {
+        out[key] = value && typeof value === 'object' && !Array.isArray(value) && typeof base[key] === 'object' ? merge(base[key], value) : value;
+    }
+    return out;
+}
+
+const ar = merge(arCore, arOperations);
+const en = merge(enCore, enOperations);
 const dictionaries = { ar, en };
 
 // Keys may themselves contain dots (e.g. 'wells.readings.delete'), so try the longest segment first.

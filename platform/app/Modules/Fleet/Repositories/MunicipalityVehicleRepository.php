@@ -11,8 +11,8 @@ use Illuminate\Support\Facades\Log;
 
 /**
  * Oracle station/vehicle scope, ported from the legacy repository. Only the review
- * scope and driver-vehicle lookups the platform uses are kept; manual entry and
- * driver-app lookups remain in the legacy backend.
+ * scope, assistant entry scope and driver-vehicle lookups the platform uses are
+ * kept; driver-app lookups remain in the legacy backend.
  */
 class MunicipalityVehicleRepository
 {
@@ -188,5 +188,78 @@ class MunicipalityVehicleRepository
             'beneficiary_id' => 'BENEFICIARY_OID',
             'active' => 'IS_ACTIVE',
         ];
+    }
+
+    public function forAdministrativeAssistant(int $ssoUserId): Collection
+    {
+        if (! $this->readiness->available()) {
+            return collect();
+        }
+
+        try {
+            return $this->administrativeAssistantVehiclesQuery($ssoUserId)
+                ->orderBy('v.PLATE_NUM')
+                ->get()
+                ->map(fn ($row): array => (array) $row);
+        } catch (QueryException $e) {
+            $this->logOracleReadFailure('administrative_assistant_vehicles', $e);
+
+            return collect();
+        }
+    }
+
+    public function forManualReviewer(int $ssoUserId): Collection
+    {
+        if (! $this->readiness->available()) {
+            return collect();
+        }
+
+        try {
+            return $this->administrativeAssistantVehiclesQuery($ssoUserId, [2, 3])
+                ->orderBy('v.PLATE_NUM')->get()->map(fn ($row): array => (array) $row);
+        } catch (QueryException $e) {
+            $this->logOracleReadFailure('manual_reviewer_vehicles', $e);
+
+            return collect();
+        }
+    }
+
+    public function findForAdministrativeAssistant(int $ssoUserId, int|string $vehicleId): ?array
+    {
+        if (! $this->readiness->available()) {
+            return null;
+        }
+
+        try {
+            $row = $this->administrativeAssistantVehiclesQuery($ssoUserId)
+                ->where('v.OID', $vehicleId)
+                ->first();
+        } catch (QueryException $e) {
+            $this->logOracleReadFailure('administrative_assistant_vehicle', $e);
+
+            return null;
+        }
+
+        return $row ? (array) $row : null;
+    }
+
+    private function administrativeAssistantVehiclesQuery(int $ssoUserId, array $accessTypes = [1, 3]): Builder
+    {
+        return DB::connection('oracle')
+            ->table('g_store.VEHICLE as v')
+            ->leftJoin('g_store.BENEFICIARIES as b', 'b.OID', '=', 'v.BENEFICIARY_OID')
+            ->selectRaw(<<<'SQL'
+                v.OID as oracle_id,
+                v.PLATE_NUM as plate_number,
+                v.VEHICLE_NUM as name,
+                v.VEHICLE_TYPE_OID as vehicle_type,
+                v.ODOMETER as odometer,
+                b.OID as oracle_driver_id,
+                b.FULL_NAME as driver_name,
+                b.MOBILE_NUM as driver_phone,
+                b.NATIONAL_ID as driver_employee_number
+            SQL)
+            ->whereNotNull('v.PLATE_NUM')
+            ->whereExists(fn ($query) => $this->stationAccessQuery($query, $ssoUserId, $accessTypes));
     }
 }

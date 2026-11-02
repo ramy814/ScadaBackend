@@ -23,7 +23,8 @@ Route::middleware(['auth:admin', 'platform.user'])->group(function (): void {
     Route::middleware('platform.operational')->group(function (): void {
         Route::get('/', OverviewController::class)->name('overview');
 
-        Route::prefix('fleet')->middleware('app.access:fleet')->group(base_path('routes/fleet.php'));
+        // Fleet mixes system access (dashboard) and Oracle-derived assistant access (manual trips): see routes/fleet.php.
+        Route::prefix('fleet')->group(base_path('routes/fleet.php'));
         Route::prefix('wells')->middleware('app.access:wells')->group(base_path('routes/wells.php'));
         Route::prefix('valves')->middleware('app.access:valves')->group(base_path('routes/valves.php'));
     });

@@ -179,7 +179,6 @@ export default {
         teams: 'Teams', inspectors: 'Inspectors', inspector: 'Inspector', wells: 'Wells', valves: 'Valves', readings: 'Readings', actions: 'Actions',
         all_valves: 'All valves', phone: 'Phone (login)', app_login: 'App login', can_login: 'Allowed', blocked: 'Blocked',
         no_teams: 'No teams', no_inspectors: 'No inspectors',
-        manage_hint: 'Creating teams, accounts and assignments still happens in the previous dashboard until migrated (see roadmap).',
     },
     access: {
         title: 'Users & access', subtitle: 'Grant SSO users access to platform applications. Changes apply immediately here and in the previous dashboard.',
@@ -230,7 +229,7 @@ export default {
         no_access: 'You don’t have access', back_overview: 'Back to overview', suspended: 'Systems temporarily suspended',
         suspended_default: 'Gaza Municipality services are temporarily suspended. Please try again later.', manage_operations: 'Manage operations',
         reasons: {
-            no_application: 'You have no application access in this platform. Assistant manual-trip entry is still in the previous dashboard.',
+            no_application: 'You have no application access and no Oracle station scope for manual trips. Contact an access manager.',
             application: 'You don’t have access to this application. Contact an access manager.', platform_admin: 'This page is for access managers only.',
         },
     },

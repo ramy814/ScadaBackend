@@ -38,7 +38,7 @@ class WellActivityMedia extends Model
     public function getUrlAttribute(): string
     {
         return route(
-            'wells.media',
+            'wells.activity-media.show',
             ['media' => $this->getKey()],
             false,
         );

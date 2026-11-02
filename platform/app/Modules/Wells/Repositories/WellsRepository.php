@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Modules\Wells\Repositories;
 
-use App\Modules\Wells\Models\Inspector;
-use App\Modules\Wells\Models\Team;
 use App\Modules\Wells\Models\Well;
 use App\Modules\Wells\Models\WellActivityMedia;
 use App\Modules\Wells\Models\WellNotification;
@@ -99,28 +97,5 @@ class WellsRepository
     public function findMedia(int $id): WellActivityMedia
     {
         return WellActivityMedia::query()->findOrFail($id);
-    }
-
-    public function paginateWells(array $filters): LengthAwarePaginator
-    {
-        return Well::query()
-            ->withCount('readings')
-            ->addSelect(['last_reading_at' => WellReading::query()->selectRaw('MAX(READING_DATE)')->whereColumn('WELL_OID', 'wells.OID')])
-            ->when(filled($filters['search'] ?? null), fn (Builder $q) => $q->where(fn (Builder $w) => $w
-                ->where('NAME', 'like', '%'.$filters['search'].'%')->orWhere('WELL_NUM', 'like', '%'.$filters['search'].'%')))
-            ->when(filled($filters['damage_status'] ?? null), fn (Builder $q) => $q->where('DAMAGE_STATUS', $filters['damage_status']))
-            ->when(($filters['is_active'] ?? '') !== '' && isset($filters['is_active']), fn (Builder $q) => $q->where('IS_ACTIVE', (int) $filters['is_active']))
-            ->orderByDesc('IS_ACTIVE')->orderBy('NAME')
-            ->paginate(25)->withQueryString();
-    }
-
-    public function teams(): Collection
-    {
-        return Team::query()->withCount(['wells', 'inspectors'])->orderBy('NAME')->get();
-    }
-
-    public function inspectors(): Collection
-    {
-        return Inspector::query()->with('teams:oid,name')->withCount('readings')->orderBy('NAME')->get();
     }
 }

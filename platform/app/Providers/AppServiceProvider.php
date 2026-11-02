@@ -34,6 +34,9 @@ class AppServiceProvider extends ServiceProvider
                 return;
             }
 
+            // Oracle date literal helper used by GeneratorRepository; the fixture stores ISO strings.
+            $connection->getPdo()->sqliteCreateFunction('TO_DATE', fn ($value) => $value, 2);
+
             $database = (string) $connection->getConfig('database');
             foreach ($schemas as $schema) {
                 $path = $database === ':memory:'

@@ -13,4 +13,10 @@ return [
         'reject' => 'Trip #:id rejected.',
         'clarify' => 'Clarification requested from the driver for trip #:id.',
     ],
+    'manual' => [
+        'saved_draft' => 'Draft trip #:id saved. Review it, then submit it for approval.',
+        'updated' => 'Trip #:id updated.',
+        'submitted' => 'Trip #:id submitted for approval.',
+        'approved' => 'Request #:id approved.',
+    ],
 ];

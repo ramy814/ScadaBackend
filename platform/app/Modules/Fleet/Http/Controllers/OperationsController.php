@@ -14,6 +14,7 @@ use App\Modules\Fleet\Services\FleetLiveService;
 use App\Modules\Fleet\Services\FleetReportService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response as HttpResponse;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -37,12 +38,18 @@ class OperationsController extends Controller
             ...$reports->screen((int) $request->user('admin')->getAuthIdentifier(), $request->validated()),
             'filters' => $request->validated(),
             'csvUrl' => route('fleet.reports.csv', $request->validated()),
+            'pdfUrl' => route('fleet.reports.pdf', $request->validated()),
         ]);
     }
 
     public function reportsCsv(ReportRequest $request, FleetReportService $reports): StreamedResponse
     {
         return $reports->csv((int) $request->user('admin')->getAuthIdentifier(), $request->validated());
+    }
+
+    public function reportsPdf(ReportRequest $request, FleetReportService $reports): HttpResponse
+    {
+        return $reports->pdf((int) $request->user('admin')->getAuthIdentifier(), $request->validated());
     }
 
     public function catalogs(Request $request, CatalogRepository $catalogs): Response

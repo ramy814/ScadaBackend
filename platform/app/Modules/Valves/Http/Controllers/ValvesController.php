@@ -28,9 +28,4 @@ class ValvesController extends Controller
     {
         return Inertia::render('Valves/Actions', $this->valves->actions($request->safe()->except('status')));
     }
-
-    public function field(): Response
-    {
-        return Inertia::render('Valves/Field', $this->valves->field());
-    }
 }

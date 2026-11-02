@@ -1,3 +1,3 @@
 <?php
 
-return ['saved' => 'Saved.'];
+return ['saved' => 'Saved.', 'deleted' => 'Deleted.'];

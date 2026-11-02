@@ -9,14 +9,14 @@ import SearchBox from '../../Components/SearchBox.vue';
 import { useI18n } from '../../lib/i18n.js';
 import { visit } from '../../lib/query.js';
 
-defineProps({ trips: Object, summary: Object, filters: Object, csvUrl: String });
+defineProps({ trips: Object, summary: Object, filters: Object, csvUrl: String, pdfUrl: String });
 const { t, num, date } = useI18n();
 </script>
 
 <template>
     <Head :title="t('nav.fleet.reports')" />
     <PageHeader :title="t('fleet.reports.title')" :description="t('fleet.reports.subtitle')">
-        <template #actions><a :href="csvUrl" class="btn"><Icon name="download" />{{ t('common.export_csv') }}</a></template>
+        <template #actions><a :href="csvUrl" class="btn"><Icon name="download" />{{ t('common.export_csv') }}</a><a :href="pdfUrl" class="btn"><Icon name="file-text" />PDF</a></template>
     </PageHeader>
     <div class="grid grid-3" style="margin-bottom: var(--s-4)">
         <div class="panel kpi"><span class="kpi-label">{{ t('fleet.reports.trips') }}</span><span class="kpi-value">{{ num(summary.trips) }}</span></div>

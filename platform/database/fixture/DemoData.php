@@ -47,6 +47,9 @@ final class DemoData
             $db->table('g_store.vehicle_stages')->insert(['vehicle_oid' => 700 + $i, 'stage_oid' => 10, 'access_type' => 3]);
         }
         $db->table('tracking.user_station')->insert(['stage_oid' => 10, 'user_oid' => 100]);
+        $db->table('mog_users.users_list')->insert(['id' => 4, 'emp_id' => 9004, 'full_name' => 'مساعد إداري تجريبي', 'tracking_id' => 103, 'is_active' => 1]);
+        $db->table('g_store.vehicle_stages')->insert(['vehicle_oid' => 700, 'stage_oid' => 20, 'access_type' => 1]);
+        $db->table('tracking.user_station')->insert(['stage_oid' => 20, 'user_oid' => 103]);
 
         foreach (['مكب جحر الديك', 'محطة ضخ الشيخ رضوان', 'مقر البلدية', 'مخازن البلدية', 'بئر الصفطاوي', 'حي الرمال'] as $i => $name) {
             $db->table('mission_locations')->insert(['name' => $name, 'category' => 'both', 'sort_order' => $i, 'active' => 1, 'created_at' => $now, 'updated_at' => $now]);
@@ -173,9 +176,42 @@ final class DemoData
             $db->table('well_notifications')->insert(['well_oid' => $well, 'notification_type_oid' => $type, 'inspector_oid' => $i % 3 + 1, 'message' => $msg, 'is_read' => $read, 'read_at' => $read ? $at : null, 'created_at' => $at, 'updated_at' => $at]);
         }
 
+        // Diesel: quarters, generators, tank shapes, approved fuel deliveries and field inventories.
+        foreach (['الرمال الشمالي', 'الشيخ رضوان', 'تل الهوى', 'الشجاعية', 'الزيتون'] as $i => $name) {
+            $db->table('gazadata.quarters')->insert(['oid' => $i + 1, 'name' => $name]);
+        }
+        for ($w = 1; $w <= 12; $w++) {
+            $db->table('wells')->where('oid', $w)->update([
+                'quarter_oid' => $w % 5 + 1, 'well_num' => 'W-'.(100 + $w),
+                'latitude' => 31.49 + ($w % 6) * 0.012, 'longitude' => 34.43 + intdiv($w, 2) * 0.008,
+                'tank_shape' => $w <= 4 ? 'Daily Tank' : ($w <= 9 ? 'اسطواني عمودي' : null), 'tank_diameter' => 1.2, 'tank_height' => 1.6,
+            ]);
+            $db->table('g_store.generator')->insert(['oid' => 900 + $w, 'name' => 'مولد '.(150 + $w * 10).' KVA', 'generator_num' => 'G-'.(40 + $w), 'engine_capacity' => 150 + $w * 10, 'fuel_consumption' => 18 + $w]);
+            $db->table('well_generators')->insert(['well_oid' => $w, 'generator_oid' => 900 + $w, 'fuel_consumption_lph' => 18 + $w, 'consumption_tolerance_lph' => 2]);
+        }
+        $logId = 0;
+        for ($w = 1; $w <= 9; $w++) {
+            for ($k = 0; $k < 4; $k++) {
+                $logId++;
+                $at = $now->subDays(28 - $k * 7)->setTime(9, 0);
+                $db->table('g_store.fuel_log')->insert(['oid' => $logId, 'status_oid' => 416, 'fill_up_date' => $at, 'entry_date' => $at->addHour()]);
+                $db->table('g_store.fuel_log_details')->insert(['oid' => $logId, 'fuel_log_oid' => $logId, 'asset_oid' => 900 + $w, 'asset_type' => 401,
+                    'current_reading' => (string) (2000 + $w * 50 + $k * (120 + $w * 3)), 'gallons' => 380 + $w * 10, 'approved_gallons' => 360 + $w * 10 + ($w === 3 && $k === 3 ? 900 : 0)]);
+            }
+        }
+        for ($w = 5; $w <= 9; $w++) {
+            for ($k = 0; $k < 3; $k++) {
+                $at = $now->subDays(24 - $k * 8)->setTime(11, 30);
+                $db->table('diesel_inventories')->insert(['well_oid' => $w, 'inspector_oid' => $w % 3 + 1, 'generator_oid' => 900 + $w, 'inventory_date' => $at,
+                    'generator_hours_reading' => 2000 + $w * 50 + $k * (120 + $w * 3) + 30, 'diesel_height_cm' => 140 - $k * 25 + ($k === 2 ? 40 : 0),
+                    'available_fuel_liters' => 1000, 'created_at' => $at->addMinutes(20), 'updated_at' => $at->addMinutes(20)]);
+            }
+        }
+
         // ── Valves ──────────────────────────────────────────────────────────
         for ($v = 1; $v <= 40; $v++) {
-            $db->table('eme.water_valves')->insert(['w4_general_id' => 3000 + $v, 'w4_street_no' => 100 + $v % 23, 'w4_valve_type' => $v % 2 ? 'Gate' : 'Butterfly', 'w4_valve_diameter' => [4, 6, 8, 12][$v % 4], 'w4_status' => 'ACTIVE', 'w4_source' => ['الرمال', 'الشيخ رضوان', 'الزيتون'][$v % 3]]);
+            $db->table('eme.water_valves')->insert(['w4_general_id' => 3000 + $v, 'w4_street_no' => 100 + $v % 23, 'w4_valve_type' => $v % 2 ? 'Gate' : 'Butterfly', 'w4_valve_diameter' => [4, 6, 8, 12][$v % 4], 'w4_status' => 'ACTIVE', 'w4_source' => ['الرمال', 'الشيخ رضوان', 'الزيتون'][$v % 3],
+                'fixture_latitude' => 31.495 + ($v % 8) * 0.006, 'fixture_longitude' => 34.44 + intdiv($v, 8) * 0.009]);
         }
         foreach (['فريق محابس الرمال', 'فريق محابس الشرق'] as $i => $name) {
             $db->table('valve_teams')->insert(['name' => $name, 'assign_all_valves' => $i, 'created_at' => $now, 'updated_at' => $now]);

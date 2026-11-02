@@ -8,7 +8,7 @@
 | [docs/01-audit.md](docs/01-audit.md) | تدقيق اللوحة الحالية، خريطة الوحدات، مشاكل تجربة الاستخدام |
 | [docs/02-architecture.md](docs/02-architecture.md) | المعمارية المعلوماتية، التنقل، استراتيجية التطبيقات المتعددة، الصلاحيات |
 | [docs/03-design-system.md](docs/03-design-system.md) | نظام التصميم (الألوان، الطباعة، RTL/LTR، المكونات) |
-| [docs/04-roadmap.md](docs/04-roadmap.md) | ما تم وما تبقى، خطة الإطلاق، مراجعة Ponytail، مقارنة graphify |
+| [docs/04-roadmap.md](docs/04-roadmap.md) | الحالة، ما يحتاج متابعة على الخادم، خطة الإطلاق، مراجعة Ponytail، مقارنة graphify |
 
 ## التشغيل المحلي (بدون Oracle)
 

@@ -17,6 +17,9 @@ class AccessService
     /** @var array<int, array<int, string>> */
     private array $applications = [];
 
+    /** @var array<int, array{create: bool, enter: bool, approve: bool}> */
+    private array $assistant = [];
+
     public function __construct(
         private readonly SystemPermissionRepository $permissions,
         private readonly ApplicationRegistry $registry,
@@ -50,7 +53,42 @@ class AccessService
 
     public function hasAnyAccess(int $userId): bool
     {
-        return $this->applications($userId) !== [] || $this->isPlatformAdmin($userId);
+        return $this->applications($userId) !== [] || $this->isPlatformAdmin($userId) || $this->assistant($userId)['create'];
+    }
+
+    /**
+     * Manual-trip assistant capabilities, derived live from Oracle station scope
+     * (VEHICLE_STAGES.ACCESS_TYPE 1 entry, 2 approval, 3 both). They never grant
+     * the Fleet dashboard itself (legacy rule).
+     *
+     * @return array{create: bool, enter: bool, approve: bool}
+     */
+    public function assistant(int $userId): array
+    {
+        return $this->assistant[$userId] ??= [
+            'create' => $this->permissions->hasActionPermission($userId, SystemPermissionRepository::CREATE_MANUAL_TRIP),
+            'enter' => $this->permissions->hasActionPermission($userId, SystemPermissionRepository::ENTER_MANUAL_TRIP),
+            'approve' => $this->permissions->hasActionPermission($userId, SystemPermissionRepository::APPROVE_MANUAL_TRIP),
+        ];
+    }
+
+    /** Workspaces shown in the shell: granted applications plus Fleet for assistants. */
+    public function workspaces(int $userId): array
+    {
+        $keys = $this->applications($userId);
+        if (! in_array('fleet', $keys, true) && $this->assistant($userId)['create']) {
+            array_unshift($keys, 'fleet');
+        }
+
+        return $keys;
+    }
+
+    /** Landing page for an assistant without any granted application. */
+    public function assistantHome(int $userId): string
+    {
+        $assistant = $this->assistant($userId);
+
+        return $assistant['enter'] || ! $assistant['approve'] ? route('fleet.manual') : route('fleet.manual.requests');
     }
 
     public function can(int $userId, string $action): bool

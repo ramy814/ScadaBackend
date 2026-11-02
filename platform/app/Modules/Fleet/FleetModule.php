@@ -8,6 +8,7 @@ use App\Modules\Fleet\Repositories\DriverAppInstallationRepository;
 use App\Modules\Fleet\Repositories\TripRepository;
 use App\Modules\Fleet\Services\FleetAccessService;
 use App\Modules\Fleet\Services\FleetLiveService;
+use App\Platform\Access\AccessService;
 use App\Platform\Applications\Module;
 use Carbon\CarbonImmutable;
 
@@ -26,10 +27,23 @@ class FleetModule implements Module
         private readonly FleetAccessService $access,
         private readonly DriverAppInstallationRepository $installations,
         private readonly FleetLiveService $liveTrips,
+        private readonly AccessService $platformAccess,
     ) {}
 
     public function navigation(int $userId): array
     {
+        $assistant = $this->platformAccess->assistant($userId);
+        $manual = array_values(array_filter([
+            $assistant['create'] ? ['key' => 'manual', 'label' => 'nav.fleet.manual', 'route' => route('fleet.manual'), 'icon' => 'pencil'] : null,
+            $assistant['approve'] ? ['key' => 'manual-requests', 'label' => 'nav.fleet.manual_requests', 'route' => route('fleet.manual.requests'), 'icon' => 'check'] : null,
+        ]));
+        $manualGroup = $manual === [] ? [] : [['label' => 'nav.group.manual', 'items' => $manual]];
+
+        // Oracle assistant scope alone never opens the Fleet dashboard (legacy rule).
+        if (! $this->platformAccess->canAccess($userId, 'fleet')) {
+            return $manualGroup;
+        }
+
         $counts = $this->counts($userId);
 
         return [
@@ -44,6 +58,7 @@ class FleetModule implements Module
             ['label' => 'nav.group.records', 'items' => [
                 ['key' => 'reports', 'label' => 'nav.fleet.reports', 'route' => route('fleet.reports'), 'icon' => 'file-text'],
             ]],
+            ...$manualGroup,
             ['label' => 'nav.group.settings', 'items' => [
                 ['key' => 'catalogs', 'label' => 'nav.fleet.catalogs', 'route' => route('fleet.catalogs'), 'icon' => 'list'],
             ]],

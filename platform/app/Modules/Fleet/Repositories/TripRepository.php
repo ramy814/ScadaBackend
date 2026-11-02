@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace App\Modules\Fleet\Repositories;
 
+use App\Modules\Fleet\Models\MissionLocation;
+use App\Modules\Fleet\Models\MissionType;
 use App\Modules\Fleet\Models\Trip;
 use App\Platform\Audit\AuditLog;
+use Carbon\CarbonImmutable;
 use DateTimeInterface;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
@@ -261,6 +264,188 @@ class TripRepository
             foreach ($ids->chunk(900)->values() as $index => $chunk) {
                 $index === 0 ? $q->whereIn('oracle_vehicle_id', $chunk->all()) : $q->orWhereIn('oracle_vehicle_id', $chunk->all());
             }
+        });
+    }
+
+    // ── Assistant manual entry (ported verbatim from the legacy TripRepository) ──
+
+    /** @return array{locations: Collection<int, string>, mission_types: Collection<int, string>} */
+    public function manualTripOptions(): array
+    {
+        return [
+            'locations' => MissionLocation::query()
+                ->where('active', true)
+                ->orderBy('sort_order')
+                ->orderBy('name')
+                ->pluck('name'),
+            'mission_types' => MissionType::query()
+                ->where('active', true)
+                ->orderBy('sort_order')
+                ->orderBy('name')
+                ->pluck('name'),
+        ];
+    }
+
+    public function createManual(array $attributes, string $actor): Trip
+    {
+        return DB::transaction(function () use ($attributes, $actor): Trip {
+            $trip = Trip::query()->create($attributes);
+
+            AuditLog::query()->create([
+                'event_type' => 'trip.manual.created',
+                'entity_type' => 'trip',
+                'entity_id' => $trip->getKey(),
+                'actor' => $actor,
+                'payload' => [
+                    'vehicle_id' => $trip->oracle_vehicle_id,
+                    'vehicle_plate' => $trip->vehicle_plate,
+                    'started_at' => optional($trip->started_at)->toISOString(),
+                    'ended_at' => optional($trip->ended_at)->toISOString(),
+                    'estimated_distance_km' => $trip->distance_km,
+                ],
+            ]);
+
+            return $trip;
+        });
+    }
+
+    /** @param array<string, mixed> $filters */
+    public function paginateManualForAssistant(int $ssoUserId, array $filters, int $perPage = 15): LengthAwarePaginator
+    {
+        return $this->manualTripsQuery($filters)
+            ->where('entered_by_user_id', $ssoUserId)
+            ->latest('started_at')->paginate($perPage)->withQueryString();
+    }
+
+    public function paginateManualForApproval(array $vehicleIds, array $filters, int $perPage = 15): LengthAwarePaginator
+    {
+        $query = $this->manualTripsQuery($filters);
+        $this->scopeToVehicleIds($query, $vehicleIds);
+
+        return $query
+            ->where('review_status', '!=', 'draft')
+            ->where('status', 'confirmed')->whereNotNull('ended_at')
+            ->orderByRaw("case when review_status = 'pending' then 0 else 1 end")
+            ->latest('started_at')->paginate($perPage)->withQueryString();
+    }
+
+    public function findManualForApproval(int $tripId): ?Trip
+    {
+        return Trip::query()->whereKey($tripId)->where('entry_source', 'manual')->first();
+    }
+
+    public function approveManual(int $tripId, int $actorId, string $actorName, ?string $note): Trip
+    {
+        return DB::transaction(function () use ($tripId, $actorId, $actorName, $note): Trip {
+            $trip = Trip::query()->whereKey($tripId)->where('entry_source', 'manual')->lockForUpdate()->firstOrFail();
+            if ($trip->review_status !== 'pending' || $trip->status !== 'confirmed' || $trip->ended_at === null) {
+                throw ValidationException::withMessages(['approval' => 'الطلب غير جاهز للاعتماد أو تمت مراجعته مسبقاً.']);
+            }
+
+            $trip->update([
+                'review_status' => 'approved',
+                'review_note' => $note,
+                'reviewed_by' => $actorId,
+                'reviewed_at' => now(),
+            ]);
+            AuditLog::query()->create([
+                'event_type' => 'trip.reviewed',
+                'entity_type' => 'trip',
+                'entity_id' => $trip->getKey(),
+                'actor' => (string) $actorId,
+                'payload' => ['review_status' => 'approved', 'note' => $note, 'actor_name' => $actorName, 'source' => 'manual_assistant'],
+            ]);
+
+            return $trip->refresh();
+        });
+    }
+
+    private function manualTripsQuery(array $filters): Builder
+    {
+        $search = trim((string) ($filters['search'] ?? ''));
+
+        return Trip::query()
+            ->where('entry_source', 'manual')
+            ->when(filled($filters['review_status'] ?? null) && $filters['review_status'] !== 'all', fn (Builder $query) => $query
+                ->where('review_status', $filters['review_status']))
+            ->when(filled($filters['oracle_vehicle_id'] ?? null), fn (Builder $query) => $query
+                ->where('oracle_vehicle_id', $filters['oracle_vehicle_id']))
+            ->when(filled($filters['date_from'] ?? null), fn (Builder $query) => $query
+                ->where('started_at', '>=', CarbonImmutable::parse($filters['date_from'])->startOfDay()))
+            ->when(filled($filters['date_to'] ?? null), fn (Builder $query) => $query
+                ->where('started_at', '<=', CarbonImmutable::parse($filters['date_to'])->endOfDay()))
+            ->when($search !== '', function (Builder $query) use ($search): void {
+                $like = "%{$search}%";
+                $query->where(function (Builder $query) use ($search, $like): void {
+                    $query->where('vehicle_plate', 'like', $like)
+                        ->orWhere('driver_name', 'like', $like)
+                        ->orWhere('origin_text', 'like', $like)
+                        ->orWhere('destination_text', 'like', $like)
+                        ->orWhere('mission_type', 'like', $like);
+
+                    if (ctype_digit($search)) {
+                        $query->orWhere('id', (int) $search);
+                    }
+                });
+            });
+    }
+
+    public function findEditableManualForAssistant(int $tripId, int $ssoUserId): ?Trip
+    {
+        return Trip::query()
+            ->whereKey($tripId)
+            ->where('entry_source', 'manual')
+            ->where('entered_by_user_id', $ssoUserId)
+            ->where('review_status', 'draft')
+            ->first();
+    }
+
+    public function updateManual(Trip $trip, array $attributes, string $actor): Trip
+    {
+        return DB::transaction(function () use ($trip, $attributes, $actor): Trip {
+            $trip = Trip::query()->whereKey($trip->getKey())->where('entry_source', 'manual')->lockForUpdate()->firstOrFail();
+            if ($trip->review_status !== 'draft') {
+                throw ValidationException::withMessages(['trip' => 'لا يمكن تعديل الرحلة بعد ترحيلها للاعتماد.']);
+            }
+            $trip->update($attributes);
+
+            AuditLog::query()->create([
+                'event_type' => 'trip.manual.updated',
+                'entity_type' => 'trip',
+                'entity_id' => $trip->getKey(),
+                'actor' => $actor,
+                'payload' => [
+                    'vehicle_id' => $trip->oracle_vehicle_id,
+                    'vehicle_plate' => $trip->vehicle_plate,
+                    'started_at' => optional($trip->started_at)->toISOString(),
+                    'ended_at' => optional($trip->ended_at)->toISOString(),
+                    'estimated_distance_km' => $trip->distance_km,
+                ],
+            ]);
+
+            return $trip->refresh();
+        });
+    }
+
+    public function submitManual(int $tripId, int $actorId, string $actorName): Trip
+    {
+        return DB::transaction(function () use ($tripId, $actorId, $actorName): Trip {
+            $trip = Trip::query()->whereKey($tripId)->where('entry_source', 'manual')
+                ->where('entered_by_user_id', $actorId)->lockForUpdate()->firstOrFail();
+            if ($trip->review_status !== 'draft' || $trip->status !== 'confirmed' || $trip->ended_at === null) {
+                throw ValidationException::withMessages(['trip' => 'لا يمكن ترحيل الرحلة إلا إذا كانت مسودة مكتملة.']);
+            }
+
+            $trip->update(['review_status' => 'pending']);
+            AuditLog::query()->create([
+                'event_type' => 'trip.manual.submitted',
+                'entity_type' => 'trip',
+                'entity_id' => $trip->getKey(),
+                'actor' => (string) $actorId,
+                'payload' => ['review_status' => 'pending', 'actor_name' => $actorName],
+            ]);
+
+            return $trip->refresh();
         });
     }
 }

@@ -41,7 +41,7 @@ return [
             'database' => env('ORACLE_SQLITE_DATABASE', database_path('platform-demo.sqlite')),
             'prefix' => '',
             'foreign_key_constraints' => false,
-            'attach_schemas' => ['g_store', 'mog_users', 'tracking', 'eme', 'control_unit', 'gazadata'],
+            'attach_schemas' => ['g_store', 'mog_users', 'tracking', 'eme', 'control_unit', 'gazadata', 'dss_core'],
         ] : [
             'driver' => 'oracle',
             'tns' => env('DB_TNS', ''),

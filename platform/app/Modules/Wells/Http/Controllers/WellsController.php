@@ -21,11 +21,6 @@ class WellsController extends Controller
         return Inertia::render('Wells/Today', [...$this->wells->today(), 'refreshSeconds' => 30]);
     }
 
-    public function readings(WellsListRequest $request): Response
-    {
-        return Inertia::render('Wells/Readings', $this->wells->readings($request->safe()->only(['search', 'date_from', 'date_to'])));
-    }
-
     public function signals(WellsListRequest $request): Response
     {
         return Inertia::render('Wells/Signals', $this->wells->signals($request->validated('state')));
@@ -36,16 +31,6 @@ class WellsController extends Controller
         $this->wells->markRead($signal);
 
         return back()->with('success', __('wells.signals.marked'));
-    }
-
-    public function assets(WellsListRequest $request): Response
-    {
-        return Inertia::render('Wells/Assets', $this->wells->assets($request->safe()->only(['search', 'damage_status', 'is_active'])));
-    }
-
-    public function field(): Response
-    {
-        return Inertia::render('Wells/Field', $this->wells->field());
     }
 
     public function media(int $media): StreamedResponse

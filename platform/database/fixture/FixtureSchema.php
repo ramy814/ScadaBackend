@@ -78,6 +78,9 @@ final class FixtureSchema
             $t->integer('w4_project_no')->nullable();
             $t->float('w4_quality')->nullable();
             $t->integer('w4_valve_no')->nullable();
+            // Fixture-only stand-in for SDO_GEOMETRY (see ValveRepository::attachWgs84Coordinates()).
+            $t->double('fixture_latitude')->nullable();
+            $t->double('fixture_longitude')->nullable();
         });
 
         // ── Fleet (managed by the legacy backend) ───────────────────────────
@@ -85,7 +88,7 @@ final class FixtureSchema
             $t->id();
             $t->string('local_id')->nullable();
             foreach (['oracle_driver_id', 'driver_name', 'driver_phone', 'driver_employee_number', 'oracle_vehicle_id', 'vehicle_plate', 'vehicle_name', 'vehicle_type',
-                'origin_text', 'destination_text', 'mission_type', 'client_checksum', 'server_checksum', 'entry_source', 'entered_by_name', 'reviewed_by'] as $c) {
+                'origin_type', 'origin_id', 'origin_text', 'destination_type', 'destination_id', 'destination_text', 'mission_type', 'driver_id', 'vehicle_id', 'client_checksum', 'server_checksum', 'entry_source', 'entered_by_name', 'reviewed_by'] as $c) {
                 $t->string($c)->nullable();
             }
             $t->string('status')->default('uploaded');
@@ -183,6 +186,13 @@ final class FixtureSchema
                 $t->timestamps();
             });
         }
+        $s->create('personal_access_tokens', function (Blueprint $t): void {
+            $t->id();
+            $t->string('tokenable_type');
+            $t->unsignedBigInteger('tokenable_id');
+            $t->string('name')->nullable();
+            $t->text('abilities')->nullable();
+        });
         $s->create('system_operational_states', function (Blueprint $t): void {
             $t->id();
             $t->string('scope')->unique();
@@ -196,15 +206,98 @@ final class FixtureSchema
         // ── Wells ───────────────────────────────────────────────────────────
         $s->create('wells', function (Blueprint $t) use ($timestamps): void {
             $t->increments('oid');
-            foreach (['well_num', 'name', 'damage_status', 'operational_status', 'pump_type', 'power_source', 'tank_shape'] as $c) {
+            foreach (['well_num', 'name', 'damage_status', 'operational_status', 'pump_type', 'power_source', 'tank_shape', 'tank_material',
+                'chlorination_system', 'chlorination_status', 'chlorine_tank_type', 'chlorine_tank_material', 'chlorine_pump_type',
+                'cooling_tank_type', 'cooling_system', 'cooling_line_type'] as $c) {
                 $t->string($c)->nullable();
             }
+            foreach (['well_depth', 'pump_power_hp', 'capacity', 'salinity', 'tank_diameter', 'tank_height', 'chlorine_tank_capacity', 'cooling_tank_capacity'] as $c) {
+                $t->decimal($c, 12, 2)->nullable();
+            }
             $t->integer('quarter_oid')->nullable();
-            $t->decimal('capacity', 10, 2)->nullable();
+            $t->date('installation_date')->nullable();
+            $t->date('last_maintenance_date')->nullable();
             $t->decimal('latitude', 10, 8)->nullable();
             $t->decimal('longitude', 11, 8)->nullable();
             $t->integer('is_active')->default(1);
             $timestamps($t);
+        });
+        $s->create('well_generators', function (Blueprint $t): void {
+            $t->increments('oid');
+            $t->integer('well_oid');
+            $t->integer('generator_oid');
+            $t->decimal('fuel_consumption_lph', 10, 2)->nullable();
+            $t->decimal('consumption_tolerance_lph', 10, 2)->nullable();
+            $t->timestamp('created_at')->nullable();
+        });
+        $s->create('well_media', function (Blueprint $t) use ($timestamps): void {
+            $t->increments('oid');
+            $t->integer('well_oid');
+            $t->string('category');
+            $t->string('label')->nullable();
+            $t->string('file_path');
+            $t->string('original_name')->nullable();
+            $t->string('mime_type')->nullable();
+            $timestamps($t);
+        });
+        $s->create('diesel_inventories', function (Blueprint $t) use ($timestamps): void {
+            $t->increments('oid');
+            $t->integer('well_oid');
+            $t->integer('inspector_oid');
+            $t->integer('generator_oid')->nullable();
+            $t->timestamp('inventory_date')->nullable();
+            foreach (['generator_hours_reading', 'diesel_height_cm', 'available_fuel_liters', 'latitude', 'longitude'] as $c) {
+                $t->decimal($c, 14, 4)->nullable();
+            }
+            $t->text('notes')->nullable();
+            $t->timestamp('synced_at')->nullable();
+            $t->string('client_local_id')->nullable();
+            $t->timestamp('deleted_at')->nullable();
+            $t->integer('deleted_by_user_id')->nullable();
+            $t->string('deleted_by_name')->nullable();
+            $t->string('delete_reason')->nullable();
+            $timestamps($t);
+        });
+        $s->create('reading_generator_logs', function (Blueprint $t): void {
+            $t->increments('oid');
+            $t->integer('reading_oid');
+            $t->integer('generator_oid');
+            $t->decimal('current_reading', 12, 2)->nullable();
+            $t->decimal('gallons', 12, 2)->nullable();
+            $t->timestamp('created_at')->nullable();
+        });
+        $s->create('dss_core.wtr_wells', function (Blueprint $t): void {
+            $t->string('well_id');
+            $t->string('source_well_code')->nullable();
+        });
+        $s->create('gazadata.quarters', function (Blueprint $t): void {
+            $t->integer('oid')->primary();
+            $t->string('name');
+        });
+        $s->create('g_store.generator', function (Blueprint $t): void {
+            $t->integer('oid')->primary();
+            $t->string('name')->nullable();
+            $t->string('generator_num')->nullable();
+            $t->integer('is_active')->default(1);
+            $t->integer('type_oid')->default(128);
+            $t->decimal('engine_capacity', 10, 2)->nullable();
+            $t->decimal('fuel_consumption', 10, 2)->nullable();
+        });
+        $s->create('g_store.fuel_log', function (Blueprint $t): void {
+            $t->integer('oid')->primary();
+            $t->integer('status_oid')->nullable();
+            $t->timestamp('fill_up_date')->nullable();
+            $t->timestamp('entry_date')->nullable();
+            $t->timestamp('cancel_date')->nullable();
+        });
+        $s->create('g_store.fuel_log_details', function (Blueprint $t): void {
+            $t->integer('oid')->primary();
+            $t->integer('fuel_log_oid');
+            $t->integer('asset_oid');
+            $t->integer('asset_type');
+            $t->string('current_reading')->nullable();
+            $t->decimal('gallons', 12, 2)->nullable();
+            $t->decimal('approved_gallons', 12, 2)->nullable();
         });
         $s->create('teams', function (Blueprint $t) use ($timestamps): void {
             $t->increments('oid');
