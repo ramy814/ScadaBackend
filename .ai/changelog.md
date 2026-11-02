@@ -1,5 +1,24 @@
 # Changelog & Recent Actions
 
+## [2026-11-02] Vehicle Financial Claims From G_STORE.VEHICLE.HOURLY_PRICE
+
+- Added nullable `TRIPS.HOURLY_PRICE` (migration
+  `2026_11_02_000027_add_hourly_price_to_trips.php`). It is captured from
+  `G_STORE.VEHICLE.HOURLY_PRICE` at the moment a trip becomes `approved`
+  (dashboard approval and manual-assistant approval) and recorded in the
+  `trip.reviewed` audit payload. Any other review status clears it.
+- Added `GET /admin/vehicle-claims` (+ `/csv`, `/pdf`) under Fleet access:
+  **المطالبات المالية**. `VehicleClaimService` sums, per vehicle, each approved,
+  finished trip's `ended_at - started_at` × that trip's captured price, with a
+  daily breakdown. Trips approved before capture fall back to the vehicle's
+  current price and are flagged; vehicles with no price are hidden by default.
+- Uses the same `scopeToFleetVisibility()` scope as reports. The PDF uses
+  DejaVu Sans without automatic script tagging so plates such as `3-1234` and
+  dates are not visually reversed.
+- The `HOURLY_PRICE` migration was applied alone (`--path`) to the connected
+  Oracle database on 2026-11-02. The earlier unrelated pending migrations
+  (`000025`, `000026`) were not run.
+
 ## [2026-10-29] Automatic Administrative Assistant Login From Oracle
 
 - Assistant-screen access now derives directly from active station/vehicle

@@ -222,7 +222,8 @@ class ManualTripServiceTest extends TestCase
         $trip->oracle_vehicle_id = '88';
         $trips->shouldReceive('findManualForApproval')->with(77)->once()->andReturn($trip);
         $vehicles->shouldReceive('reviewerCanAccessVehicle')->with(140, '88')->once()->andReturnTrue();
-        $trips->shouldReceive('approveManual')->with(77, 140, 'Reviewer', 'Checked')->once()->andReturn($trip);
+        $vehicles->shouldReceive('hourlyPriceFor')->with('88')->once()->andReturn(42.5);
+        $trips->shouldReceive('approveManual')->with(77, 140, 'Reviewer', 'Checked', 42.5)->once()->andReturn($trip);
 
         self::assertSame($trip, (new ManualTripService($vehicles, $trips))->approve(140, 77, 'Reviewer', 'Checked'));
     }

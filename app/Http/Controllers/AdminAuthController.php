@@ -468,6 +468,10 @@ class AdminAuthController extends Controller
             'review_status' => $status,
             'reviewed_at' => now(),
             'reviewed_by' => Auth::guard('admin')->id() ?? 'admin',
+            // سعر الساعة يُثبَّت لحظة الاعتماد فقط؛ أي حالة أخرى تُلغي التثبيت السابق.
+            'hourly_price' => $status === 'approved'
+                ? app(MunicipalityVehicleRepository::class)->hourlyPriceFor($trip->oracle_vehicle_id)
+                : null,
         ];
 
         if ($request->has('note')) {
@@ -488,6 +492,7 @@ class AdminAuthController extends Controller
             'payload' => [
                 'review_status' => $status,
                 'note' => $request->has('note') ? $request->input('note') : '(unchanged)',
+                'hourly_price' => $updatePayload['hourly_price'],
             ],
         ]);
 

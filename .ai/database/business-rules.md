@@ -109,6 +109,13 @@ The `audit_logs` table must never have rows updated or deleted. It is append-onl
 - Base `fleet` access permits mobile/legacy trip visibility and details under existing filters, regardless of manual station assignments. Manual rows require active station review scope `(2, 3)` in dashboard lists, counts/fuel, reports, and details. All review writes retain that live scope; entry uses `(1, 3)`. Empty manual scope must not erase mobile data or app-adoption KPIs. Ownership categories are not permissions.
 - Daily, weekly, and monthly use the dashboard's existing rolling ranges. A custom range includes the entire `date_from` and `date_to` calendar days using start-of-day and end-of-day boundaries.
 
+## 8.2 Vehicle Financial Claims
+
+- A vehicle claim covers only trips with `review_status = approved`, a non-null `ended_at`, and `started_at` inside the selected month or custom date range, filtered by the same Fleet visibility scope as reports.
+- Work time per trip = `ended_at - started_at` (negative values count as zero). Vehicle work time is the sum over its trips; the claim does not use first-departure/last-return spans or GPS `duration_minutes`.
+- Amount per trip = work hours × `TRIPS.HOURLY_PRICE` (captured at approval). If the snapshot is null (approved before capture), use the vehicle's current `G_STORE.VEHICLE.HOURLY_PRICE` and flag it as current-price. Trips with neither price are counted in hours but excluded from the amount and flagged.
+- Re-approval re-captures the price at that approval time; any non-approved review status clears the snapshot.
+
 ## 9. Wells Diesel Consumption Status
 
 - `Daily Tank` wells use approved fuel-program fills; classified non-Daily tanks use field inventory geometry. Wells without `TANK_SHAPE` belong to neither report until classified.

@@ -6,6 +6,7 @@ use App\Http\Controllers\DriverAppUsageController;
 use App\Http\Controllers\ManualTripController;
 use App\Http\Controllers\PortalController;
 use App\Http\Controllers\SystemPermissionController;
+use App\Http\Controllers\VehicleClaimController;
 use App\Repositories\SystemPermissionRepository;
 use Illuminate\Contracts\Auth\StatefulGuard;
 use Illuminate\Support\Facades\Auth;
@@ -94,6 +95,10 @@ Route::middleware(['auth:admin', 'admin.allowlisted', 'systems.operational'])->g
         Route::get('/admin/reports', [AdminAuthController::class, 'reports'])->name('admin.reports');
         Route::get('/admin/reports/csv', [AdminAuthController::class, 'reportsCsv'])->name('admin.reports.csv');
         Route::get('/admin/reports/pdf', [AdminAuthController::class, 'reportsPdf'])->name('admin.reports.pdf');
+
+        Route::get('/admin/vehicle-claims', [VehicleClaimController::class, 'index'])->name('admin.vehicle-claims');
+        Route::get('/admin/vehicle-claims/csv', [VehicleClaimController::class, 'csv'])->name('admin.vehicle-claims.csv');
+        Route::get('/admin/vehicle-claims/pdf', [VehicleClaimController::class, 'pdf'])->name('admin.vehicle-claims.pdf');
     });
 
     // ─── Legacy allowlist management (global admin gate, not per-system access) ─

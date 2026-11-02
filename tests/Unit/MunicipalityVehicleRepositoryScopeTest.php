@@ -124,4 +124,21 @@ class MunicipalityVehicleRepositoryScopeTest extends TestCase
         self::assertFalse($repository->reviewerCanAccessVehicle(140, 3));
         self::assertTrue($repository->operationAccessForUsers([140])->isEmpty());
     }
+
+    public function test_hourly_prices_are_read_from_the_vehicle_table_keyed_by_oid(): void
+    {
+        $connection = new SQLiteConnection(new PDO('sqlite::memory:'));
+        $connection->statement("attach database ':memory:' as g_store");
+        $connection->statement('create table g_store.vehicle (oid integer, hourly_price numeric)');
+        $connection->statement('insert into g_store.vehicle values (10, 35.5), (20, null), (30, 50)');
+        DB::shouldReceive('connection')->with('oracle')->andReturn($connection);
+        $readiness = Mockery::mock(OracleReadiness::class);
+        $readiness->shouldReceive('available')->andReturnTrue();
+        $repository = new MunicipalityVehicleRepository($readiness);
+
+        self::assertSame(['10' => 35.5, '20' => null], $repository->hourlyPricesFor(['10', 20, '', null]));
+        self::assertSame(50.0, $repository->hourlyPriceFor(30));
+        self::assertNull($repository->hourlyPriceFor(null));
+        self::assertNull($repository->hourlyPriceFor(99));
+    }
 }
