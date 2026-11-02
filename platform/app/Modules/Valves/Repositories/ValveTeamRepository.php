@@ -74,11 +74,12 @@ class ValveTeamRepository
         $toAttach = array_values(array_diff($valveIds, $existing));
         $toDetach = array_values(array_diff($existing, $valveIds));
 
-        if (! empty($toDetach)) {
-            $placeholders = implode(',', array_fill(0, count($toDetach), '?'));
+        // Chunks of 1000: Oracle rejects longer IN lists (ORA-01795).
+        foreach (array_chunk($toDetach, 1000) as $chunk) {
+            $placeholders = implode(',', array_fill(0, count($chunk), '?'));
             DB::statement(
                 "DELETE FROM valve_team_valves WHERE team_oid = ? AND valve_oid IN ($placeholders)",
-                array_merge([$teamId], $toDetach)
+                array_merge([$teamId], $chunk)
             );
         }
 

@@ -148,10 +148,12 @@ class GeneratorRepository
             return [];
         }
 
-        $placeholders = implode(',', array_fill(0, count($ids), '?'));
-
-        $generators = DB::connection('oracle')
-            ->select("
+        // Oracle allows at most 1000 expressions per IN list (ORA-01795).
+        $generators = [];
+        foreach (array_chunk(array_values($ids), 1000) as $chunk) {
+            $placeholders = implode(',', array_fill(0, count($chunk), '?'));
+            array_push($generators, ...DB::connection('oracle')
+                ->select("
                 SELECT
                     g.OID,
                     g.NAME,
@@ -161,7 +163,11 @@ class GeneratorRepository
                 FROM G_STORE.GENERATOR g
                 WHERE g.OID IN ({$placeholders})
                 ORDER BY g.GENERATOR_NUM
-            ", $ids);
+            ", $chunk));
+        }
+        if (count($ids) > 1000) {
+            usort($generators, fn (object $a, object $b): int => strcmp((string) ($a->generator_num ?? $a->GENERATOR_NUM ?? ''), (string) ($b->generator_num ?? $b->GENERATOR_NUM ?? '')));
+        }
 
         return array_map(function ($row) {
             return (object) array_change_key_case((array) $row, CASE_UPPER);
@@ -179,9 +185,13 @@ class GeneratorRepository
         $generatorIds = array_values(array_unique(array_map('intval', array_filter($generatorIds))));
         $assignments = collect();
 
+        sort($wellIds);
         if ($wellIds !== []) {
-            $placeholders = implode(',', array_fill(0, count($wellIds), '?'));
-            $assignments = collect(DB::connection('oracle')->select(<<<SQL
+            // Sorted chunks of 1000 keep the WELL_OID ordering and respect ORA-01795.
+            $rows = [];
+            foreach (array_chunk($wellIds, 1000) as $chunk) {
+                $placeholders = implode(',', array_fill(0, count($chunk), '?'));
+                array_push($rows, ...DB::connection('oracle')->select(<<<SQL
                 SELECT WELL_OID,
                        GENERATOR_OID,
                        FUEL_CONSUMPTION_LPH,
@@ -189,7 +199,9 @@ class GeneratorRepository
                 FROM WELL_GENERATORS
                 WHERE WELL_OID IN ($placeholders)
                 ORDER BY WELL_OID, OID
-            SQL, $wellIds))->map(function (object $row): array {
+            SQL, $chunk));
+            }
+            $assignments = collect($rows)->map(function (object $row): array {
                 $values = array_change_key_case((array) $row, CASE_LOWER);
 
                 return [
@@ -357,13 +369,17 @@ class GeneratorRepository
             return [];
         }
 
-        $placeholders = implode(',', array_fill(0, count($generatorIds), '?'));
-        $bindings = array_merge($generatorIds, [
-            self::APPROVED_DELIVERY_STATUS_OID,
-            $from->copy()->startOfDay()->format('Y-m-d H:i:s'),
-            $to->format('Y-m-d H:i:s'),
-        ]);
-        $rows = DB::connection('oracle')->select(<<<SQL
+        // Sorted chunks of 1000 keep the ASSET_OID ordering and respect ORA-01795.
+        sort($generatorIds);
+        $rows = [];
+        foreach (array_chunk($generatorIds, 1000) as $chunk) {
+            $placeholders = implode(',', array_fill(0, count($chunk), '?'));
+            $bindings = array_merge($chunk, [
+                self::APPROVED_DELIVERY_STATUS_OID,
+                $from->copy()->startOfDay()->format('Y-m-d H:i:s'),
+                $to->format('Y-m-d H:i:s'),
+            ]);
+            array_push($rows, ...DB::connection('oracle')->select(<<<SQL
             SELECT fd.ASSET_OID,
                    fl.FILL_UP_DATE,
                    fl.ENTRY_DATE,
@@ -379,7 +395,8 @@ class GeneratorRepository
               AND fl.FILL_UP_DATE BETWEEN TO_DATE(?, 'YYYY-MM-DD HH24:MI:SS')
                                       AND TO_DATE(?, 'YYYY-MM-DD HH24:MI:SS')
             ORDER BY fd.ASSET_OID, fl.FILL_UP_DATE, fd.OID
-        SQL, $bindings);
+        SQL, $bindings));
+        }
 
         return array_map(function (object $row): array {
             $values = array_change_key_case((array) $row, CASE_LOWER);

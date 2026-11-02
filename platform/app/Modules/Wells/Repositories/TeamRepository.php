@@ -93,11 +93,12 @@ class TeamRepository
         $toAttach = array_diff($newIds, $existing);
 
         // Remove de-associated wells
-        if (! empty($toDetach)) {
-            $placeholders = implode(',', array_fill(0, count($toDetach), '?'));
+        // Chunks of 1000: Oracle rejects longer IN lists (ORA-01795).
+        foreach (array_chunk(array_values($toDetach), 1000) as $chunk) {
+            $placeholders = implode(',', array_fill(0, count($chunk), '?'));
             DB::connection('oracle')->statement(
                 "DELETE FROM team_wells WHERE TEAM_OID = ? AND WELL_OID IN ({$placeholders})",
-                array_merge([$teamId], array_values($toDetach))
+                array_merge([$teamId], $chunk)
             );
         }
 

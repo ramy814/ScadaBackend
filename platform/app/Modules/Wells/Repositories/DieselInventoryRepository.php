@@ -102,8 +102,11 @@ class DieselInventoryRepository
             return collect();
         }
 
-        $placeholders = implode(', ', array_fill(0, count($ids), '?'));
-        $rows = $this->model->getConnection()->select(<<<SQL
+        // Oracle allows at most 1000 expressions per IN list (ORA-01795).
+        $rows = [];
+        foreach (array_chunk($ids, 1000) as $chunk) {
+            $placeholders = implode(', ', array_fill(0, count($chunk), '?'));
+            array_push($rows, ...$this->model->getConnection()->select(<<<SQL
             SELECT OID,
                    PREV_DIESEL_HEIGHT,
                    PREV_FUEL_LITERS,
@@ -127,7 +130,8 @@ class DieselInventoryRepository
                 WHERE DELETED_AT IS NULL
             )
             WHERE OID IN ($placeholders)
-        SQL, $ids);
+        SQL, $chunk));
+        }
 
         return collect($rows)->mapWithKeys(function (object $row): array {
             $values = array_change_key_case((array) $row, CASE_LOWER);
@@ -189,8 +193,10 @@ class DieselInventoryRepository
             return collect();
         }
 
-        $placeholders = implode(', ', array_fill(0, count($wellIds), '?'));
-        $rows = $this->model->getConnection()->select(<<<SQL
+        $rows = [];
+        foreach (array_chunk($wellIds, 1000) as $chunk) {
+            $placeholders = implode(', ', array_fill(0, count($chunk), '?'));
+            array_push($rows, ...$this->model->getConnection()->select(<<<SQL
             SELECT WELL_OID,
                    INVENTORY_DATE,
                    GENERATOR_HOURS_READING,
@@ -210,7 +216,8 @@ class DieselInventoryRepository
                   AND WELL_OID IN ($placeholders)
             )
             WHERE ROW_NUM = 1
-        SQL, $wellIds);
+        SQL, $chunk));
+        }
 
         return collect($rows)->mapWithKeys(function (object $row): array {
             $values = array_change_key_case((array) $row, CASE_LOWER);
