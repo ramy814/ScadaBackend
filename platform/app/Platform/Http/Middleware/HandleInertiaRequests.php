@@ -6,6 +6,7 @@ namespace App\Platform\Http\Middleware;
 
 use App\Platform\Access\AccessService;
 use App\Platform\Applications\ApplicationRegistry;
+use App\Platform\Support\OracleReadiness;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -21,6 +22,7 @@ class HandleInertiaRequests extends Middleware
     public function __construct(
         private readonly AccessService $access,
         private readonly ApplicationRegistry $registry,
+        private readonly OracleReadiness $readiness,
     ) {}
 
     public function share(Request $request): array
@@ -45,6 +47,8 @@ class HandleInertiaRequests extends Middleware
             ],
             'shell' => fn () => $user === null ? null : [
                 'workspace' => $workspace,
+                // Without Oracle, action permissions (manual trips, deletes) fail closed: say so instead of hiding screens silently.
+                'oracleAvailable' => $this->readiness->available(),
                 'applications' => array_map(function (string $key) use ($locale, $userId): array {
                     $app = $this->registry->present($key, $locale);
 

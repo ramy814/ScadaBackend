@@ -29,26 +29,7 @@ class MunicipalityVehicleRepository
         try {
             $access = collect();
             foreach ($ids->chunk(900) as $chunk) {
-                $rows = DB::connection('oracle')
-                    ->table('g_store.VEHICLE_STAGES as vs')
-                    ->join('g_store.VEHICLE as v', 'v.OID', '=', 'vs.VEHICLE_OID')
-                    ->join('tracking.USER_STATION as a', 'a.STAGE_OID', '=', 'vs.STAGE_OID')
-                    ->join('mog_users.USERS_LIST as ul', 'ul.TRACKING_ID', '=', 'a.USER_OID')
-                    ->whereNull('vs.REMOVED_USER')
-                    ->whereIn('vs.ACCESS_TYPE', [1, 2, 3])
-                    ->whereIn('ul.ID', $chunk->all())
-                    ->selectRaw('ul.ID as user_id,
-                        max(case when vs.ACCESS_TYPE in (1, 3) and v.PLATE_NUM is not null then 1 else 0 end) as can_enter,
-                        max(case when vs.ACCESS_TYPE in (2, 3) then 1 else 0 end) as can_review')
-                    ->groupBy('ul.ID')
-                    ->get();
-
-                foreach ($rows as $row) {
-                    $access->put((int) $row->user_id, [
-                        'can_enter' => (bool) $row->can_enter,
-                        'can_review' => (bool) $row->can_review,
-                    ]);
-                }
+                $access = $access->union($this->operationAccessRows($this->operationAccessQuery()->whereIn('ul.ID', $chunk->all())));
             }
 
             return $access;
@@ -57,6 +38,51 @@ class MunicipalityVehicleRepository
 
             return collect();
         }
+    }
+
+    /**
+     * Every SSO user with an active station link (manual entry or approval scope),
+     * so the access directory can list assistants that have no SYSTEM_PERMISSIONS row.
+     *
+     * @return Collection<int, array{can_enter: bool, can_review: bool}>
+     */
+    public function stationOperationUsers(): Collection
+    {
+        if (! $this->readiness->available()) {
+            return collect();
+        }
+
+        try {
+            return $this->operationAccessRows($this->operationAccessQuery());
+        } catch (QueryException $e) {
+            $this->logOracleReadFailure('station_operation_users', $e);
+
+            return collect();
+        }
+    }
+
+    private function operationAccessQuery(): Builder
+    {
+        return DB::connection('oracle')
+            ->table('g_store.VEHICLE_STAGES as vs')
+            ->join('g_store.VEHICLE as v', 'v.OID', '=', 'vs.VEHICLE_OID')
+            ->join('tracking.USER_STATION as a', 'a.STAGE_OID', '=', 'vs.STAGE_OID')
+            ->join('mog_users.USERS_LIST as ul', 'ul.TRACKING_ID', '=', 'a.USER_OID')
+            ->whereNull('vs.REMOVED_USER')
+            ->whereIn('vs.ACCESS_TYPE', [1, 2, 3])
+            ->selectRaw('ul.ID as user_id,
+                max(case when vs.ACCESS_TYPE in (1, 3) and v.PLATE_NUM is not null then 1 else 0 end) as can_enter,
+                max(case when vs.ACCESS_TYPE in (2, 3) then 1 else 0 end) as can_review')
+            ->groupBy('ul.ID');
+    }
+
+    /** @return Collection<int, array{can_enter: bool, can_review: bool}> */
+    private function operationAccessRows(Builder $query): Collection
+    {
+        return $query->get()->mapWithKeys(fn ($row): array => [(int) $row->user_id => [
+            'can_enter' => (bool) $row->can_enter,
+            'can_review' => (bool) $row->can_review,
+        ]]);
     }
 
     /** @return Collection<int, string> */

@@ -13,12 +13,16 @@ use Inertia\Response;
 
 class AccessController extends Controller
 {
-    public function __construct(private readonly SystemPermissionRepository $permissions) {}
+    public function __construct(
+        private readonly SystemPermissionRepository $permissions,
+        private readonly AccessDirectoryService $directory,
+    ) {}
 
     public function index(): Response
     {
         return Inertia::render('Platform/Access', [
-            'users' => $this->permissions->groupedByUser(),
+            'users' => $this->directory->users(),
+            'oracleAvailable' => $this->directory->oracleAvailable(),
             'catalog' => [
                 ['application' => 'fleet', 'keys' => ['fleet']],
                 ['application' => 'wells', 'keys' => ['wells', SystemPermissionRepository::DELETE_WELL_READING, SystemPermissionRepository::DELETE_DIESEL_INVENTORY]],

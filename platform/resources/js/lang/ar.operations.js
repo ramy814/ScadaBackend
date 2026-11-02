@@ -4,10 +4,15 @@ export default {
     nav: {
         group: { manual: 'الإدخال اليدوي' },
         fleet: { manual: 'رحلاتي اليدوية', manual_requests: 'اعتماد الطلبات' },
+        locked_hint: 'تحتاج ربط حسابك بمحطة في Oracle',
         wells: { diesel: 'السولار', map: 'خريطة الآبار', signal_types: 'أنواع البلاغات' },
         valves: { map: 'خريطة المحابس' },
     },
-    errors: { reasons: { manual_scope: 'نطاق محطاتك في Oracle لا يسمح بهذا الإجراء (ACCESS_TYPE).' } },
+    errors: { reasons: {
+        manual_scope: 'الإدخال اليدوي واعتماده مرتبطان بمحطات المركبات في Oracle وليس بصلاحيات المنصة: الإدخال يحتاج ربط حسابك بمحطة نوع وصولها 1 أو 3، والاعتماد يحتاج 2 أو 3 (VEHICLE_STAGES / USER_STATION). اطلب من مسؤول المحطات ربط حسابك.',
+        oracle_unavailable: 'لا يوجد اتصال بقاعدة Oracle، لذلك تُغلق صلاحيات الإدخال اليدوي والاعتماد احتياطياً. اضبط اتصال Oracle (أو بيئة العرض المحلية) ثم أعد المحاولة.',
+    } },
+    shell: { oracle_unavailable: 'لا يوجد اتصال بقاعدة Oracle: الصلاحيات الإضافية (الإدخال اليدوي، الاعتماد، الحذف) مغلقة، وقائمة المستخدمين لا يمكن قراءتها. اضبط اتصال Oracle في ملف ‎.env أو شغّل بيئة العرض المحلية (ORACLE_DRIVER=sqlite و php artisan platform:demo).' },
     reports: {
         rows: ':n صفاً', columns: 'الأعمدة (:n)', page: 'صفحة :page من :pages', reason: 'سبب الحذف (إلزامي)',
         audited_delete: 'حذف مُدقق: يختفي السجل من القوائم والتقارير والحسابات، ويبقى محفوظاً في Oracle مع الفاعل والوقت والسبب.',

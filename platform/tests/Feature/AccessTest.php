@@ -60,4 +60,45 @@ class AccessTest extends TestCase
         $this->put('/platform/access/9', ['keys' => []])->assertSessionHasNoErrors();
         $this->assertSame(0, $this->db()->table('control_unit.system_permissions')->where('user_id', 9)->count());
     }
+
+    public function test_directory_lists_granted_users_and_station_only_assistants(): void
+    {
+        $this->actingAsUser(1, ['fleet']);
+        $this->db()->table('mog_users.users_list')->insert(['id' => 9, 'full_name' => 'Station assistant', 'tracking_id' => 109, 'is_active' => 1]);
+        $this->stationVehicle(9, 700, 1);
+        $this->stationVehicle(9, 701, 2, 'removed');
+
+        $this->get('/platform/access')->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->component('Platform/Access')
+            ->where('oracleAvailable', true)
+            ->has('users', 2)
+            ->where('users.0.user_id', 1)
+            ->where('users.0.systems', ['fleet'])
+            ->where('users.1.user_id', 9)
+            ->where('users.1.name', 'Station assistant')
+            ->where('users.1.systems', [])
+            ->where('users.1.fleet_access', ['can_enter' => true, 'can_review' => false]));
+    }
+
+    public function test_fleet_users_without_station_scope_see_locked_manual_screens_with_reason(): void
+    {
+        $this->actingAsUser(7, ['fleet']);
+
+        $this->get('/fleet/reviews')->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->where('shell.oracleAvailable', true)
+            ->where('shell.navigation', fn ($groups) => collect($groups)->flatMap(fn ($g) => $g['items'])
+                ->whereIn('key', ['manual', 'manual-requests'])->every(fn ($item) => $item['locked'] === true)));
+
+        $this->get('/fleet/manual')->assertForbidden()->assertInertia(fn (Assert $page) => $page
+            ->component('Errors/NoAccess')->where('reason', 'manual_scope'));
+    }
+
+    public function test_manual_screens_explain_missing_oracle_connection(): void
+    {
+        $this->actingAsUser(7, ['fleet']);
+        config(['database.connections.oracle.driver' => 'oracle', 'database.connections.oracle.host' => null, 'database.connections.oracle.tns' => null, 'database.connections.oracle.service_name' => null]);
+
+        $this->get('/fleet/manual')->assertForbidden()->assertInertia(fn (Assert $page) => $page
+            ->component('Errors/NoAccess')->where('reason', 'oracle_unavailable')->where('shell.oracleAvailable', false));
+    }
 }

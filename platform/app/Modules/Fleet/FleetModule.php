@@ -33,14 +33,18 @@ class FleetModule implements Module
     public function navigation(int $userId): array
     {
         $assistant = $this->platformAccess->assistant($userId);
+        $hasFleet = $this->platformAccess->canAccess($userId, 'fleet');
+
+        // Fleet users see both manual screens; without the Oracle station scope they are
+        // shown locked and open the explanation page instead of disappearing.
         $manual = array_values(array_filter([
-            $assistant['create'] ? ['key' => 'manual', 'label' => 'nav.fleet.manual', 'route' => route('fleet.manual'), 'icon' => 'pencil'] : null,
-            $assistant['approve'] ? ['key' => 'manual-requests', 'label' => 'nav.fleet.manual_requests', 'route' => route('fleet.manual.requests'), 'icon' => 'check'] : null,
+            $assistant['create'] || $hasFleet ? ['key' => 'manual', 'label' => 'nav.fleet.manual', 'route' => route('fleet.manual'), 'icon' => 'pencil', 'locked' => ! $assistant['create']] : null,
+            $assistant['approve'] || $hasFleet ? ['key' => 'manual-requests', 'label' => 'nav.fleet.manual_requests', 'route' => route('fleet.manual.requests'), 'icon' => 'check', 'locked' => ! $assistant['approve']] : null,
         ]));
         $manualGroup = $manual === [] ? [] : [['label' => 'nav.group.manual', 'items' => $manual]];
 
         // Oracle assistant scope alone never opens the Fleet dashboard (legacy rule).
-        if (! $this->platformAccess->canAccess($userId, 'fleet')) {
+        if (! $hasFleet) {
             return $manualGroup;
         }
 

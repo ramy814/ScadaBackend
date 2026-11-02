@@ -8,11 +8,17 @@ import Drawer from '../../Components/Drawer.vue';
 import { useI18n } from '../../lib/i18n.js';
 import { debounce } from '../../lib/query.js';
 
-const props = defineProps({ users: Array, catalog: Array, requirements: Object, searchUrl: String, updateBase: String });
-const { t } = useI18n();
+const props = defineProps({ users: Array, catalog: Array, requirements: Object, searchUrl: String, updateBase: String, oracleAvailable: Boolean });
+const { t, date } = useI18n();
 
+// Station-only users come from the Oracle station scope (manual entry/approval) and have no grant rows.
 const filter = ref('');
-const listed = computed(() => props.users.filter((u) => !filter.value || `${u.name} ${u.user_id}`.includes(filter.value)));
+const tab = ref('all');
+const stationOnly = (u) => !u.systems?.length;
+const counts = computed(() => ({ all: props.users.length, granted: props.users.filter((u) => !stationOnly(u)).length, station: props.users.filter(stationOnly).length }));
+const listed = computed(() => props.users
+    .filter((u) => tab.value === 'all' || (tab.value === 'station') === stationOnly(u))
+    .filter((u) => !filter.value || `${u.name ?? ''} ${u.user_id}`.includes(filter.value.trim())));
 
 // SSO directory search (active users only, enforced server-side).
 const query = ref('');
@@ -48,18 +54,28 @@ function save() {
     <Head :title="t('nav.platform.access')" />
     <PageHeader :title="t('access.title')" :description="t('access.subtitle')" />
 
+    <div v-if="!oracleAvailable" class="notice warning" style="margin-bottom: var(--s-4)"><Icon name="alert-triangle" /><span>{{ t('access.oracle_unavailable') }}</span></div>
+
     <div class="grid" style="grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); align-items: start">
         <section class="panel">
+            <nav class="tabs" style="padding: 0 var(--s-3)" :aria-label="t('access.applications')">
+                <button v-for="key in ['all', 'granted', 'station']" :key="key" type="button" :aria-current="tab === key" @click="tab = key">
+                    {{ t(`access.tabs.${key}`) }}<span class="count">{{ counts[key] }}</span>
+                </button>
+            </nav>
             <div class="toolbar">
                 <label class="search-box"><Icon name="search" :size="15" /><input v-model="filter" class="input" type="search" :placeholder="t('access.filter')" /></label>
-                <span class="spacer" /><span class="subtle" style="font-size: var(--fs-xs)">{{ t('access.count', { n: users.length }) }}</span>
+                <span class="spacer" /><span class="subtle" style="font-size: var(--fs-xs)">{{ t('access.count', { n: listed.length }) }}</span>
             </div>
             <table v-if="listed.length" class="table stackable">
                 <thead><tr><th>{{ t('access.user') }}</th><th>{{ t('access.applications') }}</th><th>{{ t('access.fleet_scope') }}</th><th /></tr></thead>
                 <tbody>
                     <tr v-for="user in listed" :key="user.user_id" class="clickable" @click="edit(user)">
                         <td><div class="cell-main">{{ user.name ?? '—' }}</div><div class="cell-sub num">SSO #{{ user.user_id }}</div></td>
-                        <td><span v-for="key in user.systems" :key="key" class="tag" style="margin-inline-end: 4px">{{ t(`access.keys.${key}`) }}</span></td>
+                        <td>
+                            <span v-for="key in user.systems" :key="key" class="tag" style="margin-inline-end: 4px">{{ t(`access.keys.${key}`) }}</span>
+                            <span v-if="!user.systems.length" class="subtle" style="font-size: var(--fs-sm)">{{ t('access.station_only') }}</span>
+                        </td>
                         <td>
                             <span v-if="user.fleet_access?.can_enter" class="tag">{{ t('access.scope_entry') }}</span>
                             <span v-if="user.fleet_access?.can_review" class="tag" style="margin-inline-start: 4px">{{ t('access.scope_review') }}</span>
@@ -69,7 +85,7 @@ function save() {
                     </tr>
                 </tbody>
             </table>
-            <EmptyState v-else icon="users" :title="t('access.empty')" />
+            <EmptyState v-else icon="users" :title="users.length ? t('access.filtered_empty') : t('access.empty')" />
         </section>
 
         <section class="panel">
@@ -99,6 +115,14 @@ function save() {
                 </label>
             </fieldset>
             <span v-if="form.errors.keys" class="error-text">{{ form.errors.keys }}</span>
+            <div v-if="editing.permissions?.length" class="stack" style="gap: var(--s-2)">
+                <h3 class="section-title">{{ t('access.granted_rows') }}</h3>
+                <div v-for="row in editing.permissions" :key="row.id" class="row" style="justify-content: space-between; font-size: var(--fs-sm)">
+                    <span>{{ t(`access.keys.${row.system_key}`) }}</span>
+                    <span class="muted">{{ row.granted_by ? t('access.granted_by', { name: row.granted_by }) : '' }} · {{ date(row.granted_at) }}</span>
+                </div>
+            </div>
+            <p v-else-if="!editing.systems?.length && (editing.fleet_access?.can_enter || editing.fleet_access?.can_review)" class="hint">{{ t('access.no_grants') }}</p>
             <div v-if="editing.fleet_access" class="notice"><Icon name="shield-check" /><span>{{ t('access.derived', { entry: t(editing.fleet_access.can_enter ? 'common.yes' : 'common.no'), review: t(editing.fleet_access.can_review ? 'common.yes' : 'common.no') }) }}</span></div>
         </form>
         <template #footer>

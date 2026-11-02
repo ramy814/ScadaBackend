@@ -118,9 +118,10 @@ function switchLocale() {
                         {{ t(group.label) }}<Icon :name="collapsed[group.label] ? 'chevron-right' : 'chevron-down'" :size="12" class="flip" />
                     </button>
                     <template v-if="!collapsed[group.label]">
-                        <Link v-for="item in group.items" :key="item.key" :href="item.route" class="nav-item" :aria-current="activeItem?.key === item.key ? 'page' : undefined">
+                        <Link v-for="item in group.items" :key="item.key" :href="item.route" class="nav-item" :class="{ locked: item.locked }" :title="item.locked ? t('nav.locked_hint') : undefined" :aria-current="activeItem?.key === item.key ? 'page' : undefined">
                             <Icon :name="item.icon" />
                             <span>{{ t(item.label) }}</span>
+                            <Icon v-if="item.locked" name="lock" :size="13" class="lock-mark" />
                             <span v-if="item.badge" class="count" :class="{ accent: activeItem?.key !== item.key }">{{ item.badge }}</span>
                         </Link>
                     </template>
@@ -149,7 +150,10 @@ function switchLocale() {
                 </button>
                 <span class="row muted" style="font-size: var(--fs-sm)"><Icon name="user" :size="15" /><span class="hide-sm">{{ page.props.auth?.name }}</span></span>
             </header>
-            <main class="content"><slot /></main>
+            <main class="content">
+                <div v-if="shell.oracleAvailable === false" class="notice warning oracle-notice" role="status"><Icon name="alert-triangle" /><span>{{ t('shell.oracle_unavailable') }}</span></div>
+                <slot />
+            </main>
         </div>
 
         <CommandPalette v-if="palette" :entries="paletteEntries" :trip-lookup="shell.urls.tripLookup" @close="palette = false" />

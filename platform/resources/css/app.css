@@ -84,6 +84,9 @@ h1, h2, h3, h4, p { margin: 0; }
 .nav-item:hover { background: var(--surface-2); color: var(--text); }
 .nav-item[aria-current='page'] { background: var(--accent-soft); color: var(--accent-text); }
 .nav-item .count { margin-inline-start: auto; }
+.nav-item.locked { color: var(--text-3); }
+.nav-item .lock-mark { margin-inline-start: auto; }
+.oracle-notice { margin-block-end: var(--s-4); }
 
 .main { min-width: 0; display: flex; flex-direction: column; }
 .topbar {

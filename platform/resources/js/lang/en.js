@@ -187,6 +187,10 @@ export default {
         search: 'Search SSO users by name or id', search_hint: 'Only active users are listed.', emp: 'Employee :n', has_access: 'Has access',
         fleet_scope_hint: 'Fleet entry and approval scope is derived automatically from Oracle stations (ACCESS_TYPE) and is not granted here.',
         derived: 'Current Oracle scope — entry: :entry · approval: :review',
+        tabs: { all: 'All', granted: 'Application access', station: 'Station scope only' },
+        station_only: 'Station scope only', no_grants: 'No application access — sees the manual entry screens only',
+        granted_rows: 'Granted permissions', granted_by: 'by :name', oracle_unavailable: 'Users and permissions cannot be read because the Oracle connection is not configured. This does not mean the list is empty.',
+        filtered_empty: 'No matching users',
         apps: { fleet: 'Fleet', wells: 'Wells', valves: 'Valves' },
         keys: { fleet: 'Fleet', wells: 'Wells', valves: 'Valves', 'wells.readings.delete': 'Delete readings', 'wells.diesel-inventories.delete': 'Delete diesel inventories' },
         key_hints: {
