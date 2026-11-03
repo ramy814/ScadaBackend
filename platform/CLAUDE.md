@@ -26,3 +26,17 @@ The legacy business context lives in `../.ai/` (read the module you are porting)
 
 ## Checks
 `php artisan test`, `vendor/bin/pint --test`, `npm run build`.
+
+## Code map (graphify)
+
+The code knowledge graph lives in `graphify-out/` (`graph.json`, `GRAPH_REPORT.md`, `graph.html`), built with
+[graphify](https://github.com/Graphify-Labs/graphify) over the scope in `.graphifyignore` (app, routes, config, Vue frontend).
+Install once with `pip install graphifyy`. The project skill is in `.claude/skills/graphify/`.
+
+- Before exploring code, query the graph: `graphify query "<question>"`, `graphify explain "<node>"`,
+  `graphify path "<A>" "<B>"`, `graphify affected "<node>"` (what a change can break). Read raw files only for lines the graph located.
+- Check freshness: `GRAPH_REPORT.md` names the commit it was built from; compare with `git rev-parse HEAD`.
+- After any code change, run `graphify update .` in `platform/` (AST only, no API cost) and commit the regenerated
+  `graphify-out/graph.json`, `GRAPH_REPORT.md` and `graph.html` with the change. A large diff on these files is expected.
+- The graph describes structure, not business rules: rules still come from `docs/` and `../.ai/`.
+- The legacy baseline used for the audit is `docs/graph/legacy-GRAPH_REPORT.md`.

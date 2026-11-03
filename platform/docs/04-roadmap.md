@@ -61,11 +61,13 @@
 
 ## مقارنة البنية (graphify)
 
-| المقياس | الباك اند السابق كاملاً (ويب + موبايل + migrations) | المنصة (ويب فقط) |
+| المقياس | الباك اند السابق كاملاً (ويب + موبايل + migrations) | المنصة (ويب فقط، commit `efdab6f`) |
 |---|---|---|
-| العقد / العلاقات / المجتمعات | 2,566 / 5,461 / 168 | 1,780 / 4,106 / 111 |
+| العقد / العلاقات / المجتمعات | 2,566 / 5,461 / 168 | 1,947 / 4,407 / 121 |
 | أكبر كنترولر | 709 سطراً (`AdminAuthController`) | 203 سطراً (`Wells\MasterDataController`: 22 دالة تفويض، أطولها 12 سطراً) |
 | كنترولرات تستعلم مباشرة | 9 | 0 |
 | حلقات استيراد | 0 | 0 |
 
-التقارير الكاملة: `docs/graph/legacy-GRAPH_REPORT.md` و`docs/graph/platform-GRAPH_REPORT.md`.
+التقارير الكاملة: النظام القديم في `docs/graph/legacy-GRAPH_REPORT.md` (مرجع التدقيق، ثابت)، والمنصة في `graphify-out/GRAPH_REPORT.md`.
+
+**خريطة المنصة حيّة داخل المشروع:** `graphify-out/graph.json` (للاستعلام)، `graphify-out/graph.html` (عرض تفاعلي في المتصفح)، `graphify-out/GRAPH_REPORT.md` (ملخص). النطاق محدد في `.graphifyignore`، وتُحدَّث بالأمر `graphify update .` بعد كل تعديل على الكود (بدون أي تكلفة أو اتصال خارجي). قواعد استخدامها للمساعدين في `AGENTS.md` و`CLAUDE.md`، ومهارة graphify مثبتة للمشروع في `.claude/skills/graphify/`.

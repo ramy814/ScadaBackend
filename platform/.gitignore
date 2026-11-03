@@ -26,3 +26,8 @@ Homestead.json
 Homestead.yaml
 Thumbs.db
 database/*.sqlite
+
+# graphify: commit the graph and report; local cache and machine-specific build state stay out.
+/graphify-out/cache/
+/graphify-out/manifest.json
+/graphify-out/.graphify_*
