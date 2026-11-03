@@ -10,15 +10,18 @@
 #     until the routing step is done separately.
 set -euo pipefail
 
-LEGACY_DIR="${1:?Usage: bash deploy/prepare-server.sh /path/to/legacy-backend}"
-PLATFORM_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-LEGACY_ENV="$LEGACY_DIR/.env"
-MOG_PACKAGE="${MOG_PACKAGE:-$(cd "$LEGACY_DIR/.." && pwd)/mog-package}"
-
 step() { printf '\n\033[1m==> %s\033[0m\n' "$1"; }
 fail() { printf '\033[31mERROR: %s\033[0m\n' "$1" >&2; exit 1; }
 
+LEGACY_DIR="${1:?Usage: bash deploy/prepare-server.sh /path/to/legacy-backend}"
+[ -d "$LEGACY_DIR" ] || fail "Legacy folder not found: $LEGACY_DIR (give the real path of the legacy backend ON THIS SERVER)"
+LEGACY_DIR="$(cd "$LEGACY_DIR" && pwd)"
+PLATFORM_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+LEGACY_ENV="$LEGACY_DIR/.env"
+MOG_PACKAGE="${MOG_PACKAGE:-$(dirname "$LEGACY_DIR")/mog-package}"
+
 step "Checking prerequisites"
+[ "$(uname -s)" = "Darwin" ] && fail "This looks like a Mac. Run this script on the production server, not on a workstation."
 [ -f "$LEGACY_ENV" ] || fail "Legacy .env not found at $LEGACY_ENV"
 [ -f "$LEGACY_DIR/artisan" ] || fail "$LEGACY_DIR does not look like the legacy Laravel backend"
 case "$PLATFORM_DIR" in "$LEGACY_DIR"/*) fail "Clone the platform OUTSIDE the legacy folder";; esac
