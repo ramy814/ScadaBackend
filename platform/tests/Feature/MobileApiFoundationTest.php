@@ -21,6 +21,13 @@ class MobileApiFoundationTest extends TestCase
     public function test_mobile_routes_require_their_own_ability_and_principal(): void
     {
         foreach ([
+            ['/api/wells/sync/wells', 'GET', 'wells'],
+            ['/api/wells/sync/notification-types', 'GET', 'wells'],
+            ['/api/wells/readings/sync', 'POST', 'wells'],
+            ['/api/wells/diesel-inventories/sync', 'POST', 'wells'],
+            ['/api/wells/notifications/sync', 'POST', 'wells'],
+            ['/api/wells/activity-media/sync', 'POST', 'wells'],
+            ['/api/wells/sync/history', 'GET', 'wells'],
             ['/api/dashboard/stats', 'GET', 'scada'],
             ['/api/valves', 'GET', 'scada'],
             ['/api/valve-maintenance', 'GET', 'scada'],
@@ -36,7 +43,7 @@ class MobileApiFoundationTest extends TestCase
 
     public function test_login_routes_remain_public_and_honor_the_emergency_switch(): void
     {
-        foreach ([['/api/valves/auth/login', 'POST']] as [$uri, $method]) {
+        foreach ([['/api/valves/auth/login', 'POST'], ['/api/wells/auth/login', 'POST']] as [$uri, $method]) {
             $middleware = Route::getRoutes()->match(Request::create($uri, $method))->gatherMiddleware();
 
             self::assertNotContains('auth:sanctum', $middleware, $uri);
@@ -80,6 +87,7 @@ class MobileApiFoundationTest extends TestCase
     {
         $this->db()->table('system_operational_states')->insert(['scope' => 'global', 'is_suspended' => 1, 'reason' => 'صيانة شاملة']);
 
+        $this->postJson('/api/wells/auth/login', [])->assertStatus(503)->assertJsonPath('code', 'systems_temporarily_suspended');
         $this->postJson('/api/valves/auth/login', [])
             ->assertStatus(503)
             ->assertHeader('Retry-After', '300')

@@ -11,4 +11,7 @@ return [
     ))),
 
     'locales' => ['ar', 'en'],
+
+    // Locale of the mobile API responses; the legacy backend runs APP_LOCALE=en without translations.
+    'mobile_api_locale' => env('MOBILE_API_LOCALE', 'en'),
 ];

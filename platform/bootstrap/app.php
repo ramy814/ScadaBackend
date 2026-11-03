@@ -9,6 +9,7 @@ use App\Platform\Http\Middleware\HandleInertiaRequests;
 use App\Platform\Http\Middleware\RejectMobileWhenSuspended;
 use App\Platform\Http\Middleware\RejectWhenSuspended;
 use App\Platform\Http\Middleware\SetLocale;
+use App\Platform\Http\Middleware\SetMobileLocale;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -26,6 +27,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // The locale cookie is written by the browser for instant switching.
         $middleware->encryptCookies(except: ['locale']);
         $middleware->web(append: [SetLocale::class, HandleInertiaRequests::class]);
+        $middleware->api(append: [SetMobileLocale::class]);
         $middleware->redirectGuestsTo(fn () => route('login'));
         $middleware->alias([
             'platform.user' => EnsurePlatformUser::class,

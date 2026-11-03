@@ -259,7 +259,7 @@ final class FixtureSchema
             }
             $t->text('notes')->nullable();
             $t->timestamp('synced_at')->nullable();
-            $t->string('client_local_id')->nullable();
+            $t->string('client_local_id', 64)->nullable()->unique();
             $t->timestamp('deleted_at')->nullable();
             $t->integer('deleted_by_user_id')->nullable();
             $t->string('deleted_by_name')->nullable();
@@ -338,8 +338,11 @@ final class FixtureSchema
             }
             $t->string('quality')->nullable();
             $t->timestamp('reading_date')->nullable();
+            $t->decimal('latitude', 10, 8)->nullable();
+            $t->decimal('longitude', 11, 8)->nullable();
             $t->timestamp('synced_at')->nullable();
-            $t->string('client_local_id')->nullable();
+            // Legacy migration 2026_07_23_000018: CLIENT_LOCAL_ID is globally unique.
+            $t->string('client_local_id', 64)->nullable()->unique();
             $t->timestamp('deleted_at')->nullable();
             $t->integer('deleted_by_user_id')->nullable();
             $t->string('deleted_by_name')->nullable();
@@ -364,7 +367,7 @@ final class FixtureSchema
             $t->text('message')->nullable();
             $t->boolean('is_read')->default(false);
             $t->timestamp('read_at')->nullable();
-            $t->string('client_local_id')->nullable();
+            $t->string('client_local_id', 64)->nullable()->unique();
             $timestamps($t);
         });
         $s->create('well_activity_media', function (Blueprint $t) use ($timestamps): void {
