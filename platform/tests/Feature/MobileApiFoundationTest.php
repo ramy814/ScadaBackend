@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Modules\Fleet\Models\Beneficiary;
 use App\Modules\Valves\Models\ValveInspector;
 use App\Modules\Wells\Models\Inspector;
 use App\Platform\Http\Middleware\EnsureMobilePrincipal;
@@ -21,6 +22,12 @@ class MobileApiFoundationTest extends TestCase
     public function test_mobile_routes_require_their_own_ability_and_principal(): void
     {
         foreach ([
+            ['/api/driver/trips', 'GET', 'driver'],
+            ['/api/driver/trips', 'POST', 'driver'],
+            ['/api/driver/me', 'GET', 'driver'],
+            ['/api/driver/app-presence', 'POST', 'driver'],
+            ['/api/driver/trips/reconcile', 'GET', 'driver'],
+            ['/api/driver/auth/logout', 'POST', 'driver'],
             ['/api/wells/sync/wells', 'GET', 'wells'],
             ['/api/wells/sync/notification-types', 'GET', 'wells'],
             ['/api/wells/readings/sync', 'POST', 'wells'],
@@ -43,7 +50,7 @@ class MobileApiFoundationTest extends TestCase
 
     public function test_login_routes_remain_public_and_honor_the_emergency_switch(): void
     {
-        foreach ([['/api/valves/auth/login', 'POST'], ['/api/wells/auth/login', 'POST']] as [$uri, $method]) {
+        foreach ([['/api/valves/auth/login', 'POST'], ['/api/wells/auth/login', 'POST'], ['/api/driver/auth/send-code', 'POST'], ['/api/driver/auth/verify', 'POST']] as [$uri, $method]) {
             $middleware = Route::getRoutes()->match(Request::create($uri, $method))->gatherMiddleware();
 
             self::assertNotContains('auth:sanctum', $middleware, $uri);
@@ -75,6 +82,11 @@ class MobileApiFoundationTest extends TestCase
     public static function principalProvider(): array
     {
         return [
+            'driver accepted by driver API' => [new Beneficiary, 'driver', true],
+            'driver rejected by wells API' => [new Beneficiary, 'wells', false],
+            'driver rejected by SCADA API' => [new Beneficiary, 'scada', false],
+            'wells rejected by driver API' => [new Inspector, 'driver', false],
+            'SCADA rejected by driver API' => [new ValveInspector, 'driver', false],
             'wells accepted by wells API' => [new Inspector, 'wells', true],
             'wells rejected by SCADA API' => [new Inspector, 'scada', false],
             'SCADA accepted by SCADA API' => [new ValveInspector, 'scada', true],
@@ -87,6 +99,7 @@ class MobileApiFoundationTest extends TestCase
     {
         $this->db()->table('system_operational_states')->insert(['scope' => 'global', 'is_suspended' => 1, 'reason' => 'صيانة شاملة']);
 
+        $this->postJson('/api/driver/auth/send-code', [])->assertStatus(503)->assertJsonPath('code', 'systems_temporarily_suspended');
         $this->postJson('/api/wells/auth/login', [])->assertStatus(503)->assertJsonPath('code', 'systems_temporarily_suspended');
         $this->postJson('/api/valves/auth/login', [])
             ->assertStatus(503)

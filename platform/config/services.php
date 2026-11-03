@@ -35,4 +35,19 @@ return [
         ],
     ],
 
+    // Driver app SMS login. No SMS provider is integrated yet (same as legacy). A fixed test
+    // code is accepted ONLY when SMS_TEST_CODE is set explicitly; there is no default.
+    'sms' => [
+        'test_code' => env('SMS_TEST_CODE'),
+    ],
+
+    // Map tile clients (legacy MapClientAuthService); same public endpoints as legacy.
+    'signal' => [
+        'map_auth_url' => env('SIGNAL_MAP_AUTH_URL', 'https://mapps.mogaza.org/api/get_signal_statistics'),
+    ],
+
+    'hiraf' => [
+        'profile_url' => env('HIRAF_PROFILE_URL', 'https://apps.mogaza.org/api/account-follow-up/profile'),
+    ],
+
 ];

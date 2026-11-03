@@ -23,6 +23,8 @@ use Illuminate\Validation\ValidationException;
  */
 class TripRepository
 {
+    private const ROUTE_PREVIEW_POINTS = 100;
+
     public const QUEUES = ['awaiting', 'responded', 'clarification', 'decided', 'all'];
 
     /**
@@ -478,5 +480,124 @@ class TripRepository
 
             return $trip->refresh();
         });
+    }
+
+    // ── Driver app (ported verbatim for GET /api/driver/trips/{trip}/route-preview) ──
+
+    /** @return array{original_points: int, points: Collection<int, mixed>} */
+    public function routePreviewPoints(Trip $trip): array
+    {
+        $eligible = $trip->points()
+            ->where('client_is_valid', true)
+            ->where(function ($query): void {
+                $query->whereNull('quality_reason')
+                    ->orWhere('quality_reason', '!=', 'stationary_heartbeat');
+            });
+
+        $stats = (clone $eligible)
+            ->selectRaw(
+                'COUNT(*) AS original_points, MIN(sequence_number) AS first_sequence, MAX(sequence_number) AS last_sequence'
+            )
+            ->first();
+        $originalPoints = (int) ($stats?->original_points ?? 0);
+        if ($originalPoints === 0) {
+            return ['original_points' => 0, 'points' => collect()];
+        }
+
+        if ($originalPoints <= self::ROUTE_PREVIEW_POINTS) {
+            return [
+                'original_points' => $originalPoints,
+                'points' => $eligible
+                    ->orderBy('sequence_number')
+                    ->get(['latitude', 'longitude'])
+                    ->values(),
+            ];
+        }
+
+        $firstSequence = (int) $stats->first_sequence;
+        $lastSequence = (int) $stats->last_sequence;
+        $sampleSize = min(self::ROUTE_PREVIEW_POINTS, $originalPoints);
+        $sequenceNumbers = collect(range(0, $sampleSize - 1))
+            ->map(fn (int $index): int => (int) round(
+                $firstSequence
+                + ($index * ($lastSequence - $firstSequence) / max(1, $sampleSize - 1))
+            ))
+            ->unique()
+            ->values();
+
+        $points = $eligible
+            ->whereIn('sequence_number', $sequenceNumbers->all())
+            ->orderBy('sequence_number')
+            ->get(['latitude', 'longitude'])
+            ->values();
+
+        return ['original_points' => $originalPoints, 'points' => $points];
+    }
+
+    // ── Driver app queries (legacy Api\TripSyncController / BeneficiaryProfileController, unchanged) ──
+
+    /** @param  array{status: string, review_status: string, from: mixed, to: mixed, q: string}  $filters */
+    public function paginateForDriver(string $driverId, array $filters, int $perPage, int $page): LengthAwarePaginator
+    {
+        $query = Trip::query()->where('oracle_driver_id', $driverId)->latest('started_at')->latest('id');
+
+        if ($filters['status'] !== '') {
+            $query->where('status', $filters['status']);
+        }
+        if ($filters['review_status'] !== '') {
+            $query->where('review_status', $filters['review_status']);
+        }
+        if (! empty($filters['from'])) {
+            $query->whereDate('started_at', '>=', $filters['from']);
+        }
+        if (! empty($filters['to'])) {
+            $query->whereDate('started_at', '<=', $filters['to']);
+        }
+        if ($filters['q'] !== '') {
+            $q = $filters['q'];
+            $query->where(function ($nested) use ($q): void {
+                $nested->where('local_id', 'like', '%'.$q.'%')
+                    ->orWhere('origin_text', 'like', '%'.$q.'%')
+                    ->orWhere('destination_text', 'like', '%'.$q.'%')
+                    ->orWhere('mission_type', 'like', '%'.$q.'%')
+                    ->orWhere('vehicle_plate', 'like', '%'.$q.'%');
+                if (ctype_digit($q)) {
+                    $nested->orWhere('id', (int) $q);
+                }
+            });
+        }
+
+        return $query->paginate($perPage, ['*'], 'page', $page);
+    }
+
+    /** @param  array<int, string>  $localIds */
+    public function driverTripsByLocalIds(string $driverId, array $localIds): Collection
+    {
+        return Trip::query()->where('oracle_driver_id', $driverId)->whereIn('local_id', $localIds)->get()->keyBy('local_id');
+    }
+
+    public function driverClarifications(string $driverId): Collection
+    {
+        return Trip::query()
+            ->where('oracle_driver_id', $driverId)
+            ->where('review_status', 'needs_clarification')
+            ->latest('reviewed_at')
+            ->limit(20)
+            ->get();
+    }
+
+    public function recordClarificationResponse(Trip $trip, string $response, string $actor): Trip
+    {
+        $trip->update(['clarification_response' => $response, 'clarification_responded_at' => now()]);
+
+        AuditLog::query()->create([
+            'event_type' => 'trip.clarification.responded',
+            'entity_type' => 'trip',
+            'entity_id' => $trip->id,
+            'actor' => $actor,
+            'payload' => ['response' => $response],
+        ]);
+
+        return $trip;
     }
 }

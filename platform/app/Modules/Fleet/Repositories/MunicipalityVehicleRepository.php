@@ -319,4 +319,221 @@ class MunicipalityVehicleRepository
             ->whereNotNull('v.PLATE_NUM')
             ->whereExists(fn ($query) => $this->stationAccessQuery($query, $ssoUserId, $accessTypes));
     }
+
+    // ── Driver-app lookups (ported verbatim for the /api/driver endpoints) ──
+
+    /** @return array<int, string> */
+    public function activeDriverIdsAssignedToVehicles(
+        array $oracleDriverIds,
+        array $allowedVehicleIds,
+    ): array {
+        $driverIds = collect($oracleDriverIds)
+            ->filter(fn ($id): bool => filled($id))
+            ->map(fn ($id): string => (string) $id)
+            ->unique()
+            ->values();
+
+        if ($driverIds->isEmpty() || $allowedVehicleIds === [] || ! $this->readiness->available()) {
+            return [];
+        }
+
+        $columns = $this->vehicleColumns();
+
+        try {
+            return DB::connection('oracle')
+                ->table($this->vehiclesTable())
+                ->whereIn($columns['id'], $allowedVehicleIds)
+                ->whereIn($columns['beneficiary_id'], $driverIds->all())
+                ->where($columns['active'], 1)
+                ->whereNotNull($columns['plate'])
+                ->selectRaw($columns['beneficiary_id'].' as oracle_driver_id')
+                ->distinct()
+                ->pluck('oracle_driver_id')
+                ->map(fn ($id): string => (string) $id)
+                ->values()
+                ->all();
+        } catch (QueryException $e) {
+            $this->logOracleReadFailure('active_drivers_for_review_vehicles', $e);
+
+            return [];
+        }
+    }
+
+    public function countActiveAssignedToDrivers(
+        array $oracleDriverIds,
+        ?array $allowedVehicleIds = null,
+    ): int {
+        $ids = collect($oracleDriverIds)
+            ->filter(fn ($id): bool => filled($id))
+            ->map(fn ($id): string => (string) $id)
+            ->unique()
+            ->values();
+
+        if ($ids->isEmpty()
+            || ($allowedVehicleIds !== null && $allowedVehicleIds === [])
+            || ! $this->readiness->available()
+        ) {
+            return 0;
+        }
+
+        $table = $this->vehiclesTable();
+        $columns = $this->vehicleColumns();
+
+        try {
+            return (int) DB::connection('oracle')
+                ->table($table)
+                ->whereIn($columns['beneficiary_id'], $ids->all())
+                ->when($allowedVehicleIds !== null, fn ($query) => $query
+                    ->whereIn($columns['id'], $allowedVehicleIds))
+                ->where($columns['active'], 1)
+                ->whereNotNull($columns['plate'])
+                ->distinct()
+                ->count($columns['id']);
+        } catch (QueryException $e) {
+            $this->logOracleReadFailure('count_active_tracking_app_vehicles', $e);
+
+            return 0;
+        }
+    }
+
+    private function driverColumns(): array
+    {
+        return [
+            'id' => 'OID',
+            'phone' => 'MOBILE_NUM',
+            'name' => 'FULL_NAME',
+            'employee_number' => 'NATIONAL_ID',
+            'active' => 'IS_ACTIVE',
+        ];
+    }
+
+    public function findAssignedToDriver(
+        int|string $oracleDriverId,
+        ?string $driverMobile,
+        string $plate,
+    ): ?array {
+        $vehicles = $this->findByDriverOracleId($oracleDriverId);
+
+        if ($driverMobile) {
+            $vehicles = $vehicles->merge($this->findByDriverMobile($driverMobile));
+        }
+
+        return $vehicles
+            ->first(fn (array $vehicle): bool => (string) ($vehicle['plate_number'] ?? '') === $plate);
+    }
+
+    public function findByDriverMobile(string $mobileNum): Collection
+    {
+        if (! $this->readiness->available()) {
+            return collect();
+        }
+        $table = $this->vehiclesTable();
+        $vehicleColumns = $this->vehicleColumns();
+        $driversTable = $this->driversTable();
+        $driverColumns = $this->driverColumns();
+        $vehicleIdColumn = $vehicleColumns['id'] ?? 'OID';
+        $vehiclePlateColumn = $vehicleColumns['plate'] ?? 'PLATE_NUM';
+        $vehicleNameColumn = $vehicleColumns['name'] ?? 'VEHICLE_NUM';
+        $vehicleTypeColumn = $vehicleColumns['type'] ?? null;
+        $vehicleBeneficiaryColumn = $vehicleColumns['beneficiary_id'] ?? 'BENEFICIARY_OID';
+        $driverPhoneColumn = $driverColumns['phone'] ?? 'MOBILE_NUM';
+        $driverIdColumn = $driverColumns['id'] ?? 'OID';
+
+        $digits = preg_replace('/\D+/', '', $mobileNum) ?? '';
+        $last9 = strlen($digits) >= 9 ? substr($digits, -9) : $digits;
+
+        // توليد الاحتمالات الشائعة لتسريع البحث باستخدام (IN) المدعوم بالفهارس (Indexes)
+        $variants = collect([
+            $mobileNum,
+            $digits,
+            ltrim($digits, '0'),
+            str_starts_with($digits, '970') ? substr($digits, 3) : null,
+            str_starts_with($digits, '972') ? substr($digits, 3) : null,
+            str_starts_with($digits, '0') ? '970'.substr($digits, 1) : null,
+            str_starts_with($digits, '0') ? '972'.substr($digits, 1) : null,
+            $last9,
+            '0'.$last9,
+            '970'.$last9,
+            '972'.$last9,
+            '+970'.$last9,
+            '+972'.$last9,
+        ])
+            ->filter()
+            ->unique()
+            ->values();
+
+        try {
+            return DB::connection('oracle')
+                ->table($table.' as t')
+                // استخدام INNER JOIN بدلاً من IN (subquery) يعطي خطة تنفيذ (Execution Plan) أفضل بكثير
+                ->join($driversTable.' as d', 't.'.$vehicleBeneficiaryColumn, '=', 'd.'.$driverIdColumn)
+                ->whereNotNull('t.'.$vehiclePlateColumn)
+                ->where(function ($query) use ($driverPhoneColumn, $variants, $last9): void {
+                    // البحث الدقيق الذي يستخدم الفهارس بشكل مباشر
+                    $query->whereIn('d.'.$driverPhoneColumn, $variants->all());
+
+                    if ($last9) {
+                        // استبدال REGEXP_REPLACE و SUBSTR المكلفة جداً بـ LIKE الذي يعد أسرع بكثير
+                        $query->orWhere('d.'.$driverPhoneColumn, 'LIKE', '%'.$last9.'%');
+                    }
+                })
+                ->selectRaw(sprintf(
+                    't.%s as oracle_id, t.%s as plate_number, t.%s as name%s',
+                    $vehicleIdColumn,
+                    $vehiclePlateColumn,
+                    $vehicleNameColumn,
+                    $vehicleTypeColumn ? ', t.'.$vehicleTypeColumn.' as vehicle_type' : ''
+                ))
+                ->get()
+                ->map(fn ($row): array => [
+                    'oracle_id' => $row->oracle_id ?? null,
+                    'plate_number' => $row->plate_number,
+                    'name' => $row->name ?? null,
+                    'vehicle_type' => $row->vehicle_type ?? null,
+                ]);
+        } catch (QueryException $e) {
+            $this->logOracleReadFailure('find_by_driver_mobile', $e);
+
+            return collect();
+        }
+    }
+
+    public function findByDriverOracleId(int|string $oracleDriverId): Collection
+    {
+        if (! $this->readiness->available()) {
+            return collect();
+        }
+        $table = $this->vehiclesTable();
+        $vehicleColumns = $this->vehicleColumns();
+        $vehicleIdColumn = $vehicleColumns['id'] ?? 'OID';
+        $vehiclePlateColumn = $vehicleColumns['plate'] ?? 'PLATE_NUM';
+        $vehicleNameColumn = $vehicleColumns['name'] ?? 'VEHICLE_NUM';
+        $vehicleTypeColumn = $vehicleColumns['type'] ?? null;
+        $vehicleBeneficiaryColumn = $vehicleColumns['beneficiary_id'] ?? 'BENEFICIARY_OID';
+
+        try {
+            return DB::connection('oracle')
+                ->table($table.' as t')
+                ->whereNotNull('t.'.$vehiclePlateColumn)
+                ->where('t.'.$vehicleBeneficiaryColumn, $oracleDriverId)
+                ->selectRaw(sprintf(
+                    't.%s as oracle_id, t.%s as plate_number, t.%s as name%s',
+                    $vehicleIdColumn,
+                    $vehiclePlateColumn,
+                    $vehicleNameColumn,
+                    $vehicleTypeColumn ? ', t.'.$vehicleTypeColumn.' as vehicle_type' : ''
+                ))
+                ->get()
+                ->map(fn ($row): array => [
+                    'oracle_id' => $row->oracle_id ?? null,
+                    'plate_number' => $row->plate_number,
+                    'name' => $row->name ?? null,
+                    'vehicle_type' => $row->vehicle_type ?? null,
+                ]);
+        } catch (QueryException $e) {
+            $this->logOracleReadFailure('find_by_driver_oracle_id', $e);
+
+            return collect();
+        }
+    }
 }

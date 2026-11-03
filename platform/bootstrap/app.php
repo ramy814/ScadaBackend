@@ -1,5 +1,6 @@
 <?php
 
+use App\Platform\Http\Middleware\AuthenticateMapClient;
 use App\Platform\Http\Middleware\EnsureApplicationAccess;
 use App\Platform\Http\Middleware\EnsureFleetAction;
 use App\Platform\Http\Middleware\EnsureMobilePrincipal;
@@ -39,6 +40,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'abilities' => CheckAbilities::class,
             'mobile.principal' => EnsureMobilePrincipal::class,
             'systems.operational' => RejectMobileWhenSuspended::class,
+            'map.client' => AuthenticateMapClient::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

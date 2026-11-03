@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace App\Modules\Fleet\Services;
 
-// Ported from the legacy DriverAppUsageService (read side only: the presence
-// endpoint stays in the legacy backend that the driver app talks to).
+// Ported from the legacy DriverAppUsageService: adoption read side for the dashboard and
+// record() for POST /api/driver/app-presence.
 
+use App\Modules\Fleet\Models\Beneficiary;
 use App\Modules\Fleet\Repositories\DriverAppInstallationRepository;
 use App\Modules\Fleet\Repositories\MunicipalityVehicleRepository;
 use App\Modules\Fleet\Repositories\TripRepository;
@@ -220,5 +221,25 @@ class DriverAppUsageService
         }
 
         return 'current_unknown_source';
+    }
+
+    // ── Driver app presence (ported verbatim for POST /api/driver/app-presence) ──
+
+    public function record(Beneficiary $driver, array $telemetry): array
+    {
+        $installation = $this->installations->record([
+            'oracle_driver_id' => (string) $driver->getAuthIdentifier(),
+            'driver_name' => $driver->displayName(),
+            'driver_phone' => $driver->phoneNumber(),
+            'driver_employee_number' => $driver->employeeNumber(),
+        ], $telemetry);
+
+        return [
+            'last_seen_at' => $installation->last_seen_at?->toIso8601String(),
+            'latest_version' => config('driver_app.latest_version'),
+            'latest_build' => (int) config('driver_app.latest_build'),
+            'update_required' => $installation->build_number
+                < (int) config('driver_app.latest_build'),
+        ];
     }
 }

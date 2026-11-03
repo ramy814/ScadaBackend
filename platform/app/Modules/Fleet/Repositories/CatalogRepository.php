@@ -27,4 +27,16 @@ class CatalogRepository
 
         return $item;
     }
+
+    // ── Driver app lookups (legacy Api\LocationLookupController / MissionTypeLookupController) ──
+
+    public function activeLocationsForDriverApp(): Collection
+    {
+        return MissionLocation::query()->where('active', true)->orderBy('sort_order')->orderBy('name')->get(['id', 'name', 'category']);
+    }
+
+    public function activeMissionTypesForDriverApp(): Collection
+    {
+        return MissionType::query()->where('active', true)->orderBy('sort_order')->orderBy('name')->get(['id', 'name']);
+    }
 }

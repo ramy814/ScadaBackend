@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Platform\Identity;
 
+use App\Modules\Fleet\Models\Beneficiary;
 use App\Modules\Valves\Models\ValveInspector;
 use App\Modules\Wells\Models\Inspector;
 
@@ -20,12 +21,14 @@ final class MobilePrincipals
 {
     /** @var array<string, class-string> ability => principal model */
     public const BY_ABILITY = [
+        'driver' => Beneficiary::class,
         'wells' => Inspector::class,
         'scada' => ValveInspector::class,
     ];
 
     /** @var array<string, class-string> legacy TOKENABLE_TYPE => platform model */
     public const LEGACY_MORPH_TYPES = [
+        'App\\Models\\Beneficiary' => Beneficiary::class,
         'App\\Models\\Wells\\Inspector' => Inspector::class,
         'App\\Models\\Valves\\ValveInspector' => ValveInspector::class,
     ];

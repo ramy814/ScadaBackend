@@ -49,6 +49,15 @@ final class FixtureSchema
             $t->string('national_id')->nullable();
             $t->integer('is_active')->default(1);
         });
+        // Driver SMS login codes (legacy create_sms_login_codes migration).
+        $s->create('sms_login_codes', function (Blueprint $t): void {
+            $t->id();
+            $t->string('phone')->index();
+            $t->string('code_hash');
+            $t->timestamp('expires_at');
+            $t->timestamp('consumed_at')->nullable();
+            $t->timestamps();
+        });
         $s->create('g_store.vehicle', function (Blueprint $t): void {
             $t->integer('oid')->primary();
             $t->string('plate_num')->nullable();
@@ -123,6 +132,8 @@ final class FixtureSchema
             $t->boolean('client_is_valid')->default(true);
             $t->string('quality_reason')->nullable();
             $t->timestamps();
+            // Legacy create_trip_tables: one row per (trip, sequence); point upload upserts on it.
+            $t->unique(['trip_id', 'sequence_number']);
         });
         $s->create('trip_stops', function (Blueprint $t): void {
             $t->id();

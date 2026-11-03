@@ -41,6 +41,21 @@ class AppServiceProvider extends ServiceProvider
 
             // Oracle date literal helper used by GeneratorRepository; the fixture stores ISO strings.
             $connection->getPdo()->sqliteCreateFunction('TO_DATE', fn ($value) => $value, 2);
+            // Oracle string functions used by the driver phone lookup (MunicipalityDriverRepository).
+            $connection->getPdo()->sqliteCreateFunction('TRANSLATE', function ($value, $from, $to) {
+                if ($value === null) {
+                    return null;
+                }
+                $from = mb_str_split((string) $from);
+                $to = mb_str_split((string) $to);
+                $map = [];
+                foreach ($from as $i => $char) {
+                    $map[$char] = $to[$i] ?? '';
+                }
+
+                return strtr((string) $value, $map);
+            }, 3);
+            $connection->getPdo()->sqliteCreateFunction('REGEXP_REPLACE', fn ($value, $pattern, $replacement = '') => $value === null ? null : preg_replace('/'.str_replace('/', '\\/', (string) $pattern).'/u', (string) $replacement, (string) $value), -1);
 
             $database = (string) $connection->getConfig('database');
             foreach ($schemas as $schema) {
