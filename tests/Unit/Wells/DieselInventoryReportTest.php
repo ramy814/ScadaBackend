@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Wells;
 
-use App\Models\Wells\DieselInventory;
-use App\Models\Wells\Inspector;
-use App\Models\Wells\Well;
-use App\Repositories\Wells\DieselInventoryRepository;
-use App\Repositories\Wells\GeneratorRepository;
-use App\Services\Wells\DieselFuelCalculator;
-use App\Services\Wells\DieselInventoryService;
+use App\Modules\Wells\Models\DieselInventory;
+use App\Modules\Wells\Models\Inspector;
+use App\Modules\Wells\Models\Well;
+use App\Modules\Wells\Repositories\DieselInventoryRepository;
+use App\Modules\Wells\Repositories\GeneratorRepository;
+use App\Modules\Wells\Services\DieselFuelCalculator;
+use App\Modules\Wells\Services\DieselInventoryService;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Mockery;

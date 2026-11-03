@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Wells;
 
-use App\Models\Wells\WellMedia;
-use App\Repositories\Wells\WellMediaRepository;
-use App\Services\Wells\WellMediaService;
+use App\Modules\Wells\Models\WellMedia;
+use App\Modules\Wells\Repositories\WellMediaRepository;
+use App\Modules\Wells\Services\WellMediaService;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Mockery;
@@ -14,6 +14,8 @@ use Tests\TestCase;
 
 class WellMediaServiceTest extends TestCase
 {
+    protected bool $fixtureSchema = false;
+
     public function test_it_stores_a_named_well_image_in_private_storage(): void
     {
         Storage::fake('local');

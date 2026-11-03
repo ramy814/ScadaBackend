@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Wells;
 
-use App\Models\Wells\Well;
-use App\Models\Wells\WellGenerator;
-use App\Repositories\Wells\DieselInventoryRepository;
-use App\Repositories\Wells\GeneratorRepository;
-use App\Repositories\Wells\WellRepository;
-use App\Services\Wells\WellMediaService;
-use App\Services\Wells\WellService;
+use App\Modules\Wells\Models\Well;
+use App\Modules\Wells\Models\WellGenerator;
+use App\Modules\Wells\Repositories\DieselInventoryRepository;
+use App\Modules\Wells\Repositories\GeneratorRepository;
+use App\Modules\Wells\Repositories\WellRepository;
+use App\Modules\Wells\Services\WellMediaService;
+use App\Modules\Wells\Services\WellService;
 use Illuminate\Database\Eloquent\Collection;
 use Mockery;
 use Tests\TestCase;

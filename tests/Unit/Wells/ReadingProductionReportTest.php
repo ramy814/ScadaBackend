@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Wells;
 
-use App\Models\Wells\Inspector;
-use App\Models\Wells\Well;
-use App\Models\Wells\WellReading;
-use App\Repositories\Wells\ReadingRepository;
-use App\Repositories\Wells\WellRepository;
-use App\Services\Wells\ReadingService;
+use App\Modules\Wells\Models\Inspector;
+use App\Modules\Wells\Models\Well;
+use App\Modules\Wells\Models\WellReading;
+use App\Modules\Wells\Repositories\ReadingRepository;
+use App\Modules\Wells\Repositories\WellRepository;
+use App\Modules\Wells\Services\ReadingService;
 use Illuminate\Database\Eloquent\Collection;
 use Mockery;
 use Tests\TestCase;

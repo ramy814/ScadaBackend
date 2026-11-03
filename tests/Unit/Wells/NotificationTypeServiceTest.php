@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Wells;
 
-use App\Http\Requests\Wells\UpdateNotificationTypeRequest;
-use App\Models\Wells\NotificationType;
-use App\Repositories\Wells\NotificationTypeRepository;
-use App\Services\Wells\NotificationTypeService;
+use App\Modules\Wells\Http\Requests\UpdateNotificationTypeRequest;
+use App\Modules\Wells\Models\NotificationType;
+use App\Modules\Wells\Repositories\NotificationTypeRepository;
+use App\Modules\Wells\Services\NotificationTypeService;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Validator;
 use Mockery;

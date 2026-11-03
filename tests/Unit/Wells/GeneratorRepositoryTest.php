@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Wells;
 
-use App\Models\Wells\WellGenerator;
-use App\Repositories\Wells\GeneratorRepository;
+use App\Modules\Wells\Models\WellGenerator;
+use App\Modules\Wells\Repositories\GeneratorRepository;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Mockery;

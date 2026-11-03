@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Wells;
 
-use App\Models\Wells\WellReading;
-use App\Repositories\Wells\ReadingRepository;
+use App\Modules\Wells\Models\WellReading;
+use App\Modules\Wells\Repositories\ReadingRepository;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
@@ -15,6 +15,8 @@ use Tests\TestCase;
 
 class ReadingRepositoryTest extends TestCase
 {
+    protected bool $fixtureSchema = false;
+
     protected function tearDown(): void
     {
         Mockery::close();
@@ -84,7 +86,10 @@ class ReadingRepositoryTest extends TestCase
             $table->string('activity_type');
             $table->integer('activity_oid');
         });
-        DB::statement("ATTACH DATABASE ':memory:' AS DSS_CORE");
+        // The platform fixture connection already attaches DSS_CORE.
+        if (! collect(DB::select('PRAGMA database_list'))->contains(fn ($db) => strtolower($db->name) === 'dss_core')) {
+            DB::statement("ATTACH DATABASE ':memory:' AS DSS_CORE");
+        }
         DB::statement('CREATE TABLE DSS_CORE.WTR_WELLS (WELL_ID VARCHAR(100), SOURCE_WELL_CODE VARCHAR(100))');
 
         DB::table('wells')->insert([
