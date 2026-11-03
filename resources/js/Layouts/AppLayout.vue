@@ -19,7 +19,7 @@
           <Link :href="$page.props.urls.locations" :class="{ active: isActive('Admin/Locations') }">المواقع</Link>
           <Link :href="$page.props.urls.missionTypes" :class="{ active: isActive('Admin/MissionTypes') }">أنواع المهام</Link>
           <Link :href="$page.props.urls.reports" :class="{ active: isActive('Admin/Reports') }">التقارير</Link>
-          <Link :href="$page.props.urls.vehicleClaims" :class="{ active: isActive('Admin/VehicleClaims') }">المطالبات المالية</Link>
+          <Link v-if="$page.props.auth?.can_view_vehicle_claims" :href="$page.props.urls.vehicleClaims" :class="{ active: isActive('Admin/VehicleClaims') }">المطالبات المالية</Link>
         </div>
       </div>
 

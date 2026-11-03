@@ -1,5 +1,18 @@
 # Changelog & Recent Actions
 
+## [2026-11-03] Financial Claims Require A Dashboard Permission
+
+- Added the action permission `fleet.vehicle-claims.view`
+  (`SystemPermissionRepository::VIEW_VEHICLE_CLAIMS`). It is granted from
+  `/permissions` under تتبع المركبات → صلاحيات إضافية, requires base `fleet`
+  access, and fails closed without Oracle.
+- `/admin/vehicle-claims` (+ `/csv`, `/pdf`) now use
+  `action.permission:fleet.vehicle-claims.view`; the sidebar link appears only
+  when `auth.can_view_vehicle_claims` is true. Users who could open the page
+  through Fleet access alone must now be granted the permission.
+- The independent platform (`platform/`) applies the same key, route guard,
+  navigation rule and grant UI.
+
 ## [2026-11-02] Vehicle Financial Claims From G_STORE.VEHICLE.HOURLY_PRICE
 
 - Added nullable `TRIPS.HOURLY_PRICE` (migration

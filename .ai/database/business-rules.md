@@ -115,6 +115,7 @@ The `audit_logs` table must never have rows updated or deleted. It is append-onl
 - Work time per trip = `ended_at - started_at` (negative values count as zero). Vehicle work time is the sum over its trips; the claim does not use first-departure/last-return spans or GPS `duration_minutes`.
 - Amount per trip = work hours × `TRIPS.HOURLY_PRICE` (captured at approval). If the snapshot is null (approved before capture), use the vehicle's current `G_STORE.VEHICLE.HOURLY_PRICE` and flag it as current-price. Trips with neither price are counted in hours but excluded from the amount and flagged.
 - Re-approval re-captures the price at that approval time; any non-approved review status clears the snapshot.
+- Viewing or exporting claims requires the dashboard-granted action permission `fleet.vehicle-claims.view` in addition to base `fleet` access. It fails closed when Oracle is unavailable; revoking `fleet` also revokes it.
 
 ## 9. Wells Diesel Consumption Status
 

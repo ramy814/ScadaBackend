@@ -66,6 +66,34 @@ class SystemPermissionActionTest extends TestCase
         }
     }
 
+    public function test_vehicle_claims_permission_is_granted_from_the_dashboard_and_requires_fleet(): void
+    {
+        self::assertContains(SystemPermissionRepository::VIEW_VEHICLE_CLAIMS, SystemPermissionRepository::PERMISSION_KEYS);
+        self::assertSame('fleet', SystemPermissionRepository::ACTION_REQUIREMENTS[SystemPermissionRepository::VIEW_VEHICLE_CLAIMS]);
+
+        foreach ([
+            [['fleet', SystemPermissionRepository::VIEW_VEHICLE_CLAIMS], true],
+            [[SystemPermissionRepository::VIEW_VEHICLE_CLAIMS], false],
+            [['wells', SystemPermissionRepository::VIEW_VEHICLE_CLAIMS], false],
+        ] as [$systems, $passes]) {
+            $request = SystemPermissionRequest::create('/permissions', 'POST', ['user_id' => 140, 'systems' => $systems]);
+            $validator = Validator::make($request->all(), $request->rules());
+            $request->withValidator($validator);
+            self::assertSame($passes, $validator->passes());
+        }
+    }
+
+    public function test_vehicle_claims_permission_fails_closed_when_oracle_is_unavailable(): void
+    {
+        $readiness = Mockery::mock(OracleReadiness::class);
+        $readiness->shouldReceive('available')->once()->andReturnFalse();
+
+        self::assertFalse((new SystemPermissionRepository($readiness, Mockery::mock(MunicipalityVehicleRepository::class)))->hasActionPermission(
+            140,
+            SystemPermissionRepository::VIEW_VEHICLE_CLAIMS,
+        ));
+    }
+
     public function test_automatic_fleet_operations_cannot_be_granted_through_the_permission_form(): void
     {
         foreach ([

@@ -122,6 +122,14 @@ class SystemPermissionController extends Controller
                 'category' => 'access',
             ],
             [
+                'key' => SystemPermissionRepository::VIEW_VEHICLE_CLAIMS,
+                'label' => 'المطالبات المالية للمركبات',
+                'description' => 'عرض المطالبات المالية وتنزيلها CSV وPDF.',
+                'requires' => 'fleet',
+                'group' => 'fleet',
+                'category' => 'action',
+            ],
+            [
                 'key' => 'wells',
                 'label' => 'الدخول إلى منظومة إدارة الآبار',
                 'description' => 'الوصول إلى متابعة الآبار والقراءات وفرق الفحص.',
