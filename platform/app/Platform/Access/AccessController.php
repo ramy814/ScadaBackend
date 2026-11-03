@@ -25,7 +25,7 @@ class AccessController extends Controller
             'users' => $this->permissions->groupedByUser(),
             'oracleAvailable' => $this->readiness->available(),
             'catalog' => [
-                ['application' => 'fleet', 'keys' => ['fleet']],
+                ['application' => 'fleet', 'keys' => ['fleet', SystemPermissionRepository::VIEW_VEHICLE_CLAIMS]],
                 ['application' => 'wells', 'keys' => ['wells', SystemPermissionRepository::DELETE_WELL_READING, SystemPermissionRepository::DELETE_DIESEL_INVENTORY]],
                 ['application' => 'valves', 'keys' => ['valves']],
             ],

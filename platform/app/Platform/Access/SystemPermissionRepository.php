@@ -35,6 +35,9 @@ class SystemPermissionRepository
 
     public const REVIEW_TRIPS = 'fleet.trips.review';
 
+    // Granted from the permissions dashboard; requires Fleet system access (same key as legacy).
+    public const VIEW_VEHICLE_CLAIMS = 'fleet.vehicle-claims.view';
+
     public const ACTION_KEYS = [
         self::DELETE_WELL_READING,
         self::DELETE_DIESEL_INVENTORY,
@@ -42,6 +45,7 @@ class SystemPermissionRepository
         self::ENTER_MANUAL_TRIP,
         self::APPROVE_MANUAL_TRIP,
         self::REVIEW_TRIPS,
+        self::VIEW_VEHICLE_CLAIMS,
     ];
 
     public const PERMISSION_KEYS = [
@@ -50,11 +54,13 @@ class SystemPermissionRepository
         'valves',
         self::DELETE_WELL_READING,
         self::DELETE_DIESEL_INVENTORY,
+        self::VIEW_VEHICLE_CLAIMS,
     ];
 
     public const ACTION_REQUIREMENTS = [
         self::DELETE_WELL_READING => 'wells',
         self::DELETE_DIESEL_INVENTORY => 'wells',
+        self::VIEW_VEHICLE_CLAIMS => 'fleet',
     ];
 
     public function __construct(

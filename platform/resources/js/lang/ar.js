@@ -190,10 +190,11 @@ export default {
         granted_rows: 'الصلاحيات الممنوحة', granted_by: 'بواسطة :name', oracle_unavailable: 'لا يمكن قراءة المستخدمين والصلاحيات لأن اتصال Oracle غير مضبوط. لا يعني هذا أن القائمة فارغة.',
         filtered_empty: 'لا يوجد مستخدمون مطابقون',
         apps: { fleet: 'الأسطول', wells: 'الآبار', valves: 'المحابس' },
-        keys: { fleet: 'الأسطول', wells: 'الآبار', valves: 'المحابس', 'wells.readings.delete': 'حذف القراءات', 'wells.diesel-inventories.delete': 'حذف جرد السولار' },
+        keys: { fleet: 'الأسطول', wells: 'الآبار', valves: 'المحابس', 'wells.readings.delete': 'حذف القراءات', 'wells.diesel-inventories.delete': 'حذف جرد السولار', 'fleet.vehicle-claims.view': 'المطالبات المالية للمركبات' },
         key_hints: {
             fleet: 'مراجعة رحلات التطبيق والمراقبة والتقارير', wells: 'متابعة القراءات والبلاغات والأصول', valves: 'الصيانة والعمليات والفرق',
             'wells.readings.delete': 'حذف ناعم مُدقق مع سبب إلزامي', 'wells.diesel-inventories.delete': 'حذف ناعم مُدقق مع سبب إلزامي',
+            'fleet.vehicle-claims.view': 'عرض المطالبات المالية وتنزيلها CSV وPDF',
         },
     },
     operations: {

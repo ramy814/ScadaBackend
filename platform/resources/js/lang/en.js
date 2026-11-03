@@ -190,10 +190,11 @@ export default {
         granted_rows: 'Granted permissions', granted_by: 'by :name', oracle_unavailable: 'Users and permissions cannot be read because the Oracle connection is not configured. This does not mean the list is empty.',
         filtered_empty: 'No matching users',
         apps: { fleet: 'Fleet', wells: 'Wells', valves: 'Valves' },
-        keys: { fleet: 'Fleet', wells: 'Wells', valves: 'Valves', 'wells.readings.delete': 'Delete readings', 'wells.diesel-inventories.delete': 'Delete diesel inventories' },
+        keys: { fleet: 'Fleet', wells: 'Wells', valves: 'Valves', 'wells.readings.delete': 'Delete readings', 'wells.diesel-inventories.delete': 'Delete diesel inventories', 'fleet.vehicle-claims.view': 'Vehicle financial claims' },
         key_hints: {
             fleet: 'Review app trips, monitoring and reports', wells: 'Readings, signals and assets', valves: 'Maintenance, actions and teams',
             'wells.readings.delete': 'Audited soft delete with a mandatory reason', 'wells.diesel-inventories.delete': 'Audited soft delete with a mandatory reason',
+            'fleet.vehicle-claims.view': 'View financial claims and download CSV and PDF',
         },
     },
     operations: {

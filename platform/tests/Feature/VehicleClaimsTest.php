@@ -74,9 +74,34 @@ class VehicleClaimsTest extends TestCase
         $this->assertNull($repository->hourlyPriceFor(99));
     }
 
-    public function test_claims_screen_and_exports_for_fleet_users_only(): void
+    public function test_claims_need_the_dashboard_grant_on_top_of_fleet_access(): void
     {
         $this->actingAsUser(5, ['fleet']);
+
+        $this->get('/fleet/reviews')->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->where('shell.navigation', fn ($groups) => ! collect($groups)->flatMap(fn ($g) => $g['items'])->contains('key', 'claims')));
+        foreach (['/fleet/claims', '/fleet/claims/csv', '/fleet/claims/pdf'] as $url) {
+            $this->get($url)->assertForbidden()->assertInertia(fn (Assert $page) => $page->component('Errors/NoAccess')->where('reason', 'action_grant'));
+        }
+    }
+
+    public function test_access_manager_grants_claims_only_together_with_fleet(): void
+    {
+        $this->actingAsUser(1, ['fleet']);
+        $this->db()->table('mog_users.users_list')->insert(['id' => 9, 'full_name' => 'Target', 'is_active' => 1]);
+
+        $this->put('/platform/access/9', ['keys' => ['fleet.vehicle-claims.view']])->assertSessionHasErrors('keys');
+        $this->put('/platform/access/9', ['keys' => ['fleet', 'fleet.vehicle-claims.view']])->assertSessionHasNoErrors();
+        $this->assertEqualsCanonicalizing(['fleet', 'fleet.vehicle-claims.view'], $this->db()->table('control_unit.system_permissions')->where('user_id', 9)->pluck('system_key')->all());
+
+        $this->get('/platform/access')->assertInertia(fn (Assert $page) => $page
+            ->where('catalog.0.keys', ['fleet', 'fleet.vehicle-claims.view'])
+            ->where('requirements', fn ($requirements) => $requirements['fleet.vehicle-claims.view'] === 'fleet'));
+    }
+
+    public function test_claims_screen_and_exports_for_granted_fleet_users_only(): void
+    {
+        $this->actingAsUser(5, ['fleet', 'fleet.vehicle-claims.view']);
         $this->db()->table('g_store.vehicle')->insert(['oid' => 700, 'plate_num' => '3-1234', 'hourly_price' => 40]);
         $this->trip(['review_status' => 'approved', 'started_at' => CarbonImmutable::parse('2026-11-03 08:00'), 'ended_at' => CarbonImmutable::parse('2026-11-03 09:30'), 'hourly_price' => 40]);
 
@@ -93,7 +118,7 @@ class VehicleClaimsTest extends TestCase
         $this->get('/fleet/claims/pdf?month=2026-11')->assertOk()->assertHeader('Content-Type', 'application/pdf');
         $this->get('/fleet/claims?date_from=2026-11-10&date_to=2026-11-01')->assertSessionHasErrors('date_to');
 
-        $this->actingAsUser(6, ['wells']);
+        $this->actingAsUser(6, ['wells', 'fleet.vehicle-claims.view']);
         $this->get('/fleet/claims')->assertForbidden();
     }
 }

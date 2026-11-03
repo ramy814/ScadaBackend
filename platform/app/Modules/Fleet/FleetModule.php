@@ -9,6 +9,7 @@ use App\Modules\Fleet\Repositories\TripRepository;
 use App\Modules\Fleet\Services\FleetAccessService;
 use App\Modules\Fleet\Services\FleetLiveService;
 use App\Platform\Access\AccessService;
+use App\Platform\Access\SystemPermissionRepository;
 use App\Platform\Applications\Module;
 use Carbon\CarbonImmutable;
 
@@ -59,10 +60,11 @@ class FleetModule implements Module
             ['label' => 'nav.group.app', 'items' => [
                 ['key' => 'app', 'label' => 'nav.fleet.app', 'route' => route('fleet.app'), 'icon' => 'smartphone'],
             ]],
-            ['label' => 'nav.group.records', 'items' => [
+            ['label' => 'nav.group.records', 'items' => array_values(array_filter([
                 ['key' => 'reports', 'label' => 'nav.fleet.reports', 'route' => route('fleet.reports'), 'icon' => 'file-text'],
-                ['key' => 'claims', 'label' => 'nav.fleet.claims', 'route' => route('fleet.claims'), 'icon' => 'banknote'],
-            ]],
+                $this->platformAccess->can($userId, SystemPermissionRepository::VIEW_VEHICLE_CLAIMS)
+                    ? ['key' => 'claims', 'label' => 'nav.fleet.claims', 'route' => route('fleet.claims'), 'icon' => 'banknote'] : null,
+            ]))],
             ...$manualGroup,
             ['label' => 'nav.group.settings', 'items' => [
                 ['key' => 'catalogs', 'label' => 'nav.fleet.catalogs', 'route' => route('fleet.catalogs'), 'icon' => 'list'],

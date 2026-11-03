@@ -10,6 +10,7 @@ export default {
     },
     errors: { reasons: {
         manual_scope: 'Manual entry and its approval follow the Oracle vehicle stations, not platform permissions: entry needs your account linked to a station with access type 1 or 3, approval needs 2 or 3 (VEHICLE_STAGES / USER_STATION). Ask the stations administrator to link your account.',
+        action_grant: 'This screen needs a permission granted from Users & access. Ask an access manager to grant it.',
         oracle_unavailable: 'There is no Oracle connection, so manual entry and approval permissions are closed as a precaution. Configure the Oracle connection (or the local demo) and try again.',
     } },
     shell: { oracle_unavailable: 'No Oracle connection: extra permissions (manual entry, approval, deletes) are closed and the users list cannot be read. Configure Oracle in .env or run the local demo (ORACLE_DRIVER=sqlite and php artisan platform:demo).' },

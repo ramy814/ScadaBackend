@@ -11,7 +11,7 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Symfony\Component\HttpFoundation\Response;
 
-/** Usage: `fleet.action:fleet.trips.enter` — runtime Oracle-derived assistant capability (fails closed). */
+/** Usage: `fleet.action:fleet.trips.enter` — Fleet action permission: Oracle-derived assistant scope or a dashboard grant (fails closed). */
 class EnsureFleetAction
 {
     public function __construct(
@@ -25,6 +25,10 @@ class EnsureFleetAction
             return $next($request);
         }
 
-        return Inertia::render('Errors/NoAccess', ['reason' => $this->readiness->available() ? 'manual_scope' : 'oracle_unavailable'])->toResponse($request)->setStatusCode(403);
+        return Inertia::render('Errors/NoAccess', ['reason' => match (true) {
+            ! $this->readiness->available() => 'oracle_unavailable',
+            $action === SystemPermissionRepository::VIEW_VEHICLE_CLAIMS => 'action_grant',
+            default => 'manual_scope',
+        }])->toResponse($request)->setStatusCode(403);
     }
 }

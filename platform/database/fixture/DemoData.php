@@ -39,7 +39,7 @@ final class DemoData
             ['id' => 3, 'emp_id' => 9003, 'full_name' => 'مشرف محابس تجريبي', 'tracking_id' => 102, 'is_active' => 1, 'user_mobile' => '0599000003'],
             ['id' => 5, 'emp_id' => 9005, 'full_name' => 'مشرف أسطول تجريبي', 'tracking_id' => 104, 'is_active' => 1, 'user_mobile' => '0599000005'],
         ]);
-        foreach (['fleet', 'wells', 'valves'] as $key) {
+        foreach (['fleet', 'wells', 'valves', 'fleet.vehicle-claims.view'] as $key) {
             $db->table('control_unit.system_permissions')->insert(['user_id' => self::ADMIN_ID, 'system_key' => $key, 'granted_by' => 'demo']);
         }
         $db->table('control_unit.system_permissions')->insert(['user_id' => 2, 'system_key' => 'wells', 'granted_by' => 'demo']);
