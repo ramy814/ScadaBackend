@@ -3,6 +3,9 @@
 #
 #   bash deploy/prepare-server.sh /path/to/legacy-backend
 #
+# When production is updated from the Git repository, the platform is the repository's
+# own `platform/` folder:  cd <legacy>/platform && bash deploy/prepare-server.sh <legacy>
+#
 # Safe by design (docs/05-cutover-plan.md):
 #   - never runs `php artisan migrate` (the platform owns no tables);
 #   - only READS the legacy .env; never writes inside the legacy folder;
@@ -24,7 +27,8 @@ step "Checking prerequisites"
 [ "$(uname -s)" = "Darwin" ] && fail "This looks like a Mac. Run this script on the production server, not on a workstation."
 [ -f "$LEGACY_ENV" ] || fail "Legacy .env not found at $LEGACY_ENV"
 [ -f "$LEGACY_DIR/artisan" ] || fail "$LEGACY_DIR does not look like the legacy Laravel backend"
-case "$PLATFORM_DIR" in "$LEGACY_DIR"/*) fail "Clone the platform OUTSIDE the legacy folder";; esac
+# Allowed: the repository's own platform/ subfolder (auto-deploy checkout) or a separate clone.
+case "$PLATFORM_DIR" in "$LEGACY_DIR/platform") ;; "$LEGACY_DIR"/*) fail "Use the repository's platform/ folder or a clone OUTSIDE the legacy folder";; esac
 command -v php >/dev/null || fail "php not found"
 command -v composer >/dev/null || fail "composer not found"
 command -v npm >/dev/null || fail "npm not found"
