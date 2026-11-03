@@ -8,6 +8,8 @@ use App\Modules\Fleet\FleetModule;
 use App\Modules\Fleet\Services\FleetAccessService;
 use App\Platform\Access\AccessService;
 use App\Platform\Applications\ApplicationRegistry;
+use App\Platform\Identity\MobilePrincipals;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Database\Events\ConnectionEstablished;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
@@ -25,6 +27,9 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // Mobile tokens keep their legacy TOKENABLE_TYPE values (see MobilePrincipals).
+        Relation::morphMap(MobilePrincipals::LEGACY_MORPH_TYPES);
+
         // SQLite fixture: emulate Oracle schemas (g_store.VEHICLE, mog_users.users_list, ...)
         // by attaching one database per schema. Never active against real Oracle.
         Event::listen(ConnectionEstablished::class, function (ConnectionEstablished $event): void {

@@ -7,10 +7,11 @@ namespace App\Modules\Valves\Models;
 use App\Platform\Concerns\UppercaseKeys;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Laravel\Sanctum\HasApiTokens;
 
 class ValveInspector extends Model
 {
-    use UppercaseKeys;
+    use HasApiTokens, UppercaseKeys;
 
     protected $table = 'valve_inspectors';
 

@@ -41,4 +41,13 @@ class ValveLog extends Model
     {
         return $this->belongsTo(ValveInspector::class, 'user_oid', 'oid');
     }
+
+    /**
+     * Name the legacy mobile API eager-loads (`logs.user`). The legacy model never defined it,
+     * so GET /api/valves/{valve} and /logs always failed there; same relation as inspector().
+     */
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(ValveInspector::class, 'user_oid', 'oid');
+    }
 }

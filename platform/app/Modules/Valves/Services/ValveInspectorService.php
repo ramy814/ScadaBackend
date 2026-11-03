@@ -66,4 +66,25 @@ class ValveInspectorService
 
         return $inspector;
     }
+
+    /** Token and payload of the legacy POST /api/valves/auth/login (token name `valves_app`, ability `scada`). */
+    public function issueMobileSession(ValveInspector $inspector): array
+    {
+        $token = $inspector->createToken('valves_app', ['scada'])->plainTextToken;
+        $teams = $inspector->teams()->get(['valve_teams.oid', 'valve_teams.NAME', 'valve_teams.ASSIGN_ALL_VALVES']);
+
+        return [
+            'token' => $token,
+            'inspector' => [
+                'oid' => $inspector->oid,
+                'name' => $inspector->name,
+                'phone' => $inspector->phone,
+                'teams' => $teams->map(fn ($team): array => [
+                    'oid' => $team->oid,
+                    'name' => $team->name,
+                    'assign_all_valves' => (bool) ($team->assign_all_valves ?? $team->ASSIGN_ALL_VALVES ?? false),
+                ])->values(),
+            ],
+        ];
+    }
 }

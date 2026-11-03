@@ -8,6 +8,7 @@ use App\Modules\Valves\Models\Valve;
 use App\Modules\Valves\Models\ValveInspector;
 use App\Modules\Valves\Models\ValveLog;
 use App\Modules\Valves\Models\ValveMaintenanceReport;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -87,6 +88,61 @@ class ValveRepository
     public function createMaintenanceReport(array $data): ValveMaintenanceReport
     {
         return ValveMaintenanceReport::query()->create($data);
+    }
+
+    // ── Mobile API reads (legacy Api\DashboardController / Valves\ValveMaintenanceController) ──
+
+    /** Latest logged action per valve, exactly as the legacy dashboard stats computed it. */
+    public function latestActionsPerValve(): Collection
+    {
+        return ValveLog::query()->orderBy('ACTION_AT', 'desc')->get(['VALVE_OID', 'ACTION'])->unique('valve_oid');
+    }
+
+    public function count(): int
+    {
+        return $this->model->newQuery()->count();
+    }
+
+    public function recentActions(int $limit): Collection
+    {
+        return ValveLog::with('valve')->orderBy('ACTION_AT', 'desc')->take($limit)->get();
+    }
+
+    /** @return LengthAwarePaginator<ValveLog> */
+    public function paginateLogs(Valve $valve, int $perPage): LengthAwarePaginator
+    {
+        return $valve->logs()->with('user')->paginate($perPage);
+    }
+
+    /** @return LengthAwarePaginator<ValveMaintenanceReport> */
+    /** @param  array<string, mixed>  $filters  a filter applies whenever its key is present (legacy $request->has()) */
+    public function paginateMaintenanceReports(array $filters, int $perPage): LengthAwarePaginator
+    {
+        return ValveMaintenanceReport::with(['reporter:oid,name,phone'])
+            ->when(array_key_exists('status', $filters), fn ($q) => $q->where('STATUS', $filters['status']))
+            ->when(array_key_exists('priority', $filters), fn ($q) => $q->where('PRIORITY', $filters['priority']))
+            ->orderBy('created_at', 'desc')
+            ->paginate($perPage);
+    }
+
+    public function updateMaintenanceReport(ValveMaintenanceReport $report, array $data): ValveMaintenanceReport
+    {
+        if ($data !== []) {
+            $report->update($data);
+        }
+
+        return $report->load('reporter:oid,name');
+    }
+
+    /** Assignment check used by the legacy ValveController::authorizeInspectorValveAccess(). */
+    public function inspectorCanAccess(ValveInspector $inspector, Valve $valve): bool
+    {
+        $teams = $inspector->teams()->get(['valve_teams.oid', 'valve_teams.ASSIGN_ALL_VALVES']);
+        if ($teams->contains(fn ($team): bool => (bool) ($team->assign_all_valves ?? $team->ASSIGN_ALL_VALVES))) {
+            return true;
+        }
+
+        return $valve->teams()->whereIn('valve_teams.oid', $teams->pluck('oid'))->exists();
     }
 
     private function attachWgs84Coordinates(Collection $valves): Collection

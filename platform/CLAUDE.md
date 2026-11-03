@@ -10,7 +10,7 @@ The legacy business context lives in `../.ai/` (read the module you are porting)
 - Never modify files outside `platform/`. The legacy backend is in production.
 - Never add migrations for shared Oracle tables. Test schema lives in `database/fixture/FixtureSchema.php` (SQLite only).
 - Port business rules verbatim with their tests; do not invent rules. Fix only documented gaps and say so in `docs/04-roadmap.md`.
-- Mobile APIs stay in the legacy backend; do not reimplement them here.
+- Mobile APIs are being moved here (owner decision, `docs/05-cutover-plan.md`): same paths, middleware names, route names, JSON (UPPERCASE model keys) and Sanctum tokens as legacy. Legacy `TOKENABLE_TYPE` values resolve through `App\Platform\Identity\MobilePrincipals`. Port legacy tests unchanged; document every deliberate difference in `docs/04-roadmap.md`.
 - Permissions: `SYSTEM_PERMISSIONS` semantics (system entry fails open without Oracle, actions fail closed) and Oracle station scope (`VEHICLE_STAGES.ACCESS_TYPE`) exactly as legacy.
 
 ## Structure

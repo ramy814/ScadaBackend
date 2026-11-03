@@ -188,12 +188,18 @@ final class FixtureSchema
                 $t->timestamps();
             });
         }
+        // Same columns as the legacy personal_access_tokens migration (TOKENABLE_ID is a string there).
         $s->create('personal_access_tokens', function (Blueprint $t): void {
             $t->id();
             $t->string('tokenable_type');
-            $t->unsignedBigInteger('tokenable_id');
-            $t->string('name')->nullable();
+            $t->string('tokenable_id');
+            $t->index(['tokenable_type', 'tokenable_id']);
+            $t->text('name');
+            $t->string('token', 64)->unique();
             $t->text('abilities')->nullable();
+            $t->timestamp('last_used_at')->nullable();
+            $t->timestamp('expires_at')->nullable()->index();
+            $t->timestamps();
         });
         $s->create('system_operational_states', function (Blueprint $t): void {
             $t->id();

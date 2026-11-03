@@ -5,14 +5,14 @@ declare(strict_types=1);
 namespace App\Modules\Wells\Models;
 
 use App\Platform\Concerns\UppercaseKeys;
-use App\Platform\Identity\MobileAccessToken;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Laravel\Sanctum\HasApiTokens;
 
 class Inspector extends Model
 {
-    use UppercaseKeys;
+    use HasApiTokens, UppercaseKeys;
 
     protected $table = 'inspectors';
 
@@ -55,13 +55,6 @@ class Inspector extends Model
     public function notifications(): HasMany
     {
         return $this->hasMany(WellNotification::class, 'inspector_oid', 'oid');
-    }
-
-    /** Legacy-issued mobile tokens (stored under the legacy class names). */
-    public function tokens(): HasMany
-    {
-        return $this->hasMany(MobileAccessToken::class, 'tokenable_id', 'oid')
-            ->whereIn('tokenable_type', ['App\\Models\\Wells\\Inspector', 'App\\Models\\Inspector']);
     }
 
     public function scopeActive($query)
