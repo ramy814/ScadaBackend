@@ -53,11 +53,17 @@ class TripDetailService
                 'notes' => $trip->notes,
                 'odometer' => ['start' => $trip->start_odometer, 'end' => $trip->end_odometer],
                 'wait_minutes' => $trip->wait_minutes,
+                // Legacy totalWait: the larger of the recorded stop minutes and the reported wait.
+                'total_wait_minutes' => (int) round(max(
+                    (float) $trip->stops->sum(fn ($s): int => $s->started_at && $s->ended_at ? max(0, (int) $s->started_at->diffInMinutes($s->ended_at)) : 0),
+                    (float) ($trip->wait_minutes ?? 0),
+                )),
+                'vehicle_type' => $trip->vehicle_type,
                 'points' => ['received' => (int) $trip->points_received, 'expected' => (int) $trip->points_expected],
                 'stored_distance_km' => $trip->distance_km === null ? null : (float) $trip->distance_km,
                 'stored_fuel_liters' => $trip->virtual_fuel_liters === null ? null : (float) $trip->virtual_fuel_liters,
                 'entered_by_name' => $trip->entered_by_name,
-                'passengers' => $trip->passengers->map(fn ($p): array => ['name' => $p->name, 'employee_id' => $p->employee_id])->values(),
+                'passengers' => $trip->passengers->map(fn ($p): array => ['name' => $p->name, 'employee_id' => $p->employee_id, 'source' => $p->source])->values(),
                 'stops' => $trip->stops->map(fn ($s): array => [
                     'started_at' => $s->started_at?->toIso8601String(),
                     'ended_at' => $s->ended_at?->toIso8601String(),
@@ -66,10 +72,14 @@ class TripDetailService
                     'longitude' => $s->longitude === null ? null : (float) $s->longitude,
                     'source' => $s->source,
                     'reason' => $s->reason,
+                    'notes' => $s->notes,
                 ])->values(),
                 'events' => $trip->trackingEvents->sortBy('detected_at')->map(fn ($e): array => [
                     'type' => $e->event_type,
                     'detected_at' => $e->detected_at?->toIso8601String(),
+                    'latitude' => $e->latitude === null ? null : (float) $e->latitude,
+                    'longitude' => $e->longitude === null ? null : (float) $e->longitude,
+                    'details' => $this->eventDetails($e->details_json),
                 ])->values(),
             ],
             'metrics' => $metrics,
@@ -93,6 +103,7 @@ class TripDetailService
     /** @return array<string, mixed> */
     private function metrics(Trip $trip): array
     {
+        $pointsCount = $trip->points()->count();
         $points = $trip->points()->select([
             'id', 'trip_id', 'sequence_number', 'latitude', 'longitude', 'accuracy', 'speed',
             'captured_at', 'recorded_at', 'client_is_valid', 'quality_reason',
@@ -120,21 +131,30 @@ class TripDetailService
             $provisional = $fuel !== null;
         }
 
+        // Same values and rounding as the legacy showTrip() props.
         return [
+            'quality_version' => $qualityVersion,
             'filtered' => $hasFiltered,
+            'points_count' => $pointsCount,
             'segments' => $metrics['accepted_segments'],
             'gaps' => $metrics['gap_connectors'] ?? [],
+            'recorded_start' => $metrics['recorded_start'] ?? null,
+            'recorded_end' => $metrics['recorded_end'] ?? null,
             'distance_km' => round((float) $metrics['distance_km'], 2),
             'recorded_distance_km' => round((float) $metrics['raw_distance_km'], 2),
             'duration_minutes' => $metrics['duration_minutes'],
+            'reported_duration_minutes' => $metrics['reported_duration_minutes'] ?? $metrics['duration_minutes'],
             'quality_flags' => $metrics['quality_flags'],
             'rejected_points' => $metrics['rejected_points'],
-            'fuel_liters' => $fuel === null ? null : round((float) $fuel, 2),
+            'collapsed_points' => $metrics['collapsed_points'] ?? 0,
+            'rejection_counts' => (object) ($metrics['rejection_counts'] ?? []),
+            'fuel_liters' => $fuel === null ? null : (float) $fuel,
             'fuel_provisional' => $provisional,
+            'fuel_rate_per_km' => $this->fuel->litersPerKilometer(),
             'gap_estimate' => [
                 'distance_km' => round((float) ($metrics['estimated_gap_distance_km'] ?? 0), 2),
                 'distance_with_gaps_km' => round((float) ($metrics['estimated_distance_with_gaps_km'] ?? 0), 2),
-                'fuel_with_gaps_liters' => round((float) ($metrics['estimated_fuel_with_gaps_liters'] ?? 0), 2),
+                'fuel_with_gaps_liters' => round((float) ($metrics['estimated_fuel_with_gaps_liters'] ?? 0), 3),
                 'estimated' => (int) ($metrics['estimated_gap_count'] ?? 0),
                 'unestimated' => (int) ($metrics['unestimated_gap_count'] ?? 0),
             ],
@@ -160,12 +180,28 @@ class TripDetailService
         return [
             'accepted_segments' => $coordinates === [] ? [] : [$coordinates],
             'gap_connectors' => [],
+            'recorded_start' => $coordinates[0] ?? null,
+            'recorded_end' => $coordinates === [] ? null : $coordinates[array_key_last($coordinates)],
             'distance_km' => round($distance, 3),
             'raw_distance_km' => round($distance, 3),
             'duration_minutes' => $duration,
+            'reported_duration_minutes' => $duration,
             'rejected_points' => 0,
+            'collapsed_points' => 0,
+            'rejection_counts' => [],
             'quality_flags' => [],
         ];
+    }
+
+    /** Only the detail fields the legacy page explains (reason, silence, start context). */
+    private function eventDetails(mixed $json): ?array
+    {
+        $details = is_array($json) ? $json : (is_string($json) ? json_decode($json, true) : null);
+        if (! is_array($details)) {
+            return null;
+        }
+
+        return array_intersect_key($details, array_flip(['reason', 'silence_seconds', 'detected_during']));
     }
 
     /** @param array{lat: float, lng: float} $a @param array{lat: float, lng: float} $b */

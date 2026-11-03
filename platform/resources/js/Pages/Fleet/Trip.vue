@@ -1,5 +1,6 @@
 <script setup>
-import { Head, Link } from '@inertiajs/vue3';
+import { onBeforeUnmount, onMounted } from 'vue';
+import { Head, Link, router } from '@inertiajs/vue3';
 import Icon from '../../Components/Icon.vue';
 import PageHeader from '../../Components/PageHeader.vue';
 import TripPanel from '../../Components/Fleet/TripPanel.vue';
@@ -10,6 +11,11 @@ const props = defineProps({ trip: Object, metrics: Object, audit: Array, can: Ob
 const { t } = useI18n();
 useCrumb(`#${props.trip.id}`);
 const base = window.location.pathname.replace(/\/\d+$/, '');
+
+// Active trips refresh every 15 s, like the legacy trip page.
+let timer = null;
+onMounted(() => { if (!props.trip.ended_at) timer = window.setInterval(() => router.reload({ preserveScroll: true }), 15000); });
+onBeforeUnmount(() => window.clearInterval(timer));
 </script>
 
 <template>

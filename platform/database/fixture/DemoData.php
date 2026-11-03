@@ -108,12 +108,14 @@ final class DemoData
             ]);
 
             $rows = [];
+            // Trips with a tracking event also get a 4-minute GPS silence mid-route (gap estimate demo).
+            $gapTrip = $n % 5 === 1;
             for ($i = 0; $i < $points; $i++) {
-                $at = $start->addSeconds($i * 10);
+                $at = $start->addSeconds($i * 10 + ($gapTrip && $i >= intdiv($points, 2) ? 240 : 0));
                 $rows[] = ['trip_id' => $tripId, 'sequence_number' => $i + 1,
                     'latitude' => 31.5017 + ($d * 0.004) + $i * 0.00042 + sin($i / 9) * 0.0006,
                     'longitude' => 34.4668 - ($d * 0.003) + $i * 0.00031 + cos($i / 11) * 0.0005,
-                    'accuracy' => 6 + ($i % 5), 'speed' => 8 + ($i % 7), 'client_is_valid' => 1,
+                    'accuracy' => $gapTrip && $i === 5 ? 85 : 6 + ($i % 5), 'speed' => 8 + ($i % 7), 'client_is_valid' => 1,
                     'captured_at' => $at, 'recorded_at' => $active && $n % 2 === 0 ? $now->subSeconds(($points - $i) * 2) : $at];
             }
             foreach (array_chunk($rows, 200) as $chunk) {
