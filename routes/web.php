@@ -96,9 +96,12 @@ Route::middleware(['auth:admin', 'admin.allowlisted', 'systems.operational'])->g
         Route::get('/admin/reports/csv', [AdminAuthController::class, 'reportsCsv'])->name('admin.reports.csv');
         Route::get('/admin/reports/pdf', [AdminAuthController::class, 'reportsPdf'])->name('admin.reports.pdf');
 
-        Route::get('/admin/vehicle-claims', [VehicleClaimController::class, 'index'])->name('admin.vehicle-claims');
-        Route::get('/admin/vehicle-claims/csv', [VehicleClaimController::class, 'csv'])->name('admin.vehicle-claims.csv');
-        Route::get('/admin/vehicle-claims/pdf', [VehicleClaimController::class, 'pdf'])->name('admin.vehicle-claims.pdf');
+        // Financial claims need an explicit grant from the permissions dashboard (fails closed).
+        Route::middleware('action.permission:'.SystemPermissionRepository::VIEW_VEHICLE_CLAIMS)->group(function () {
+            Route::get('/admin/vehicle-claims', [VehicleClaimController::class, 'index'])->name('admin.vehicle-claims');
+            Route::get('/admin/vehicle-claims/csv', [VehicleClaimController::class, 'csv'])->name('admin.vehicle-claims.csv');
+            Route::get('/admin/vehicle-claims/pdf', [VehicleClaimController::class, 'pdf'])->name('admin.vehicle-claims.pdf');
+        });
     });
 
     // ─── Legacy allowlist management (global admin gate, not per-system access) ─

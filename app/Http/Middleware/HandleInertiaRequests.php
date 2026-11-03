@@ -53,6 +53,12 @@ class HandleInertiaRequests extends Middleware
                         SystemPermissionRepository::CREATE_MANUAL_TRIP,
                     )
                     : false,
+                'can_view_vehicle_claims' => fn () => $request->user('admin')
+                    ? $this->permissions->hasActionPermission(
+                        (int) $request->user('admin')->getAuthIdentifier(),
+                        SystemPermissionRepository::VIEW_VEHICLE_CLAIMS,
+                    )
+                    : false,
                 'can_view_logs' => fn () => $logsUrl !== null
                     && $request->user('admin')
                     && in_array(
