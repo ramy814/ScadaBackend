@@ -39,6 +39,8 @@
 
 ## خطة الإطلاق دون المساس بالإنتاج
 
+> الخطة الكاملة للاستغناء عن النظام القديم (بما فيها نقل واجهات الموبايل): `docs/05-cutover-plan.md`.
+
 1. نشر المنصة على مضيف مستقل (مثلاً `platform.mogaza.org`) بـ `APP_KEY` وكوكي جلسة مختلفين.
 2. `composer install` مع إضافة مستودع المسار `../mog-package` ثم `composer require mog/project-helper` (حزمة SSO الخاصة)، وتسجيل عميل SSO للمنصة أو استخدام نفس العميل بعنوان رجوع جديد.
 3. `.env`: اتصال Oracle نفسه، `APP_TIMEZONE` مطابق للنظام القديم، `MOG_PERMISSIONS_ADMIN_USER_IDS`، `LEGACY_MEDIA_ROOT` لمسار `storage/app/private` في النظام القديم، إصدار تطبيق السائق.

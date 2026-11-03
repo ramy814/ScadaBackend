@@ -9,6 +9,7 @@
 | [docs/02-architecture.md](docs/02-architecture.md) | المعمارية المعلوماتية، التنقل، استراتيجية التطبيقات المتعددة، الصلاحيات |
 | [docs/03-design-system.md](docs/03-design-system.md) | نظام التصميم (الألوان، الطباعة، RTL/LTR، المكونات) |
 | [docs/04-roadmap.md](docs/04-roadmap.md) | الحالة، ما يحتاج متابعة على الخادم، خطة الإطلاق، مراجعة Ponytail، مقارنة graphify |
+| [docs/05-cutover-plan.md](docs/05-cutover-plan.md) | خطة الاستغناء عن النظام القديم: ما بقي (واجهات الموبايل)، الشروط الحاجبة، المراحل والرجوع |
 | [graphify-out/GRAPH_REPORT.md](graphify-out/GRAPH_REPORT.md) | خريطة الكود (graphify): الوحدات والعلاقات. افتح `graphify-out/graph.html` في المتصفح للعرض التفاعلي، وحدّثها بـ `graphify update .` |
 
 ## التشغيل المحلي (بدون Oracle)
