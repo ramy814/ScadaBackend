@@ -1,0 +1,131 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Http\Controllers\Wells;
+
+use App\Http\Controllers\Controller;
+use App\Http\Requests\Wells\StoreWellRequest;
+use App\Http\Requests\Wells\UpdateWellRequest;
+use App\Services\Wells\GeneratorService;
+use App\Services\Wells\TeamService;
+use App\Services\Wells\WellService;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Inertia\Inertia;
+use Inertia\Response;
+use RuntimeException;
+
+class WellController extends Controller
+{
+    public function __construct(
+        private readonly WellService $wellService,
+        private readonly TeamService $teamService,
+        private readonly GeneratorService $generatorService,
+    ) {}
+
+    public function index(Request $request): Response
+    {
+        $filters = $request->only(['search', 'damage_status', 'is_active']);
+
+        $paginatedWells = $this->wellService->getPaginatedWells(15, $filters);
+        $generatorOids = collect($paginatedWells->items())
+            ->flatMap(fn ($well) => $well->generators->pluck('generator_oid'))
+            ->unique()
+            ->filter()
+            ->values()
+            ->toArray();
+
+        $generators = [];
+        if (! empty($generatorOids)) {
+            $generatorData = $this->generatorService->getGeneratorsByIds($generatorOids);
+            $generators = collect($generatorData)->keyBy('OID')->toArray();
+        }
+
+        return Inertia::render('WellsSystem/Wells/Index', [
+            'wells' => $paginatedWells,
+            'filters' => $filters,
+            'generators' => $generators,
+        ]);
+    }
+
+    public function create(): Response
+    {
+        return Inertia::render('WellsSystem/Wells/Create', [
+            'quarters' => $this->wellService->getQuarters(),
+            'generators' => $this->generatorService->getActiveGenerators(),
+        ]);
+    }
+
+    public function store(StoreWellRequest $request): RedirectResponse
+    {
+        $this->wellService->createWell($this->validatedWellData($request));
+
+        return redirect()->route('wells.wells.index')
+            ->with('success', 'تم إنشاء البئر بنجاح');
+    }
+
+    public function show(int $well): Response
+    {
+        return Inertia::render('WellsSystem/Wells/Edit', [
+            'well' => $this->wellService->getWell($well),
+            'quarters' => $this->wellService->getQuarters(),
+            'generators' => $this->generatorService->getActiveGenerators(),
+            'readonly' => true,
+        ]);
+    }
+
+    public function edit(int $well): Response
+    {
+        $wellModel = $this->wellService->getWell($well);
+
+        return Inertia::render('WellsSystem/Wells/Edit', [
+            'well' => $wellModel,
+            'quarters' => $this->wellService->getQuarters(),
+            'generators' => $this->generatorService->getActiveGenerators(),
+        ]);
+    }
+
+    public function update(UpdateWellRequest $request, int $well): RedirectResponse
+    {
+        $this->wellService->updateWell($well, $this->validatedWellData($request));
+
+        return redirect()->route('wells.wells.index')
+            ->with('success', 'تم تحديث البئر بنجاح');
+    }
+
+    public function destroy(int $well): RedirectResponse
+    {
+        try {
+            $this->wellService->deleteWell($well);
+
+            return redirect()->route('wells.wells.index')
+                ->with('success', 'تم حذف البئر بنجاح');
+        } catch (RuntimeException $e) {
+            return redirect()->route('wells.wells.index')
+                ->with('error', $e->getMessage());
+        }
+    }
+
+    public function map(): Response
+    {
+        return Inertia::render('WellsSystem/Wells/Map', [
+            'wells' => $this->wellService->getWellsForMap(),
+        ]);
+    }
+
+    private function validatedWellData(StoreWellRequest|UpdateWellRequest $request): array
+    {
+        $data = $request->validated();
+
+        if ($request->has('generators')) {
+            $data['generators'] = $request->input('generators', []);
+        }
+
+        if ($request->has('GENERATORS')) {
+            $data['GENERATORS'] = $request->input('GENERATORS', []);
+        }
+
+        return $data;
+    }
+}

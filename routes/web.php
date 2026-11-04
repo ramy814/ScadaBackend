@@ -1,68 +1,113 @@
 <?php
 
-use App\Platform\Access\AccessController;
-use App\Platform\Applications\ApplicationsController;
-use App\Platform\Audit\AuditController;
-use App\Platform\Http\LocaleController;
-use App\Platform\Identity\AuthController;
-use App\Platform\Operations\OperationsController;
-use App\Platform\Overview\OverviewController;
+use App\Http\Controllers\AdminAllowlistController;
+use App\Http\Controllers\AdminAuthController;
+use App\Http\Controllers\DriverAppUsageController;
+use App\Http\Controllers\ManualTripController;
+use App\Http\Controllers\PortalController;
+use App\Http\Controllers\SystemPermissionController;
+use App\Http\Controllers\VehicleClaimController;
+use App\Repositories\SystemPermissionRepository;
+use Illuminate\Contracts\Auth\StatefulGuard;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/login', [AuthController::class, 'login'])->name('login');
-Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:admin')->name('logout');
-Route::post('/locale', LocaleController::class)->name('locale');
+// ─── Redirect root to admin dashboard (which will redirect to login if unauthenticated) ───
 
-if (app()->environment('local')) {
-    Route::get('/dev-login', [AuthController::class, 'devLogin'])->name('dev-login');
+if (config('app.env') === 'local') {
+    Route::get('/admin/dev-login', function () {
+        $userId = config('mog-helpers.local_admin_user_id');
+        $guard = Auth::guard('admin');
+        if ($guard instanceof StatefulGuard) {
+            $guard->loginUsingId($userId);
+        }
+
+        $system = request('system', 'portal');
+        $redirectTo = match ($system) {
+            'fleet' => route('admin.dashboard'),
+            'wells' => route('wells.dashboard'),
+            'valves' => route('valves.dashboard'),
+            default => route('portal'),
+        };
+
+        return redirect($redirectTo)->with('ok', 'تم تسجيل الدخول كمسؤول تطوير محلي.');
+    })->name('admin.dev-login');
 }
 
-Route::middleware(['auth:admin', 'platform.user'])->group(function (): void {
-
-    // Workspaces honor the global emergency switch (same state as the legacy backend).
-    Route::middleware('platform.operational')->group(function (): void {
-        Route::get('/', OverviewController::class)->name('overview');
-
-        // Fleet mixes system access (dashboard) and Oracle-derived assistant access (manual trips): see routes/fleet.php.
-        Route::prefix('fleet')->group(base_path('routes/fleet.php'));
-        Route::prefix('wells')->middleware('app.access:wells')->group(base_path('routes/wells.php'));
-        Route::prefix('valves')->middleware('app.access:valves')->group(base_path('routes/valves.php'));
-    });
-
-    // Recovery control plane: stays reachable while systems are suspended.
-    Route::prefix('platform')->name('platform.')->group(function (): void {
-        Route::get('/applications', ApplicationsController::class)->name('applications');
-        Route::get('/audit', AuditController::class)->middleware('app.access:fleet')->name('audit');
-
-        Route::middleware('platform.admin')->group(function (): void {
-            Route::get('/access', [AccessController::class, 'index'])->name('access');
-            Route::get('/access/search', [AccessController::class, 'search'])->name('access.search');
-            Route::put('/access/{userId}', [AccessController::class, 'update'])->whereNumber('userId')->name('access.update');
-            Route::get('/operations', [OperationsController::class, 'show'])->name('operations');
-            Route::put('/operations', [OperationsController::class, 'update'])->name('operations.update');
-        });
-    });
+// ─── Recovery control plane: remains available during a global shutdown ───────
+Route::middleware('auth:admin')->group(function () {
+    Route::get('/permissions', [SystemPermissionController::class, 'index'])->name('portal.permissions');
+    Route::get('/permissions/search-users', [SystemPermissionController::class, 'searchUsers'])->name('portal.permissions.search-users');
+    Route::post('/permissions', [SystemPermissionController::class, 'store'])->name('portal.permissions.store');
+    Route::delete('/permissions/{userId}/{systemKey}', [SystemPermissionController::class, 'destroy'])->name('portal.permissions.destroy');
+    Route::put('/permissions/operational-state', [SystemPermissionController::class, 'updateOperationalState'])
+        ->name('portal.permissions.operational-state');
 });
 
-// Old dashboard bookmarks (legacy backend, replaced 2026-11). Temporary redirects only, so
-// browsers do not cache them if the deployment is rolled back.
-foreach ([
-    '/admin/dashboard' => '/fleet',
-    '/admin/driver-apps' => '/fleet/app',
-    '/admin/locations' => '/fleet/catalogs',
-    '/admin/mission-types' => '/fleet/catalogs',
-    '/admin/reports' => '/fleet/reports',
-    '/admin/vehicle-claims' => '/fleet/claims',
-    '/admin/manual-trips' => '/fleet/manual',
-    '/admin/manual-trips/requests' => '/fleet/manual/requests',
-    '/admin/manual-trips/create' => '/fleet/manual/create',
-    '/admin/allowlist' => '/platform/access',
-    '/permissions' => '/platform/access',
-    '/wells/diesel-inventories' => '/wells/diesel',
-    '/wells/diesel-inventories/monthly' => '/wells/diesel/monthly',
-    '/wells/notifications' => '/wells/signals',
-    '/wells/wells-map' => '/wells/map',
-] as $legacyPath => $platformPath) {
-    Route::redirect($legacyPath, $platformPath);
-}
-Route::get('/admin/trips/{trip}', fn (string $trip) => redirect('/fleet/trips/'.rawurlencode($trip)))->whereNumber('trip');
+// ─── Protected: require authenticated admin + allowlist + operational state ───
+Route::middleware(['auth:admin', 'admin.allowlisted', 'systems.operational'])->group(function () {
+
+    // ─── Portal: landing page with system cards ───────────────────────────────
+    Route::get('/', [PortalController::class, 'index'])->name('portal');
+
+    Route::middleware('action.permission:'.SystemPermissionRepository::CREATE_MANUAL_TRIP)->group(function () {
+        Route::get('/admin/manual-trips', [ManualTripController::class, 'index'])
+            ->name('admin.manual-trips.index');
+        Route::middleware('action.permission:'.SystemPermissionRepository::APPROVE_MANUAL_TRIP)->group(function () {
+            Route::get('/admin/manual-trips/requests', [ManualTripController::class, 'requests'])
+                ->name('admin.manual-trips.requests');
+            Route::post('/admin/manual-trips/{trip}/approve', [ManualTripController::class, 'approve'])
+                ->name('admin.manual-trips.approve');
+        });
+        Route::middleware('action.permission:'.SystemPermissionRepository::ENTER_MANUAL_TRIP)->group(function () {
+            Route::get('/admin/manual-trips/create', [ManualTripController::class, 'create'])
+                ->name('admin.manual-trips.create');
+            Route::post('/admin/manual-trips', [ManualTripController::class, 'store'])
+                ->name('admin.manual-trips.store');
+            Route::get('/admin/manual-trips/{trip}/edit', [ManualTripController::class, 'edit'])
+                ->name('admin.manual-trips.edit');
+            Route::put('/admin/manual-trips/{trip}', [ManualTripController::class, 'update'])
+                ->name('admin.manual-trips.update');
+            Route::post('/admin/manual-trips/{trip}/submit', [ManualTripController::class, 'submit'])
+                ->name('admin.manual-trips.submit');
+        });
+    });
+
+    // ─── Fleet: vehicle tracking dashboard ───────────────────────────────────
+    Route::middleware('system.access:fleet')->group(function () {
+        Route::get('/admin/dashboard', [AdminAuthController::class, 'dashboard'])->name('admin.dashboard');
+        Route::get('/admin/driver-apps', [DriverAppUsageController::class, 'index'])->name('admin.driver-apps');
+        Route::middleware('fleet.trip.access')->group(function () {
+            Route::get('/admin/trips/{trip}', [AdminAuthController::class, 'showTrip'])->name('admin.trips.show');
+            Route::post('/admin/trips/{trip}/approve', [AdminAuthController::class, 'approve'])->name('admin.trips.approve');
+            Route::post('/admin/trips/{trip}/reject', [AdminAuthController::class, 'reject'])->name('admin.trips.reject');
+            Route::post('/admin/trips/{trip}/clarify', [AdminAuthController::class, 'clarify'])->name('admin.trips.clarify');
+        });
+
+        Route::get('/admin/locations', [AdminAuthController::class, 'locations'])->name('admin.locations');
+        Route::post('/admin/locations', [AdminAuthController::class, 'storeLocation'])->name('admin.locations.store');
+        Route::post('/admin/locations/{location}', [AdminAuthController::class, 'updateLocation'])->name('admin.locations.update');
+
+        Route::get('/admin/mission-types', [AdminAuthController::class, 'missionTypes'])->name('admin.mission-types');
+        Route::post('/admin/mission-types', [AdminAuthController::class, 'storeMissionType'])->name('admin.mission-types.store');
+        Route::post('/admin/mission-types/{missionType}', [AdminAuthController::class, 'updateMissionType'])->name('admin.mission-types.update');
+
+        Route::get('/admin/reports', [AdminAuthController::class, 'reports'])->name('admin.reports');
+        Route::get('/admin/reports/csv', [AdminAuthController::class, 'reportsCsv'])->name('admin.reports.csv');
+        Route::get('/admin/reports/pdf', [AdminAuthController::class, 'reportsPdf'])->name('admin.reports.pdf');
+
+        // Financial claims need an explicit grant from the permissions dashboard (fails closed).
+        Route::middleware('action.permission:'.SystemPermissionRepository::VIEW_VEHICLE_CLAIMS)->group(function () {
+            Route::get('/admin/vehicle-claims', [VehicleClaimController::class, 'index'])->name('admin.vehicle-claims');
+            Route::get('/admin/vehicle-claims/csv', [VehicleClaimController::class, 'csv'])->name('admin.vehicle-claims.csv');
+            Route::get('/admin/vehicle-claims/pdf', [VehicleClaimController::class, 'pdf'])->name('admin.vehicle-claims.pdf');
+        });
+    });
+
+    // ─── Legacy allowlist management (global admin gate, not per-system access) ─
+    if (config('app.env') === 'local') {
+        Route::get('/admin/allowlist', fn () => redirect()->route('portal.permissions'))->name('admin.allowlist');
+        Route::post('/admin/allowlist', [AdminAllowlistController::class, 'store'])->name('admin.allowlist.store');
+        Route::delete('/admin/allowlist/{id}', [AdminAllowlistController::class, 'destroy'])->name('admin.allowlist.destroy');
+    }
+});

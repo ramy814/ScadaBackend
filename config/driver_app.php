@@ -1,6 +1,5 @@
 <?php
 
-// Same release policy as the legacy backend's config/driver_app.php.
 return [
     'latest_version' => env('DRIVER_APP_LATEST_VERSION', '1.1.19'),
     'latest_build' => (int) env('DRIVER_APP_LATEST_BUILD', 42),

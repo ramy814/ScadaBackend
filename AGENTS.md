@@ -1,50 +1,61 @@
-# MOG Operations Platform — Agent Rules
+# Fleet Management Backend — AI Agent Rules
+> بلدية غزة | نظام إدارة الأسطول
+> هذا الملف هو مرجع الذاكرة الأول لأي AI يعمل على هذا المشروع
 
-Laravel 13 + Inertia 3 + Vue 3 platform for the Gaza Municipality Flutter apps: the admin dashboard
-**and** the mobile APIs. It replaced the legacy backend in place (same repository, domain, paths and
-Oracle schema; see `docs/05-cutover-plan.md` §8). The legacy code is in git history and `docs/legacy/`.
+## قاعدة المعرفة الشاملة للذكاء الاصطناعي (AI Knowledge Base)
+لقد تم بناء مجلد مخصص لك كذكاء اصطناعي يحتوي على كافة تفاصيل المشروع. **يجب عليك قراءة الملفات في مجلد `.ai/` قبل اتخاذ أي إجراء معماري أو كتابة كود معقد.**
 
-Read before changing anything: `docs/01-audit.md`, `docs/02-architecture.md`, `docs/03-design-system.md`, `docs/04-roadmap.md`.
-The legacy business context lives in `.ai/` (read the module you are changing).
+مجلد `.ai/` يحتوي على:
+- `.ai/project-overview.md`: نظرة عامة
+- `.ai/architecture.md`: المعمارية وفصل المهام
+- `.ai/coding-rules.md`: قواعد كتابة الكود
+- `.ai/api-conventions.md`: مسارات الـ API للـ Sync
+- `.ai/database/`: قواعد البيانات والجداول
+- `.ai/workflows/`: دورات الحياة (مثل المراجعة)
+- `.ai/prompts/`: قواعد مخصصة (مثل Flutter)
+- `.ai/modules/`: ملفات السياق الخاصة بالأنظمة الفرعية المدمجة (مثل نظام الآبار `wells`)
 
-## Hard rules
-- The only remote is Gitea (`origin`, http://172.17.80.51:3000/mog_admin/mog-scada); there is no GitHub.
-  Deployment is `git push origin main` (never force), which the production server pulls. It runs no
-  migrations and (assume) no `composer install`/`npm`: commit `public/build-platform` (`npm run build:release`)
-  and never require a PHP package the server's vendor/ lacks.
-- Never track the server-local files `config/{app,database,filesystems,session}.php`, `composer.lock`,
-  `package-lock.json` (ignored since legacy); defaults they need go in `App\Platform\Support\RuntimeConfig`.
-- Never add or run migrations for shared Oracle tables. `database/migrations/` is the legacy history (read-only).
-  Test schema lives in `database/fixture/FixtureSchema.php` (SQLite only).
-- `config/mog-helpers.php` and `config/geoserver.php` are legacy files read by the SSO package and the map proxy: keep them.
-- Port business rules verbatim with their tests; do not invent rules. Fix only documented gaps and say so in `docs/04-roadmap.md`.
-- Mobile APIs live here (owner decision, `docs/05-cutover-plan.md`): same paths, middleware names, route names, JSON (UPPERCASE model keys) and Sanctum tokens as legacy. Legacy `TOKENABLE_TYPE` values resolve through `App\Platform\Identity\MobilePrincipals`. Port legacy tests unchanged; document every deliberate difference in `docs/04-roadmap.md`.
-- Permissions: `SYSTEM_PERMISSIONS` semantics (system entry fails open without Oracle, actions fail closed) and Oracle station scope (`VEHICLE_STAGES.ACCESS_TYPE`) exactly as legacy.
+## الهوية والسياق
+- Laravel 13, PHP 8.3+, Oracle DB لكل بيانات الباك اند والداشبورد
+- Admin Dashboard: Vue 3 + Inertia.js (SPA) — لا Ziggy، الروابط تُمرَّر عبر Shared Props
+- Driver App: Flutter — Offline-first (لا يتطلب إنترنت أثناء الرحلة)
+- Auth إدارة: MOG SSO (خارجي) — استخدم `Inertia::location()` وليس `redirect()->away()`
+- Auth سائق: SMS OTP → Sanctum Token
+- نظام الآبار مدمج كنظام فرعي بصلاحيات محددة؛ سياقه الخاص داخل `.ai/modules/wells/`
+- تطبيق الآبار Flutter موجود خارج هذا الريبو في `/Volumes/SecondDrive/Wells/wells_app` ويجب أن يرتبط بهذا الباك اند الموحد.
 
-## Structure
-- `app/Platform/*` shared core (identity, access, applications registry, operations, overview, audit).
-- `app/Modules/{Fleet,Wells,Valves}` one module per Flutter app: `Models`, `Repositories`, `Services`, `Http`, `<Name>Module.php` (navigation, attention, pulse).
-- Controllers thin (FormRequest → Service → Repository). No queries in controllers.
-- Oracle PDO returns lowercase attributes: read via lowercase keys and shape explicit payloads.
+## قواعد الكود الأساسية (اقرأ .ai/coding-rules.md للتفاصيل)
+- Controllers رفيعة — المنطق في Services فقط
+- Oracle → Repositories فقط (لا direct queries خارج Repositories)
+- كل endpoint يتعامل مع الإنترنت المنقطع (Offline-first)
+- لا تحذف رحلة محلية إلا بعد: حفظ + نقاط + عدد + checksum مؤكدة
 
-## Frontend
-- Custom CSS tokens only (`resources/css/tokens.css`); logical properties; no Tailwind; no hard-coded routes beyond module prefixes.
-- All strings in `resources/js/lang/{ar,en}.js`; Latin digits; plates/phones/versions inside `<bdi>`/`dir="ltr"`.
-- Directional icons: use the LTR icon plus `class="flip"`.
+## الملفات الجوهرية
+- `app/Services/TripSyncService.php` — منطق مزامنة الرحلات
+- `app/Repositories/MunicipalityVehicleRepository.php` — Oracle vehicles
+- `app/Models/Trip.php` — نموذج الرحلة (يحتوي driver/vehicle accessors)
+- `routes/wells.php` و `app/Http/Controllers/Wells/` — مسارات ولوحات نظام الآبار المدمج
+- `app/Repositories/Wells/` و `app/Services/Wells/` — طبقة بيانات ومنطق نظام الآبار
 
-## Checks
-`php artisan test`, `vendor/bin/pint --test`, `npm run build:release` (commit `public/build-platform`).
+## الجداول الرئيسية (اقرأ .ai/database/tables.md للتفاصيل)
+- **Oracle managed**: trips, trip_points, trip_stops, trip_tracking_events, audit_logs
+- **Oracle driver/vehicle source**: CONTROL_UNIT.FLEET_USERS, CONTROL_UNIT.MOG_VEHICLES
+- **Oracle wells module**: WELLS, TEAMS, INSPECTORS, WELL_READINGS, DIESEL_INVENTORIES, NOTIFICATION_TYPES
 
-## Code map (graphify)
+## قبل البدء في أي ميزة جديدة
+ابحث في مجلد `.ai/` عن الملف المناسب للمهمة واقرأه.
+عند العمل على نظام الآبار تحديداً اقرأ ملفات `.ai/modules/wells/` إضافةً إلى القواعد العامة.
 
-The code knowledge graph lives in `graphify-out/` (`graph.json`, `GRAPH_REPORT.md`, `graph.html`), built with
-[graphify](https://github.com/Graphify-Labs/graphify) over the scope in `.graphifyignore` (app, routes, config, Vue frontend).
-Install once with `pip install graphifyy`. The project skill is in `.claude/skills/graphify/`.
+## Strict AI Directives
+Always read all `.ai` markdown files first.
 
-- Before exploring code, query the graph: `graphify query "<question>"`, `graphify explain "<node>"`,
-  `graphify path "<A>" "<B>"`, `graphify affected "<node>"` (what a change can break). Read raw files only for lines the graph located.
-- Check freshness: `GRAPH_REPORT.md` names the commit it was built from; compare with `git rev-parse HEAD`.
-- After any code change, run `graphify update .` at the repository root (AST only, no API cost) and commit the regenerated
-  `graphify-out/graph.json`, `GRAPH_REPORT.md` and `graph.html` with the change. A large diff on these files is expected.
-- The graph describes structure, not business rules: rules still come from `docs/` and `.ai/`.
-- The legacy baseline used for the audit is `docs/graph/legacy-GRAPH_REPORT.md`.
+**Never:**
+- bypass service layer
+- place logic inside controllers
+- write direct SQL in controllers
+
+**Always:**
+- follow repository pattern
+- use existing response wrapper
+- preserve Oracle compatibility
+- follow existing naming conventions

@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Valves;
 
-use App\Modules\Valves\Models\Valve;
-use App\Modules\Valves\Repositories\ValveRepository;
-use App\Modules\Valves\Services\ValveService;
+use App\Models\Valves\Valve;
+use App\Repositories\Valves\ValveRepository;
+use App\Services\Valves\ValveService;
 use Illuminate\Database\Eloquent\Collection;
 use PHPUnit\Framework\TestCase;
 

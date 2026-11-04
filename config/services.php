@@ -8,7 +8,7 @@ return [
     |--------------------------------------------------------------------------
     |
     | This file is for storing the credentials for third party services such
-    | as Resend, Postmark, AWS, and more. This file provides the de facto
+    | as Mailgun, Postmark, AWS and more. This file provides the de facto
     | location for this type of information, allowing packages to have
     | a conventional file to locate the various service credentials.
     |
@@ -35,14 +35,10 @@ return [
         ],
     ],
 
-    // Driver app SMS login. No SMS provider is integrated yet (same as legacy).
-    // Owner decision (2026-11-03): keep the fixed code 000000 until a provider exists.
-    // Set SMS_TEST_CODE to another value to change it, or to "disabled" to refuse fixed codes.
     'sms' => [
-        'test_code' => env('SMS_TEST_CODE', '000000') === 'disabled' ? null : env('SMS_TEST_CODE', '000000'),
+        'test_code' => env('SMS_TEST_CODE', '000000'),
     ],
 
-    // Map tile clients (legacy MapClientAuthService); same public endpoints as legacy.
     'signal' => [
         'map_auth_url' => env('SIGNAL_MAP_AUTH_URL', 'https://mapps.mogaza.org/api/get_signal_statistics'),
     ],

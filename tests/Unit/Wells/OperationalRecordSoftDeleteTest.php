@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Wells;
 
-use App\Modules\Wells\Models\DieselInventory;
-use App\Modules\Wells\Models\WellReading;
-use App\Modules\Wells\Repositories\DieselInventoryRepository;
-use App\Modules\Wells\Repositories\ReadingRepository;
+use App\Models\Wells\DieselInventory;
+use App\Models\Wells\WellReading;
+use App\Repositories\Wells\DieselInventoryRepository;
+use App\Repositories\Wells\ReadingRepository;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -15,8 +15,6 @@ use Tests\TestCase;
 
 class OperationalRecordSoftDeleteTest extends TestCase
 {
-    protected bool $fixtureSchema = false;
-
     public function test_records_are_hidden_without_physical_deletion_and_keep_the_audit_fields(): void
     {
         Schema::create('well_readings', function ($table): void {

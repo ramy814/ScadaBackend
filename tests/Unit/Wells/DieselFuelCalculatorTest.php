@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Wells;
 
-use App\Modules\Wells\Models\Well;
-use App\Modules\Wells\Services\DieselFuelCalculator;
+use App\Models\Wells\Well;
+use App\Services\Wells\DieselFuelCalculator;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 

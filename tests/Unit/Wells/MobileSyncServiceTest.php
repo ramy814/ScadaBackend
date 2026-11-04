@@ -4,15 +4,15 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Wells;
 
-use App\Modules\Wells\Models\DieselInventory;
-use App\Modules\Wells\Models\WellNotification;
-use App\Modules\Wells\Models\WellReading;
-use App\Modules\Wells\Repositories\DieselInventoryRepository;
-use App\Modules\Wells\Repositories\ReadingRepository;
-use App\Modules\Wells\Repositories\WellNotificationRepository;
-use App\Modules\Wells\Repositories\WellRepository;
-use App\Modules\Wells\Services\DieselFuelCalculator;
-use App\Modules\Wells\Services\MobileSyncService;
+use App\Models\Wells\DieselInventory;
+use App\Models\Wells\WellNotification;
+use App\Models\Wells\WellReading;
+use App\Repositories\Wells\DieselInventoryRepository;
+use App\Repositories\Wells\ReadingRepository;
+use App\Repositories\Wells\WellNotificationRepository;
+use App\Repositories\Wells\WellRepository;
+use App\Services\Wells\DieselFuelCalculator;
+use App\Services\Wells\MobileSyncService;
 use Illuminate\Database\Eloquent\Collection;
 use Mockery;
 use Tests\TestCase;

@@ -1,0 +1,18 @@
+# Fleet Management System — Windsurf Rules
+# يُقرأ تلقائياً بواسطة Windsurf IDE
+
+## قاعدة المعرفة الشاملة (Knowledge Base)
+قبل البدء في أي كود جديد، يجب عليك البحث في مجلد `.ai/` وقراءة الملف المناسب للمهمة.
+- الملف الأساسي: `AGENTS.md`
+- ملف المعمارية: `.ai/architecture.md`
+- ملف قواعد الكود: `.ai/coding-rules.md`
+- ملفات قاعدة البيانات: `.ai/database/tables.md`
+- تعليمات تطبيق Flutter: `.ai/prompts/flutter-generation.md`
+
+## القواعد الصارمة
+- Controllers رفيعة — المنطق في Services
+- Oracle → Repositories فقط
+- Offline-first في كل endpoint
+- FormRequest للمدخلات | API Resources للاستجابة
+- Inertia::location() وليس redirect()->away()
+

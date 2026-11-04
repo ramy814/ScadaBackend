@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Wells;
 
-use App\Modules\Wells\Models\WellActivityMedia;
-use App\Modules\Wells\Repositories\ActivityMediaRepository;
-use App\Modules\Wells\Services\ActivityMediaService;
+use App\Models\Wells\WellActivityMedia;
+use App\Repositories\Wells\ActivityMediaRepository;
+use App\Services\Wells\ActivityMediaService;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
@@ -16,8 +16,6 @@ use Tests\TestCase;
 
 class ActivityMediaServiceTest extends TestCase
 {
-    protected bool $fixtureSchema = false;
-
     private string $storageRoot;
 
     protected function setUp(): void

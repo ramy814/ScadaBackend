@@ -23,11 +23,8 @@
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="BROADCAST_CONNECTION" value="null"/>
         <env name="CACHE_STORE" value="array"/>
-        <env name="DB_CONNECTION" value="oracle"/>
-        <env name="ORACLE_DRIVER" value="sqlite"/>
-        <env name="ORACLE_SQLITE_DATABASE" value=":memory:"/>
-        <env name="MOG_PERMISSIONS_ADMIN_USER_IDS" value="1"/>
-        <env name="APP_LOCALE" value="ar"/>
+        <env name="DB_CONNECTION" value="sqlite"/>
+        <env name="DB_DATABASE" value=":memory:"/>
         <env name="DB_URL" value=""/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
