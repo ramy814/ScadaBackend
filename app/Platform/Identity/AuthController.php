@@ -9,6 +9,7 @@ use Database\Fixture\DemoData;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
+use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Response;
 
 class AuthController extends Controller
@@ -40,14 +41,31 @@ class AuthController extends Controller
     {
         $sso = 'Mog\\ProjectHelper\\AuthHelpers';
         if (class_exists($sso)) {
-            return $sso::logout($request, 'admin');
+            return $this->fullPageVisit($request, $sso::logout($request, 'admin'));
         }
 
         Auth::guard('admin')->logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect()->route('login');
+        return $this->fullPageVisit($request, redirect()->route('login'));
+    }
+
+    /**
+     * The sign-out button is an Inertia (XHR) visit, but the SSO package redirects to the SSO
+     * server's own logout page on another host, which an XHR cannot follow (the button did
+     * nothing in production). Inertia visits get a full browser navigation to the same target,
+     * as the legacy plain link did.
+     */
+    private function fullPageVisit(Request $request, Response $response): Response
+    {
+        if (! $request->header('X-Inertia')) {
+            return $response;
+        }
+
+        $target = $response instanceof RedirectResponse ? $response->getTargetUrl() : route('login');
+
+        return Inertia::location($target);
     }
 
     /** APP_ENV=local only (route is not registered otherwise). */
