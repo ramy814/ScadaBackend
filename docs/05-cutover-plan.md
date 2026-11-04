@@ -167,18 +167,18 @@ location ~ ^/api/(valves|dashboard|valve-maintenance)(/|$) {
 | روابط القديم المحفوظة (`/admin/dashboard`، `/admin/trips/{id}`، `/permissions`، ...) | تحويل مؤقت (302) إلى الشاشات الجديدة |
 | تطبيقات الموبايل والتوكنات | نفس العناوين والأسماء والـ JSON، والتوكنات القديمة صالحة (القسم 7 البند 2) |
 
-### خطوات الرفع (يقوم بها صاحب المشروع، في وقت قليل الاستخدام)
-1. على جهازك: `git fetch github` ثم التأكد أن `main` في Gitea لم يتغير منذ التجهيز (آخر commit فيه = الأساس الذي بُني عليه الفرع).
-2. الرفع دون force: `git push origin github/claude/cutover-replace-legacy:main`. إن رُفض الرفع فلا تستخدم force وأبلغنا.
-3. بعد دقيقة الفحوصات:
-   - فتح لوحة الإدارة → تحويل إلى SSO ثم الدخول.
-   - `GET /api/driver/trips` بدون توكن → 401 JSON. `POST /api/wells/auth/login` و`/api/valves/auth/login` ببيانات فارغة → 422.
-   - دخول سائق حقيقي من التطبيق ورفع رحلة.
-4. منح صلاحية "المطالبة المالية" من شاشة الصلاحيات لمن يحتاجها (صلاحية جديدة، لا تُمنح تلقائياً).
+### النشر (Gitea فقط)
+- المستودع الوحيد هو Gitea (`http://172.17.80.51:3000/mog_admin/mog-scada`)، والخادم يسحب `main` منه تلقائياً. أُزيل GitHub (2026-11-04، قرار صاحب المشروع).
+- العمل يتم من جهاز صاحب المشروع (جلسة Claude محلية أو `claude remote-control` داخل المجلد): تعديل، ثم `php artisan test` و`vendor/bin/pint --test` و`npm run build:release`، ثم commit ثم `git push origin main` دون force.
+- بعد الرفع: فتح اللوحة (تحويل SSO ثم الدخول)، ودخول سائق ورفع رحلة. إن ظهرت شاشات قديمة أو خطأ مسارات: `php artisan optimize:clear` على الخادم.
+- الصلاحيات الجديدة (مثل "المطالبة المالية") لا تُمنح تلقائياً: تُمنح من شاشة الصلاحيات.
 
-### الرجوع (أقل من دقيقة)
-فرع `claude/cutover-rollback` = الاستبدال + commit يعكسه بالكامل. الرجوع رفع عادي دون force:
-`git push origin github/claude/cutover-rollback:main`. لا بيانات تُفقد: النظامان يكتبان نفس جداول Oracle، والتوكنات تعمل في الاثنين.
+### الرجوع للنظام القديم
+فرع `cutover-rollback` على Gitea = آخر نسخة من المنصة + commit يعيد شجرة النظام القديم (`37a9f47`) كما هي. الرجوع رفع عادي دون force:
+`git fetch origin` ثم `git push origin origin/cutover-rollback:main`.
+يصلح ما دام `main` لم يتقدم بعد إنشاء الفرع؛ بعد أي رفع جديد يُعاد إنشاؤه فوق `main`:
+`git branch -f cutover-rollback $(git commit-tree 37a9f47^{tree} -p origin/main -m "Roll back to legacy 37a9f47")` ثم `git push -f origin cutover-rollback`.
+لا بيانات تُفقد: النظامان يكتبان نفس جداول Oracle، والتوكنات تعمل في الاثنين.
 
 ### ما ظهر بعد التشغيل في الإنتاج
 - **زر تسجيل الخروج لا يعمل (أُصلح):** الزر طلب Inertia في الخلفية، وحزمة SSO ترد بتحويل إلى خادم SSO على نطاق آخر لا يتبعه طلب خلفي. أصبح الرد للطلبات القادمة من الواجهة انتقالاً كاملاً للصفحة (`Inertia::location`) إلى نفس العنوان، كما كان الرابط العادي في القديم (`SignOutTest`).

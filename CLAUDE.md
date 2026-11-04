@@ -8,7 +8,8 @@ Read before changing anything: `docs/01-audit.md`, `docs/02-architecture.md`, `d
 The legacy business context lives in `.ai/` (read the module you are changing).
 
 ## Hard rules
-- Deployment is `git push` to the server's Gitea `main`, which the production server pulls. It runs no
+- The only remote is Gitea (`origin`, http://172.17.80.51:3000/mog_admin/mog-scada); there is no GitHub.
+  Deployment is `git push origin main` (never force), which the production server pulls. It runs no
   migrations and (assume) no `composer install`/`npm`: commit `public/build-platform` (`npm run build:release`)
   and never require a PHP package the server's vendor/ lacks.
 - Never track the server-local files `config/{app,database,filesystems,session}.php`, `composer.lock`,
